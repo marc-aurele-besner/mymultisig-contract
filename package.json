@@ -4,9 +4,10 @@
   "description": "Multi-Signatures Solidity Smart Contract for mymultisig.app",
   "main": "index.js",
   "scripts": {
-    "build": "npx hardhat run scripts/buildAbi.ts",
-    "test": "npx hardhat test && forge test",
-    "flatten": "npx hardhat flatten > Flat.sol && npx hardhat flatten contracts/MyMultiSig.sol > FlatMyMultiSig.sol",
+    "build": "hardhat run scripts/buildAbi.ts",
+    "compile": "hardhat compile",
+    "test": "hardhat test && forge test",
+    "flatten": "hardhat flatten > Flat.sol && npx hardhat flatten contracts/MyMultiSig.sol > FlatMyMultiSig.sol",
     "prettier-test": "prettier --write test/",
     "prettier-contracts": "prettier --write contracts/",
     "prettier-foundry-contracts": "prettier --write contracts/test/"
