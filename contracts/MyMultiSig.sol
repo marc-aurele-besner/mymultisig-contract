@@ -6,13 +6,12 @@ import '@openzeppelin/contracts/utils/cryptography/EIP712.sol';
 
 contract MyMultiSig is ReentrancyGuard, EIP712 {
   string private _name;
+  uint96 private _txnNonce;
   uint16 private _threshold;
   uint16 private _ownerCount;
-  uint96 private _txnNonce;
 
   mapping(address => bool) private _owners;
   mapping(uint256 => bool) private _ownerNonceSigned;
-  mapping(uint96 => bytes32) private _nonceTxHash;
 
   bytes32 private constant _TRANSACTION_TYPEHASH =
     keccak256('Transaction(address to,uint256 value,bytes data,uint256 gas,uint96 nonce)');
@@ -106,9 +105,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
     uint256 txnGas,
     bytes memory signatures
   ) public payable nonReentrant returns (bool success) {
-    (bool isValid, bytes32 txHash) = _validateSignature(to, value, data, txnGas, signatures);
-    require(isValid, 'MyMultiSig: invalid signatures');
-    _nonceTxHash[_txnNonce] = txHash;
+    require(_validateSignature(to, value, data, txnGas, signatures), 'MyMultiSig: invalid signatures');
     _txnNonce++;
     uint256 gasBefore = gasleft();
     assembly {
@@ -141,15 +138,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
         s := mload(add(signatures, add(signaturePos, 64)))
         v := and(mload(add(signatures, add(signaturePos, 65))), 255)
       }
-      if (v == 0) {
-        revert('MyMultiSig: No contract signatures support');
-      } else if (v == 1) {
-        currentOwner = address(uint160(uint256(r)));
-      } else if (v > 30) {
-        currentOwner = ecrecover(keccak256(abi.encodePacked('\x19Ethereum Signed Message:\n32', txHash)), v - 4, r, s);
-      } else {
-        currentOwner = ecrecover(txHash, v, r, s);
-      }
+      currentOwner = ecrecover(txHash, v, r, s);
     }
   }
 
@@ -168,7 +157,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
     bytes memory signatures
   ) public view returns (bool valid) {
     uint16 threshold_ = _threshold;
-    require(signatures.length >= 65 * threshold_, 'MyMultiSig: signatures did not reach threshold');
+    if (signatures.length < 65 * threshold_) return false;
     address currentOwner;
     for (uint16 i; i < threshold_; ) {
       unchecked {
@@ -177,7 +166,9 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
           signatures,
           i
         );
-        require(_owners[currentOwner], 'MyMultiSig: invalid owner');
+        if (
+          !_owners[currentOwner] || _ownerNonceSigned[uint256(uint96(_txnNonce)) + uint256(uint160(currentOwner) << 96)]
+        ) return false;
         ++i;
       }
     }
@@ -191,17 +182,16 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
   /// @param txnGas The gas limit for the transaction.
   /// @param signatures The signatures to be used for the transaction.
   /// @return valid True if the signature is valid, false otherwise.
-  /// @return txHash The transaction hash.
   function _validateSignature(
     address to,
     uint256 value,
     bytes memory data,
     uint256 txnGas,
     bytes memory signatures
-  ) private view returns (bool valid, bytes32 txHash) {
+  ) private returns (bool valid) {
     uint16 threshold_ = _threshold;
-    if (signatures.length <= 65 * threshold_) return (false, txHash);
-    txHash = _hashTypedDataV4(
+    if (signatures.length < 65 * threshold_) return (false);
+    bytes32 txHash = _hashTypedDataV4(
       keccak256(abi.encode(_TRANSACTION_TYPEHASH, to, value, keccak256(data), txnGas, _txnNonce))
     );
     address currentOwner;
@@ -212,10 +202,11 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
         currentOwnerNonce = uint256(uint96(_txnNonce)) + uint256(uint160(currentOwner) << 96);
         require(_owners[currentOwner], 'MyMultiSig: invalid owner');
         require(!_ownerNonceSigned[currentOwnerNonce], 'MyMultiSig: owner already signed');
+        _ownerNonceSigned[currentOwnerNonce] = true;
         ++i;
       }
     }
-    return (true, txHash);
+    return true;
   }
 
   /// @notice Adds an owner
@@ -231,8 +222,9 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
   /// @dev This function can only be called inside a multisig transaction.
 
   function removeOwner(address owner) public onlyThis {
-    require(_ownerCount > _threshold, 'MyMultiSig: cannot remove owner below threshold');
+    if (_ownerCount <= _threshold) revert('MyMultiSig: cannot remove owner below threshold');
     _owners[owner] = false;
+    _ownerCount--;
   }
 
   /// @notice Changes the threshold
