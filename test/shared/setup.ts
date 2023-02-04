@@ -22,7 +22,7 @@ console.log(
 )
 
 export interface SetupContractReturn {
-  contract: Contract
+  contract: any
   contractName: string
   contractAddress: string
   ownersAddresses: string[]
@@ -38,7 +38,7 @@ const setupContract = async (
   const ContractFactory = await ethers.getContractFactory(constants.CONTRACT_NAME)
 
   // Deploy contracts
-  const contract = ContractFactory.deploy(contractName, ownersAddresses, threshold)
+  const contract = await ContractFactory.deploy(contractName, ownersAddresses, threshold)
 
   // Wait for contract to be deployed
   await contract.deployed()
@@ -63,20 +63,24 @@ const isHttpNetworkAccountsConfig = (
 }
 
 const setupProviderAndAccount = async () => {
-  let provider: Provider
+  let provider: any
   if (isHttpNetworkConfig(network.config)) provider = new JsonRpcProvider(network.config.url)
   else provider = ethers.provider
 
-  let owner01: ethers.Wallet
-  let owner02: ethers.Wallet
-  let owner03: ethers.Wallet
+  let owner01: any
+  let owner02: any
+  let owner03: any
 
   if (isHardhatNetworkHDAccountsConfig(network.config.accounts))
     owner01 = new ethers.Wallet(
       ethers.Wallet.fromMnemonic(network.config.accounts.mnemonic, `m/44'/60'/0'/0/0`).privateKey,
       provider,
     )
-  else if (!isHttpNetworkAccountsConfig(network.config.accounts) && network.config.accounts[0] !== undefined)
+  else if (
+    !isHttpNetworkAccountsConfig(network.config.accounts) &&
+    network.config.accounts[0] !== undefined &&
+    typeof network.config.accounts[0] === 'string'
+  )
     owner01 = new ethers.Wallet(network.config.accounts[0], provider)
 
   if (isHardhatNetworkHDAccountsConfig(network.config.accounts))
@@ -84,7 +88,11 @@ const setupProviderAndAccount = async () => {
       ethers.Wallet.fromMnemonic(network.config.accounts.mnemonic, `m/44'/60'/0'/0/1`).privateKey,
       provider,
     )
-  else if (!isHttpNetworkAccountsConfig(network.config.accounts) && network.config.accounts[1] !== undefined)
+  else if (
+    !isHttpNetworkAccountsConfig(network.config.accounts) &&
+    network.config.accounts[1] !== undefined &&
+    typeof network.config.accounts[1] === 'string'
+  )
     owner02 = new ethers.Wallet(network.config.accounts[1], provider)
 
   if (isHardhatNetworkHDAccountsConfig(network.config.accounts))
@@ -92,39 +100,55 @@ const setupProviderAndAccount = async () => {
       ethers.Wallet.fromMnemonic(network.config.accounts.mnemonic, `m/44'/60'/0'/0/2`).privateKey,
       provider,
     )
-  else if (!isHttpNetworkAccountsConfig(network.config.accounts) && network.config.accounts[2] !== undefined)
+  else if (
+    !isHttpNetworkAccountsConfig(network.config.accounts) &&
+    network.config.accounts[2] !== undefined &&
+    typeof network.config.accounts[2] === 'string'
+  )
     owner03 = new ethers.Wallet(network.config.accounts[2], provider)
 
-  let user01: ethers.Wallet
-  let user02: ethers.Wallet
-  let user03: ethers.Wallet
+  let user01: any
+  let user02: any
+  let user03: any
 
   if (isHardhatNetworkHDAccountsConfig(network.config.accounts))
     user01 = new ethers.Wallet(
       ethers.Wallet.fromMnemonic(network.config.accounts.mnemonic, `m/44'/60'/0'/0/3`).privateKey,
       provider,
     )
-  else if (!isHttpNetworkAccountsConfig(network.config.accounts) && network.config.accounts[3] !== undefined)
+  else if (
+    !isHttpNetworkAccountsConfig(network.config.accounts) &&
+    network.config.accounts[3] !== undefined &&
+    typeof network.config.accounts[3] === 'string'
+  )
     user01 = new ethers.Wallet(network.config.accounts[3], provider)
   else user01 = ethers.Wallet.createRandom()
 
   if (isHardhatNetworkHDAccountsConfig(network.config.accounts))
-    user01 = new ethers.Wallet(
+    user02 = new ethers.Wallet(
       ethers.Wallet.fromMnemonic(network.config.accounts.mnemonic, `m/44'/60'/0'/0/4`).privateKey,
       provider,
     )
-  else if (!isHttpNetworkAccountsConfig(network.config.accounts) && network.config.accounts[4] !== undefined)
-    user01 = new ethers.Wallet(network.config.accounts[4], provider)
-  else user01 = ethers.Wallet.createRandom()
+  else if (
+    !isHttpNetworkAccountsConfig(network.config.accounts) &&
+    network.config.accounts[4] !== undefined &&
+    typeof network.config.accounts[4] === 'string'
+  )
+    user02 = new ethers.Wallet(network.config.accounts[4], provider)
+  else user02 = ethers.Wallet.createRandom()
 
   if (isHardhatNetworkHDAccountsConfig(network.config.accounts))
-    user01 = new ethers.Wallet(
+    user03 = new ethers.Wallet(
       ethers.Wallet.fromMnemonic(network.config.accounts.mnemonic, `m/44'/60'/0'/0/5`).privateKey,
       provider,
     )
-  else if (!isHttpNetworkAccountsConfig(network.config.accounts) && network.config.accounts[5] !== undefined)
-    user01 = new ethers.Wallet(network.config.accounts[5], provider)
-  else user01 = ethers.Wallet.createRandom()
+  else if (
+    !isHttpNetworkAccountsConfig(network.config.accounts) &&
+    network.config.accounts[5] !== undefined &&
+    typeof network.config.accounts[5] === 'string'
+  )
+    user03 = new ethers.Wallet(network.config.accounts[5], provider)
+  else user03 = ethers.Wallet.createRandom()
 
   if (network.name === 'hardhat' || network.name === 'localhost') {
     if (
