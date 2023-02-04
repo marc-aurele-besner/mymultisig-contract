@@ -4,6 +4,7 @@
   "description": "Multi-Signatures Solidity Smart Contract for mymultisig.app",
   "main": "index.js",
   "scripts": {
+    "build": "npx hardhat run scripts/buildAbi.ts",
     "test": "npx hardhat test && forge test",
     "flatten": "npx hardhat flatten > Flat.sol && npx hardhat flatten contracts/MyMultiSig.sol > FlatMyMultiSig.sol",
     "prettier-test": "prettier --write test/",
@@ -40,6 +41,7 @@
     "@types/node": "^18.11.18",
     "chai": "^4.3.7",
     "dotenv": "^16.0.3",
+    "fs": "^0.0.1-security",
     "hardhat": "^2.12.6",
     "hardhat-awesome-cli": "^0.0.23",
     "hardhat-gas-reporter": "^1.0.9",
