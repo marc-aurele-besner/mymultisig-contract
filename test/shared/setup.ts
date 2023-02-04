@@ -18,10 +18,11 @@ console.log(
   'Connected to network: ',
   '\x1b[33m',
   network.name,
-  '\x1b[0m',
+  '\x1b[0m'
 )
 
 export interface SetupContractReturn {
+  contractFactory: any
   contract: any
   contractName: string
   contractAddress: string
@@ -32,18 +33,21 @@ export interface SetupContractReturn {
 const setupContract = async (
   contractName = constants.CONTRACT_NAME as string,
   ownersAddresses = [] as string[],
-  threshold = constants.DEFAULT_THRESHOLD as number,
+  threshold = constants.DEFAULT_THRESHOLD as number
 ): Promise<SetupContractReturn> => {
   // Get contract artifacts
-  const ContractFactory = await ethers.getContractFactory(constants.CONTRACT_NAME)
+  const ContractFactory = await ethers.getContractFactory(constants.CONTRACT_FACTORY_NAME)
+  const Contract = await ethers.getContractFactory(constants.CONTRACT_NAME)
 
   // Deploy contracts
-  const contract = await ContractFactory.deploy(contractName, ownersAddresses, threshold)
+  const contractFactory = await ContractFactory.deploy()
+  const contract = await Contract.deploy(contractName, ownersAddresses, threshold)
 
   // Wait for contract to be deployed
+  await contractFactory.deployed()
   await contract.deployed()
 
-  return { contract, contractName, contractAddress: contract.address, ownersAddresses, threshold }
+  return { contractFactory, contract, contractName, contractAddress: contract.address, ownersAddresses, threshold }
 }
 
 const isHttpNetworkConfig = (networkConfig: NetworkConfig): networkConfig is HttpNetworkConfig => {
@@ -51,13 +55,13 @@ const isHttpNetworkConfig = (networkConfig: NetworkConfig): networkConfig is Htt
 }
 
 const isHardhatNetworkHDAccountsConfig = (
-  account: HardhatNetworkAccountsConfig | HttpNetworkAccountsConfig,
+  account: HardhatNetworkAccountsConfig | HttpNetworkAccountsConfig
 ): account is HardhatNetworkHDAccountsConfig => {
   return (account as HardhatNetworkHDAccountsConfig).mnemonic !== undefined
 }
 
 const isHttpNetworkAccountsConfig = (
-  account: HardhatNetworkAccountsConfig | HttpNetworkAccountsConfig,
+  account: HardhatNetworkAccountsConfig | HttpNetworkAccountsConfig
 ): account is HttpNetworkAccountsConfig => {
   return typeof (account as HttpNetworkAccountsConfig) === 'string'
 }
@@ -74,7 +78,7 @@ const setupProviderAndAccount = async () => {
   if (isHardhatNetworkHDAccountsConfig(network.config.accounts))
     owner01 = new ethers.Wallet(
       ethers.Wallet.fromMnemonic(network.config.accounts.mnemonic, `m/44'/60'/0'/0/0`).privateKey,
-      provider,
+      provider
     )
   else if (
     !isHttpNetworkAccountsConfig(network.config.accounts) &&
@@ -86,7 +90,7 @@ const setupProviderAndAccount = async () => {
   if (isHardhatNetworkHDAccountsConfig(network.config.accounts))
     owner02 = new ethers.Wallet(
       ethers.Wallet.fromMnemonic(network.config.accounts.mnemonic, `m/44'/60'/0'/0/1`).privateKey,
-      provider,
+      provider
     )
   else if (
     !isHttpNetworkAccountsConfig(network.config.accounts) &&
@@ -98,7 +102,7 @@ const setupProviderAndAccount = async () => {
   if (isHardhatNetworkHDAccountsConfig(network.config.accounts))
     owner03 = new ethers.Wallet(
       ethers.Wallet.fromMnemonic(network.config.accounts.mnemonic, `m/44'/60'/0'/0/2`).privateKey,
-      provider,
+      provider
     )
   else if (
     !isHttpNetworkAccountsConfig(network.config.accounts) &&
@@ -114,7 +118,7 @@ const setupProviderAndAccount = async () => {
   if (isHardhatNetworkHDAccountsConfig(network.config.accounts))
     user01 = new ethers.Wallet(
       ethers.Wallet.fromMnemonic(network.config.accounts.mnemonic, `m/44'/60'/0'/0/3`).privateKey,
-      provider,
+      provider
     )
   else if (
     !isHttpNetworkAccountsConfig(network.config.accounts) &&
@@ -127,7 +131,7 @@ const setupProviderAndAccount = async () => {
   if (isHardhatNetworkHDAccountsConfig(network.config.accounts))
     user02 = new ethers.Wallet(
       ethers.Wallet.fromMnemonic(network.config.accounts.mnemonic, `m/44'/60'/0'/0/4`).privateKey,
-      provider,
+      provider
     )
   else if (
     !isHttpNetworkAccountsConfig(network.config.accounts) &&
@@ -140,7 +144,7 @@ const setupProviderAndAccount = async () => {
   if (isHardhatNetworkHDAccountsConfig(network.config.accounts))
     user03 = new ethers.Wallet(
       ethers.Wallet.fromMnemonic(network.config.accounts.mnemonic, `m/44'/60'/0'/0/5`).privateKey,
-      provider,
+      provider
     )
   else if (
     !isHttpNetworkAccountsConfig(network.config.accounts) &&

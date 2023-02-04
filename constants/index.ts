@@ -7,6 +7,8 @@ export default {
   88  88  88    88    88  88  88 88b  d88 88booo.    88      .88.   db   8D   .88.   88. ~8~ 
   YP  YP  YP    YP    YP  YP  YP ~Y8888P' Y88888P    YP    Y888888P \`8888Y' Y888888P  Y888P  
 `,
+  CONTRACT_FACTORY_NAME: 'MyMultiSigFactory',
+  CONTRACT_FACTORY_VERSION: '0.0.1',
   CONTRACT_NAME: 'MyMultiSig',
   CONTRACT_VERSION: '0.0.1',
   DEFAULT_THRESHOLD: 2,
