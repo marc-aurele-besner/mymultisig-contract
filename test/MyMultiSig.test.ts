@@ -155,6 +155,11 @@ describe('MyMultiSig', function () {
     await Helper.replaceOwner(contract, owner01, [user01, owner02, owner03], user02.address, owner01.address)
   })
 
+  it('Can add a new owner and then use it to sign a new transaction changeThreshold', async function () {
+    await Helper.addOwner(contract, owner01, [owner01, owner02, owner03], user01.address)
+    await Helper.changeThreshold(contract, owner01, [user01, owner02, owner03], 3)
+  })
+
   it('Can add a new owner and then use it to sign a new transaction removeOwner', async function () {
     await Helper.addOwner(contract, owner01, [owner01, owner02, owner03], user01.address)
     await Helper.removeOwner(contract, owner01, [user01, owner02, owner03], owner01.address)
