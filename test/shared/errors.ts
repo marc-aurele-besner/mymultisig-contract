@@ -3,7 +3,7 @@ export default {
   TOO_MANY_OWNERS: 'MyMultiSig: cannot add owner above 2^16 - 1',
   INVALID_SIGNATURES: 'MyMultiSig: invalid signatures',
   NOT_ENOUGH_GAS: 'MyMultiSig: not enough gas',
-  NO_CONTRACT_SIGNATURE: 'MyMultiSig: No contract signatures support',
+  NONCE_ALREADY_USED: 'MyMultiSig: nonce already used',
   OWNER_ALREADY_SIGNED: 'MyMultiSig: owner already signed',
   CANNOT_REMOVE_OWNERS_BELOW_THRESHOLD: 'MyMultiSig: cannot remove owner below threshold',
 

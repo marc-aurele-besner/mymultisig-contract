@@ -71,8 +71,7 @@ describe('MyMultiSig', function () {
         contract.address,
         0,
         contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
-        Helper.DEFAULT_GAS,
-        Helper.errors.THRESHOLD_NOT_ACHIEVED
+        Helper.DEFAULT_GAS
       )
     ).to.be.false
   })
@@ -114,8 +113,7 @@ describe('MyMultiSig', function () {
         contract.address,
         0,
         contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
-        Helper.DEFAULT_GAS,
-        Helper.errors.INVALID_OWNER
+        Helper.DEFAULT_GAS
       )
     ).to.be.false
   })
@@ -129,14 +127,15 @@ describe('MyMultiSig', function () {
         contract.address,
         0,
         contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
-        Helper.DEFAULT_GAS,
-        Helper.errors.INVALID_OWNER
+        Helper.DEFAULT_GAS
       )
     ).to.be.false
   })
 
   it('Can add a new owner', async function () {
-    await Helper.addOwner(contract, owner01, [owner01, owner02, owner03], user01.address)
+    await Helper.addOwner(contract, owner01, [owner01, owner02, owner03], user01.address, undefined, undefined, [
+      'OwnerAdded',
+    ])
   })
 
   it('Cannot add a new owner with just 10k gas', async function () {
@@ -150,31 +149,121 @@ describe('MyMultiSig', function () {
     )
   })
 
+  it('Cannot add a new owner with 3x the signature of owner01', async function () {
+    await Helper.addOwner(
+      contract,
+      owner01,
+      [owner01, owner01, owner01],
+      user01.address,
+      Helper.DEFAULT_GAS,
+      Helper.errors.OWNER_ALREADY_SIGNED
+    )
+  })
+
   it('Can add a new owner and then use it to sign a new transaction replaceOwner', async function () {
-    await Helper.addOwner(contract, owner01, [owner01, owner02, owner03], user01.address)
-    await Helper.replaceOwner(contract, owner01, [user01, owner02, owner03], user02.address, owner01.address)
+    await Helper.addOwner(contract, owner01, [owner01, owner02, owner03], user01.address, undefined, undefined, [
+      'OwnerAdded',
+    ])
+    await Helper.replaceOwner(
+      contract,
+      owner01,
+      [user01, owner02, owner03],
+      user02.address,
+      owner01.address,
+      undefined,
+      undefined,
+      ['OwnerRemoved', 'OwnerAdded']
+    )
   })
 
   it('Can add a new owner and then use it to sign a new transaction changeThreshold', async function () {
-    await Helper.addOwner(contract, owner01, [owner01, owner02, owner03], user01.address)
-    await Helper.changeThreshold(contract, owner01, [user01, owner02, owner03], 3)
+    await Helper.addOwner(contract, owner01, [owner01, owner02, owner03], user01.address, undefined, undefined, [
+      'OwnerAdded',
+    ])
+    await Helper.changeThreshold(contract, owner01, [user01, owner02, owner03], 3, undefined, undefined, [
+      'ThresholdChanged',
+    ])
   })
 
   it('Can add a new owner and then use it to sign a new transaction removeOwner', async function () {
-    await Helper.addOwner(contract, owner01, [owner01, owner02, owner03], user01.address)
-    await Helper.removeOwner(contract, owner01, [user01, owner02, owner03], owner01.address)
+    await Helper.addOwner(contract, owner01, [owner01, owner02, owner03], user01.address, undefined, undefined, [
+      'OwnerAdded',
+    ])
+    await Helper.removeOwner(contract, owner01, [user01, owner02, owner03], owner01.address, undefined, undefined, [
+      'OwnerRemoved',
+    ])
   })
 
   it('Cannot remove all owners', async function () {
-    await Helper.removeOwner(contract, owner01, [owner01, owner02, owner03], owner01.address)
+    await Helper.removeOwner(contract, owner01, [owner02, owner03], owner01.address, undefined, undefined, [
+      'OwnerRemoved',
+    ])
     await Helper.removeOwner(
       contract,
       owner02,
       [owner02, owner03],
+      owner03.address,
+      undefined,
+      Helper.errors.CANNOT_REMOVE_OWNERS_BELOW_THRESHOLD,
+      ['TransactionFailed']
+    )
+    await Helper.removeOwner(
+      contract,
+      owner03,
+      [owner02, owner03],
       owner02.address,
       undefined,
-      Helper.errors.INVALID_SIGNATURES
+      Helper.errors.CANNOT_REMOVE_OWNERS_BELOW_THRESHOLD,
+      ['TransactionFailed']
     )
-    await Helper.removeOwner(contract, owner03, [owner03], owner03.address, undefined, Helper.errors.INVALID_SIGNATURES)
+  })
+
+  it('Emit TransactionFailed when valid signature try to execute a invalid call', async function () {
+    const MockERC20 = await ethers.getContractFactory('MockERC20')
+    const data = MockERC20.interface.encodeFunctionData('transferFrom(address,address,uint256)', [
+      contract.address,
+      owner01.address,
+      10,
+    ])
+    await Helper.execTransaction(
+      contract,
+      owner01,
+      [owner01, owner02, owner03],
+      contract.address,
+      0,
+      data,
+      Helper.DEFAULT_GAS,
+      undefined,
+      ['TransactionFailed']
+    )
+  })
+
+  it('Cannot reuse a signature', async function () {
+    const data = contract.interface.encodeFunctionData('addOwner(address)', [user02.address])
+    const signatures = await Helper.prepareSignatures(contract, [owner01, owner02], contract.address, 0, data)
+    await Helper.execTransaction(
+      contract,
+      owner01,
+      [owner01, owner02],
+      contract.address,
+      0,
+      data,
+      Helper.DEFAULT_GAS,
+      undefined,
+      ['OwnerAdded'],
+      signatures
+    )
+    await Helper.execTransaction(
+      contract,
+      owner01,
+      [owner01, owner02],
+      contract.address,
+      0,
+      data,
+      Helper.DEFAULT_GAS,
+      Helper.errors.INVALID_OWNER,
+      undefined,
+      signatures
+    )
   })
 })

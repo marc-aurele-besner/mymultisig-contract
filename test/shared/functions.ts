@@ -45,6 +45,23 @@ export const getEventFromReceipt = async (receipt: any, eventName: any) => {
   return log
 }
 
+export const prepareSignatures = async (
+  contract: any,
+  owners: any[],
+  to: string,
+  value: number,
+  data: string,
+  gas = constants.DEFAULT_GAS as number
+) => {
+  const nonce = await contract.nonce()
+  let signatures = '0x'
+  for (var i = 0; i < owners.length; i++) {
+    const sig = await signature.signMultiSigTxn(contract.address, owners[i], to, value, data, gas, nonce)
+    signatures += sig.substring(2)
+  }
+  return signatures
+}
+
 export const execTransaction = async (
   contract: any,
   submitter: any,
@@ -52,20 +69,14 @@ export const execTransaction = async (
   to: string,
   value: number,
   data: string,
-  txnGas: number,
-  errorMsg?: string
+  gas = constants.DEFAULT_GAS as number,
+  errorMsg?: string,
+  extraEvents?: string[],
+  signatures?: string
 ) => {
-  const nonce = await contract.nonce()
-  let signatures = '0x'
+  if (!signatures) signatures = await prepareSignatures(contract, owners, to, value, data, gas)
 
-  for (var i = 0; i < owners.length; i++) {
-    const sig = await signature.signMultiSigTxn(contract.address, owners[i], to, value, data, txnGas, nonce)
-    signatures += sig.substring(2)
-  }
-
-  const input = await contract
-    .connect(submitter)
-    .populateTransaction.execTransaction(to, value, data, txnGas, signatures)
+  const input = await contract.connect(submitter).populateTransaction.execTransaction(to, value, data, gas, signatures)
 
   const receipt = await checkRawTxnResult(input, submitter, errorMsg)
   if (!errorMsg) {
@@ -74,6 +85,17 @@ export const execTransaction = async (
       if (event[i]) {
         expect(submitter.address).to.be.equal(event[i].sender)
         return
+      }
+    }
+    if (extraEvents && extraEvents.length > 0) {
+      for (let i = 1; i < extraEvents.length; i++) {
+        const eventsFound = await getEventFromReceipt(receipt, event)
+        for (var ii = 0; i < eventsFound.length; ii++) {
+          if (eventsFound[ii]) {
+            expect(submitter.address).to.be.equal(eventsFound[ii].sender)
+            return
+          }
+        }
       }
     }
   }
@@ -86,16 +108,11 @@ export const isValidSignature = async (
   to: string,
   value: number,
   data: string,
-  gas: number,
+  gas = constants.DEFAULT_GAS as number,
   errorMsg?: string
 ) => {
-  const nonce = (await contract.nonce()).toNumber()
-  let signatures = '0x'
+  const signatures = prepareSignatures(contract, owners, to, value, data, gas)
 
-  for (var i = 0; i < owners.length; i++) {
-    const sig = await signature.signMultiSigTxn(contract.address, owners[i], to, value, data, gas, nonce)
-    signatures += sig.substring(2)
-  }
   if (!errorMsg) return await contract.connect(submitter).isValidSignature(to, value, data, gas, signatures)
   else {
     const input = await contract
@@ -111,12 +128,13 @@ export const addOwner = async (
   submitter: any,
   owners: any[],
   ownerToAdd: string,
-  gas = constants.DEFAULT_GAS,
-  errorMsg?: string
+  gas = constants.DEFAULT_GAS as number,
+  errorMsg?: string,
+  extraEvents?: string[]
 ) => {
   const data = contract.interface.encodeFunctionData('addOwner(address)', [ownerToAdd])
 
-  await execTransaction(contract, submitter, owners, contract.address, 0, data, gas, errorMsg)
+  await execTransaction(contract, submitter, owners, contract.address, 0, data, gas, errorMsg, extraEvents)
 
   if (!errorMsg) expect(await contract.isOwner(ownerToAdd)).to.be.true
 }
@@ -127,13 +145,15 @@ export const removeOwner = async (
   owners: any[],
   ownerToRemove: string,
   gas = constants.DEFAULT_GAS,
-  errorMsg?: string
+  errorMsg?: string,
+  extraEvents?: string[]
 ) => {
   const data = contract.interface.encodeFunctionData('removeOwner(address)', [ownerToRemove])
 
-  await execTransaction(contract, submitter, owners, contract.address, 0, data, gas, errorMsg)
+  await execTransaction(contract, submitter, owners, contract.address, 0, data, gas, undefined, extraEvents)
 
   if (!errorMsg) expect(await contract.isOwner(ownerToRemove)).to.be.false
+  else expect(await contract.isOwner(ownerToRemove)).to.be.true
 }
 
 export const changeThreshold = async (
@@ -142,11 +162,12 @@ export const changeThreshold = async (
   owners: any[],
   newThreshold: number,
   gas = constants.DEFAULT_GAS,
-  errorMsg?: string
+  errorMsg?: string,
+  extraEvents?: string[]
 ) => {
   const data = contract.interface.encodeFunctionData('changeThreshold(uint16)', [newThreshold])
 
-  await execTransaction(contract, submitter, owners, contract.address, 0, data, gas, errorMsg)
+  await execTransaction(contract, submitter, owners, contract.address, 0, data, gas, errorMsg, extraEvents)
 
   if (!errorMsg) expect(await contract.threshold()).to.be.equal(newThreshold)
 }
@@ -158,11 +179,12 @@ export const replaceOwner = async (
   ownerToAdd: string,
   ownerToRemove: string,
   gas = constants.DEFAULT_GAS,
-  errorMsg?: string
+  errorMsg?: string,
+  extraEvents?: string[]
 ) => {
   const data = contract.interface.encodeFunctionData('replaceOwner(address,address)', [ownerToRemove, ownerToAdd])
 
-  await execTransaction(contract, submitter, owners, contract.address, 0, data, gas, errorMsg)
+  await execTransaction(contract, submitter, owners, contract.address, 0, data, gas, errorMsg, extraEvents)
 
   if (!errorMsg) {
     expect(await contract.isOwner(ownerToAdd)).to.be.true
