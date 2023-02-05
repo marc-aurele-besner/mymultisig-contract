@@ -3,6 +3,11 @@
   "version": "0.0.1",
   "description": "Multi-Signatures Solidity Smart Contract for mymultisig.app",
   "main": "index.js",
+  "files": [
+    "abi/*.json",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
     "build": "hardhat run scripts/buildAbi.ts",
     "compile": "hardhat compile",
