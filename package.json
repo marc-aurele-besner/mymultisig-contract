@@ -3,6 +3,12 @@
   "version": "0.0.1",
   "description": "Multi-Signatures Solidity Smart Contract for mymultisig.app",
   "main": "index.js",
+  "files": [
+    "abi/*.json",
+    "contractsAddressDeployed.json",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
     "build": "hardhat run scripts/buildAbi.ts",
     "compile": "hardhat compile",
@@ -11,7 +17,21 @@
     "flatten": "hardhat flatten > Flat.sol && npx hardhat flatten contracts/MyMultiSig.sol > FlatMyMultiSig.sol",
     "prettier-test": "prettier --write test/",
     "prettier-contracts": "prettier --write contracts/",
-    "prettier-foundry-contracts": "prettier --write contracts/test/"
+    "prettier-foundry-contracts": "prettier --write contracts/test/",
+    "deploy-test": "npx hardhat run scripts/deploy.ts",
+    "deploy-localhost": "npx hardhat run scripts/deploy.ts --network localhost",
+    "deploy-ethereum": "npx hardhat run scripts/deploy.ts --network ethereum",
+    "deploy-ethereumFork": "npx hardhat run scripts/deploy.ts --network ethereumFork",
+    "deploy-goerli": "npx hardhat run scripts/deploy.ts --network goerli",
+    "deploy-goerliFork": "npx hardhat run scripts/deploy.ts --network goerliFork",
+    "deploy-bnb": "npx hardhat run scripts/deploy.ts --network bnb",
+    "deploy-bnbFork": "npx hardhat run scripts/deploy.ts --network bnbFork",
+    "deploy-bnbTestnet": "npx hardhat run scripts/deploy.ts --network bnbTestnet",
+    "deploy-bnbTestnetFork": "npx hardhat run scripts/deploy.ts --network bnbTestnetFork",
+    "deploy-polygon": "npx hardhat run scripts/deploy.ts --network polygon",
+    "deploy-polygonFork": "npx hardhat run scripts/deploy.ts --network polygonFork",
+    "deploy-mumbai": "npx hardhat run scripts/deploy.ts --network mumbai",
+    "deploy-mumbaiFork": "npx hardhat run scripts/deploy.ts --network mumbaiFork"
   },
   "repository": {
     "type": "git",
@@ -40,7 +60,7 @@
     "@typechain/hardhat": "^6.1.5",
     "@types/chai": "^4.3.4",
     "@types/mocha": "^10.0.1",
-    "@types/node": "^18.11.18",
+    "@types/node": "^18.11.19",
     "chai": "^4.3.7",
     "dotenv": "^16.0.3",
     "fs": "^0.0.1-security",
