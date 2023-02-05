@@ -35,7 +35,7 @@ const {
 const listPrivateKeysOrProvideDummyPk = (
   privateKey01: string | undefined,
   privateKey02: string | undefined,
-  privateKey03: string | undefined,
+  privateKey03: string | undefined
 ) => {
   if (privateKey01 && privateKey02 && privateKey03) return [privateKey01, privateKey02, privateKey03]
   else return ['0x0000000000000000000000000000000000000000000000000000000000000000']
@@ -45,6 +45,19 @@ const config: HardhatUserConfig = {
   defaultNetwork: 'hardhat',
   networks: {
     hardhat: {},
+    localhost: {
+      accounts: {
+        mnemonic: 'test test test test test test test test test test test junk',
+      },
+      chainId: 31337,
+    },
+    anvil: {
+      url: 'http://127.0.0.1:8545',
+      accounts: {
+        mnemonic: 'test test test test test test test test test test test junk',
+      },
+      chainId: 31337,
+    },
     ethereum: {
       url: `${RPC_MAINNET}`,
       chainId: 1,
@@ -66,7 +79,7 @@ const config: HardhatUserConfig = {
       accounts: listPrivateKeysOrProvideDummyPk(
         PRIVATE_KEY_BNB_TESTNET_01,
         PRIVATE_KEY_BNB_TESTNET_02,
-        PRIVATE_KEY_BNB_TESTNET_03,
+        PRIVATE_KEY_BNB_TESTNET_03
       ),
     },
     polygon: {
