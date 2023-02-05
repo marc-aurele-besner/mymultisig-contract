@@ -1,4 +1,4 @@
-import { ethers, network } from 'hardhat'
+import { ethers, network, addressBook } from 'hardhat'
 import {
   NetworkConfig,
   HardhatNetworkConfig,
@@ -47,6 +47,23 @@ const setupContract = async (
   await contractFactory.deployed()
   await contract.deployed()
 
+  await addressBook.saveContract(
+    contractName,
+    contract.address,
+    network.name,
+    contract.deployTransaction.from,
+    network.config.chainId,
+    contract.deployTransaction.blockHash,
+    contract.deployTransaction.blockNumber,
+    undefined,
+    {
+      owners: ownersAddresses,
+      threshold,
+    }
+  )
+  if ((await addressBook.retrieveContract(contractName, network.name)) === undefined)
+    throw new Error('Error saving and retrieving contract from address book.')
+
   return { contractFactory, contract, contractName, contractAddress: contract.address, ownersAddresses, threshold }
 }
 
@@ -67,10 +84,7 @@ const isHttpNetworkAccountsConfig = (
 }
 
 const setupProviderAndAccount = async () => {
-  let provider: any
-  if (isHttpNetworkConfig(network.config)) provider = new JsonRpcProvider(network.config.url)
-  else provider = ethers.provider
-
+  let provider = ethers.provider
   let owner01: any
   let owner02: any
   let owner03: any
