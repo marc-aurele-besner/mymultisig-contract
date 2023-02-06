@@ -7,7 +7,6 @@ import {
   HttpNetworkAccountsConfig,
   HardhatNetworkHDAccountsConfig,
 } from 'hardhat/types'
-import { Contract, Provider, JsonRpcProvider } from 'ethersV6'
 
 import constants from '../../constants'
 
@@ -22,7 +21,6 @@ console.log(
 )
 
 export interface SetupContractReturn {
-  contractFactory: any
   contract: any
   contractName: string
   contractAddress: string
@@ -33,18 +31,21 @@ export interface SetupContractReturn {
 const setupContract = async (
   contractName = constants.CONTRACT_NAME as string,
   ownersAddresses = [] as string[],
-  threshold = constants.DEFAULT_THRESHOLD as number
+  threshold = constants.DEFAULT_THRESHOLD as number,
+  deployFactory = false
 ): Promise<SetupContractReturn> => {
-  // Get contract artifacts
-  const ContractFactory = await ethers.getContractFactory(constants.CONTRACT_FACTORY_NAME)
-  const Contract = await ethers.getContractFactory(constants.CONTRACT_NAME)
-
-  // Deploy contracts
-  const contractFactory = await ContractFactory.deploy()
-  const contract = await Contract.deploy(contractName, ownersAddresses, threshold)
+  let ContractFactory
+  let contract
+  // Get contract artifacts and deploy contract
+  if (deployFactory) {
+    ContractFactory = await ethers.getContractFactory(contractName)
+    contract = await ContractFactory.deploy()
+  } else {
+    ContractFactory = await ethers.getContractFactory(contractName)
+    contract = await ContractFactory.deploy(contractName, ownersAddresses, threshold)
+  }
 
   // Wait for contract to be deployed
-  await contractFactory.deployed()
   await contract.deployed()
 
   await addressBook.saveContract(
@@ -64,7 +65,7 @@ const setupContract = async (
   if ((await addressBook.retrieveContract(contractName, network.name)) === undefined)
     throw new Error('Error saving and retrieving contract from address book.')
 
-  return { contractFactory, contract, contractName, contractAddress: contract.address, ownersAddresses, threshold }
+  return { contract, contractName, contractAddress: contract.address, ownersAddresses, threshold }
 }
 
 const isHttpNetworkConfig = (networkConfig: NetworkConfig): networkConfig is HttpNetworkConfig => {
