@@ -18,10 +18,15 @@ async function main() {
 
   const owners: string[] = [owner01.address, owner02.address, owner03.address]
   ownerCount = owners.length
-  deployment = await Helper.setupContract(Helper.CONTRACT_NAME, [owner01.address, owner02.address, owner03.address], 2)
+  deployment = await Helper.setupContract(
+    Helper.CONTRACT_FACTORY_NAME,
+    [owner01.address, owner02.address, owner03.address],
+    2,
+    true
+  )
   contract = deployment.contract
 
-  console.log(`Contract MyMultiSig deployed to ${contract.address}`)
+  console.log(`Contract MyMultiSig Factory deployed to ${contract.address}`)
 }
 
 main().catch((error) => {

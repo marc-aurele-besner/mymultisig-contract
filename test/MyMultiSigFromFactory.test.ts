@@ -23,17 +23,18 @@ describe('MyMultiSig - Deployed From Factory', function () {
     const owners: string[] = [owner01.address, owner02.address, owner03.address]
     ownerCount = owners.length
     deployment = await Helper.setupContract(
+      Helper.CONTRACT_FACTORY_NAME,
+      [owner01.address, owner02.address, owner03.address],
+      2,
+      true
+    )
+    const tx = await deployment.contract.createMultiSig(
       Helper.CONTRACT_NAME,
       [owner01.address, owner02.address, owner03.address],
       2
     )
-    const tx = await deployment.contractFactory.createMultiSig(
-      Helper.CONTRACT_NAME,
-      [owner01.address, owner02.address, owner03.address],
-      2
-    )
-    const receipt = await tx.wait()
-    const contractAddress = await deployment.contractFactory.multisig(0)
+    await tx.wait()
+    const contractAddress = await deployment.contract.multisig(0)
 
     const Contract = await ethers.getContractFactory(Helper.CONTRACT_NAME)
     contract = new ethers.Contract(contractAddress, Contract.interface, provider)

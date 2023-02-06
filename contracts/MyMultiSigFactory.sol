@@ -23,16 +23,16 @@ contract MyMultiSigFactory {
 
   constructor() {}
 
+  /// @notice Retrieves the contract name
+  /// @return The name as a string memory.
+  function name() public pure returns (string memory) {
+    return 'MyMultiSigFactory';
+  }
+
   /// @notice Retrieves the contract version
   /// @return The version as a string memory.
   function version() public pure returns (string memory) {
     return '0.0.1';
-  }
-
-  /// @notice Retrieves the contract name
-  /// @return The name as a string memory.
-  function name() public pure returns (string memory) {
-    return 'pure';
   }
 
   /// @notice Retrieves the amount of multisig contract created via this Factory contract

@@ -55,16 +55,16 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
     _changeThreshold(threshold_);
   }
 
-  /// @notice Retrieves the contract version
-  /// @return The version as a string memory.
-  function version() public pure returns (string memory) {
-    return '0.0.1';
-  }
-
   /// @notice Retrieves the contract name
   /// @return The name as a string memory.
   function name() public view returns (string memory) {
     return _name;
+  }
+
+  /// @notice Retrieves the contract version
+  /// @return The version as a string memory.
+  function version() public pure returns (string memory) {
+    return '0.0.1';
   }
 
   /// @notice Retrieves the current threshold value
