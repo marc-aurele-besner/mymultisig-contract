@@ -276,4 +276,25 @@ describe('MyMultiSig - Deployed From Factory', function () {
       signatures
     )
   })
+
+  it('Can execute a multiRequest', async function () {
+    await Helper.multiRequest(
+      contract,
+      owner01,
+      [owner01, owner02, owner03],
+      [contract.address, contract.address, contract.address],
+      [0, 0, 0],
+      [
+        contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
+        contract.interface.encodeFunctionData('addOwner(address)', [user02.address]),
+        contract.interface.encodeFunctionData('addOwner(address)', [user03.address]),
+      ],
+      [Helper.DEFAULT_GAS, Helper.DEFAULT_GAS, Helper.DEFAULT_GAS],
+      undefined,
+      ['OwnerAdded', 'OwnerAdded']
+    )
+    expect(await contract.isOwner(user01.address)).to.be.true
+    expect(await contract.isOwner(user02.address)).to.be.true
+    expect(await contract.isOwner(user03.address)).to.be.true
+  })
 })

@@ -123,6 +123,39 @@ export const isValidSignature = async (
   }
 }
 
+export const multiRequest = async (
+  contract: any,
+  submitter: any,
+  owners: any[],
+  to_: string[],
+  value_: number[],
+  data_: string[],
+  gas_: number[],
+  errorMsg?: string,
+  extraEvents?: string[]
+) => {
+  let gas = 0
+  for (var i = 0; i < to_.length; i++) {
+    gas += gas_[i]
+  }
+  await execTransaction(
+    contract,
+    submitter,
+    owners,
+    contract.address,
+    0,
+    contract.interface.encodeFunctionData('multiRequest(address[],uint256[],bytes[],uint256[])', [
+      to_,
+      value_,
+      data_,
+      gas_,
+    ]),
+    gas,
+    errorMsg,
+    extraEvents
+  )
+}
+
 export const addOwner = async (
   contract: any,
   submitter: any,
