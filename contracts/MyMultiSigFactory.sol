@@ -32,7 +32,7 @@ contract MyMultiSigFactory {
   /// @notice Retrieves the contract version
   /// @return The version as a string memory.
   function version() public pure returns (string memory) {
-    return '0.0.1';
+    return '0.0.2';
   }
 
   /// @notice Retrieves the amount of multisig contract created via this Factory contract
