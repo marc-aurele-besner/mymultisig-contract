@@ -64,7 +64,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
   /// @notice Retrieves the contract version
   /// @return The version as a string memory.
   function version() public pure returns (string memory) {
-    return '0.0.1';
+    return '0.0.2';
   }
 
   /// @notice Retrieves the current threshold value
@@ -116,6 +116,31 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
     else emit TransactionFailed(msg.sender, to, value, data, txnGas, _txnNonce);
     if (_txnNonce > uint96(2 ** 96 - 1000)) emit ContractEndOfLife(2 ** 96 - _txnNonce - 1);
     return success;
+  }
+
+  /// @notice Prepare multiple transactions
+  /// @param to_ The address to which the transaction is made. (as a array)
+  /// @param value_ The amount of Ether to be transferred. (as a array)
+  /// @param data_ The data to be passed along with the transaction. (as a array)
+  /// @param txGas_ The gas limit for the transaction. (as a array)
+  function multiRequest(
+    address[] memory to_,
+    uint256[] memory value_,
+    bytes[] memory data_,
+    uint256[] memory txGas_
+  ) public payable onlyThis returns (bool success) {
+    for (uint256 i; i < to_.length; ) {
+      address to = to_[i];
+      uint256 value = value_[i];
+      bytes memory data = data_[i];
+      uint256 txGas = txGas_[i];
+      assembly {
+        success := call(txGas, to, value, add(data, 0x20), mload(data), 0, 0)
+      }
+      unchecked {
+        ++i;
+      }
+    }
   }
 
   /// @notice Return the current owner address from the full signature at the id position
