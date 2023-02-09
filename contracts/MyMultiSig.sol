@@ -45,7 +45,8 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
   constructor(string memory name_, address[] memory owners_, uint16 threshold_) EIP712(name_, version()) {
     require(owners_.length <= 2 ** 16 - 1, 'MyMultiSig: cannot add owner above 2^16 - 1');
     _name = name_;
-    for (uint256 i = 0; i < owners_.length; ) {
+    uint256 length = owners_.length;
+    for (uint256 i = 0; i < length; ) {
       _owners[owners_[i]] = true;
       unchecked {
         ++i;
@@ -129,7 +130,8 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
     bytes[] memory data_,
     uint256[] memory txGas_
   ) public payable onlyThis returns (bool success) {
-    for (uint256 i; i < to_.length; ) {
+    uint256 qty = to_.length;
+    for (uint256 i; i < qty; ) {
       address to = to_[i];
       uint256 value = value_[i];
       bytes memory data = data_[i];
