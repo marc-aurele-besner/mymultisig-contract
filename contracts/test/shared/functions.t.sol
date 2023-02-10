@@ -27,7 +27,7 @@ contract Functions is Constants, Errors {
     LOG_LEVEL = LOG_LEVEL_;
     vm.roll(1);
     vm.warp(100);
-    vm.startPrank(ADMIN);
+    vm.prank(ADMIN);
 
     if (testType_ == TestType.TestWithFactory) {
       myMultiSigFactory = new MyMultiSigFactory();
@@ -36,7 +36,6 @@ contract Functions is Constants, Errors {
       myMultiSig = new MyMultiSig(CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD);
     }
 
-    vm.stopPrank();
     vm.roll(block.number + 1);
     vm.warp(block.timestamp + 100);
 
@@ -57,7 +56,7 @@ contract Functions is Constants, Errors {
 
     if (revertType_ == Errors.RevertStatus.Success) {
       multiSigId = myMultiSigFactory.multiSigCount();
-      newMultiSig = MyMultiSig(myMultiSigFactory.multiSig(multiSigId));
+      newMultiSig = MyMultiSig(myMultiSigFactory.multiSig(multiSigId - 1));
       assertEq(newMultiSig.name(), contractName_);
       assertEq(newMultiSig.threshold(), threshold_);
       uint256 ownersLength = owners_.length;

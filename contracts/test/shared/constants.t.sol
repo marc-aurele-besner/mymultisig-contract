@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 contract Constants {
   // Constants value specific to the contracts we are testing.
   string constant CONTRACT_FACTORY_NAME = 'MyMultiSigFactory';
-  string constant CONTRACT_FACTORY_VERSION = '0.0.1';
+  string constant CONTRACT_FACTORY_VERSION = '0.0.2';
   string constant CONTRACT_NAME = 'MyMultiSig';
   string constant CONTRACT_VERSION = '0.0.2';
 
