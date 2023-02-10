@@ -35,4 +35,20 @@ contract TestMyMultiSig is Helper {
       assertTrue(myMultiSig.isOwner(OWNERS[i]));
     }
   }
+
+  function testMyMultiSig_addOwner() public {
+    help_addOwner(OWNERS[0], myMultiSig, OWNERS_PK, NOT_OWNERS[0]);
+  }
+
+  function testMyMultiSig_removeOwner() public {
+    help_removeOwner(OWNERS[0], myMultiSig, OWNERS_PK, OWNERS[0]);
+  }
+
+  function testMyMultiSig_changeThreshold() public {
+    help_changeThreshold(OWNERS[0], myMultiSig, OWNERS_PK, 3);
+  }
+
+  function testMyMultiSig_replaceOwner() public {
+    help_replaceOwner(OWNERS[0], myMultiSig, OWNERS_PK, OWNERS[0], NOT_OWNERS[0]);
+  }
 }
