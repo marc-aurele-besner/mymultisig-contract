@@ -16,11 +16,6 @@ contract MyMultiSigFactory {
     address[] originalOwners
   );
 
-  modifier onlyThis() {
-    require(msg.sender == address(this), 'MyMultiSig: only this contract can call this function');
-    _;
-  }
-
   constructor() {}
 
   /// @notice Retrieves the contract name
@@ -44,7 +39,7 @@ contract MyMultiSigFactory {
   /// @notice Retrieves a multisig by it's index
   /// @param index The index of the multisig
   /// @return The current amount value as a uint256.
-  function multisig(uint256 index) public view returns (address) {
+  function multiSig(uint256 index) public view returns (address) {
     return address(_multiSigs[index]);
   }
 

@@ -34,7 +34,7 @@ describe('MyMultiSig - Deployed From Factory', function () {
       2
     )
     await tx.wait()
-    const contractAddress = await deployment.contract.multisig(0)
+    const contractAddress = await deployment.contract.multiSig(0)
 
     const Contract = await ethers.getContractFactory(Helper.CONTRACT_NAME)
     contract = new ethers.Contract(contractAddress, Contract.interface, provider)

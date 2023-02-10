@@ -1,6 +1,7 @@
 import { HardhatUserConfig } from 'hardhat/config'
 import '@nomicfoundation/hardhat-toolbox'
 import 'hardhat-awesome-cli'
+import 'hardhat-contract-clarity'
 import * as dotenv from 'dotenv'
 
 dotenv.config()

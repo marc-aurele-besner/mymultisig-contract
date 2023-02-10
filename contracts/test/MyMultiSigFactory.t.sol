@@ -5,9 +5,29 @@ import 'foundry-test-utility/contracts/utils/console.sol';
 import { Helper } from './shared/helper.t.sol';
 import { Errors } from './shared/errors.t.sol';
 
-contract TestMyMultiSig is Helper {
+contract TestMyMultiSigFactory is Helper {
   function setUp() public {
-    initialize_helper(LOG_LEVEL, TestType.TestWithoutFactory);
+    initialize_helper(LOG_LEVEL, TestType.TestWithFactory);
+  }
+
+  function testMyMultiSigFactory_name() public {
+    assertEq(myMultiSigFactory.name(), CONTRACT_FACTORY_NAME);
+  }
+
+  function testMyMultiSigFactory_version() public {
+    assertEq(myMultiSigFactory.version(), CONTRACT_FACTORY_VERSION);
+  }
+
+  function testMyMultiSigFactory_multiSigCount() public {
+    assertEq(myMultiSigFactory.multiSigCount(), 1);
+  }
+
+  function testMyMultiSigFactory_multiSig() public {
+    assertEq(myMultiSigFactory.multiSig(0), address(myMultiSig));
+  }
+
+  function testMyMultiSig_createMultiSig() public {
+    help_createMultiSig(ADMIN, CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD, Errors.RevertStatus.Success);
   }
 
   function testMyMultiSig_name() public {
