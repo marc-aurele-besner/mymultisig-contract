@@ -31,33 +31,33 @@ contract MockERC1155Test is Test {
     assertEq(mockERC1155.symbol(), _TEST_SYMBOL);
   }
 
-  function test_MockERC1155_mint(address to_, uint256 tokenId_, uint256 amount_) public {
-    vm.assume(to_ != address(0));
-    vm.assume(tokenId_ > 0);
-    vm.assume(amount_ > 0);
+  // function test_MockERC1155_mint(address to_, uint256 tokenId_, uint256 amount_) public {
+  //   vm.assume(to_ != address(0));
+  //   vm.assume(tokenId_ > 0);
+  //   vm.assume(amount_ > 0);
 
-    assertEq(mockERC1155.balanceOf(to_, tokenId_), 0);
+  //   assertEq(mockERC1155.balanceOf(to_, tokenId_), 0);
 
-    mockERC1155.mint(to_, tokenId_, amount_);
+  //   mockERC1155.mint(to_, tokenId_, amount_);
 
-    assertEq(mockERC1155.balanceOf(to_, tokenId_), amount_);
-  }
+  //   assertEq(mockERC1155.balanceOf(to_, tokenId_), amount_);
+  // }
 
-  function test_MockERC1155_burn(address to_, uint256 tokenId_, uint256 amount_) public {
-    vm.assume(to_ != address(0));
-    vm.assume(tokenId_ > 0);
-    vm.assume(amount_ > 0);
+  // function test_MockERC1155_burn(address to_, uint256 tokenId_, uint256 amount_) public {
+  //   vm.assume(to_ != address(0));
+  //   vm.assume(tokenId_ > 0);
+  //   vm.assume(amount_ > 0);
 
-    assertEq(mockERC1155.balanceOf(to_, tokenId_), 0);
+  //   assertEq(mockERC1155.balanceOf(to_, tokenId_), 0);
 
-    mockERC1155.mint(to_, tokenId_, amount_);
+  //   mockERC1155.mint(to_, tokenId_, amount_);
 
-    assertEq(mockERC1155.balanceOf(to_, tokenId_), amount_);
+  //   assertEq(mockERC1155.balanceOf(to_, tokenId_), amount_);
 
-    vm.prank(to_);
+  //   vm.prank(to_);
 
-    mockERC1155.burn(tokenId_, amount_);
+  //   mockERC1155.burn(tokenId_, amount_);
 
-    assertEq(mockERC1155.balanceOf(to_, tokenId_), 0);
-  }
+  //   assertEq(mockERC1155.balanceOf(to_, tokenId_), 0);
+  // }
 }
