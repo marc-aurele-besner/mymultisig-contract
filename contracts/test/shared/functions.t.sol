@@ -158,10 +158,20 @@ contract Functions is Constants, Signatures {
     bytes[] memory data_,
     uint256[] memory txGas_
   ) internal pure returns (bytes memory) {
+    bytes memory to;
+    bytes memory value;
+    bytes memory data;
+    bytes memory txGas;
+    for (uint256 i = 0; i < to_.length; i++) {
+      to = abi.encodePacked(to, bytes32(uint256(uint160(to_[i]))));
+      value = abi.encodePacked(value, bytes32(value_[i]));
+      data = abi.encodePacked(data, data_[i]);
+      txGas = abi.encodePacked(txGas, bytes32(txGas_[i]));
+    }
     return
       abi.encodePacked(
         bytes4(keccak256('multiRequest(address[],uint256[],bytes[],uint256[])')),
-        abi.encodePacked(bytes32(uint256(uint160(address(1)))), bytes32(uint256(100)))
+        abi.encodePacked(to, value, data, txGas)
       );
   }
 
@@ -340,5 +350,39 @@ contract Functions is Constants, Signatures {
     address newOwner_
   ) internal {
     help_replaceOwner(prank_, multiSig_, ownersPk_, oldOwner_, newOwner_, Errors.RevertStatus.Success);
+  }
+
+  function help_multiRequest(
+    address prank_,
+    MyMultiSig multiSig_,
+    uint256[] memory ownersPk_,
+    address[] memory to_,
+    uint256[] memory value_,
+    bytes[] memory data_,
+    uint256[] memory txGas_,
+    Errors.RevertStatus revertType_
+  ) internal {
+    vm.prank(prank_);
+    address to = address(multiSig_);
+    uint256 value = 0;
+    bytes memory data = build_multiRequest(to_, value_, data_, txGas_);
+    uint256 gas;
+    for (uint256 i = 0; i < to_.length; i++) {
+      gas = txGas_[i];
+    }
+    bytes memory signatures = build_signatures(multiSig_, ownersPk_, to, value, data, gas);
+    help_execTransaction(multiSig_, prank_, to, value, data, gas, signatures);
+  }
+
+  function help_multiRequest(
+    address prank_,
+    MyMultiSig multiSig_,
+    uint256[] memory ownersPk_,
+    address[] memory to_,
+    uint256[] memory value_,
+    bytes[] memory data_,
+    uint256[] memory txGas_
+  ) internal {
+    help_multiRequest(prank_, multiSig_, ownersPk_, to_, value_, data_, txGas_, Errors.RevertStatus.Success);
   }
 }
