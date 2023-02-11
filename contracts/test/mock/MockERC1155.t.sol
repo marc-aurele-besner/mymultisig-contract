@@ -6,21 +6,38 @@ pragma solidity ^0.8.0;
  */
 
 import 'foundry-test-utility/contracts/utils/console.sol';
-import { CheatCodes } from 'foundry-test-utility/contracts/utils/cheatcodes.sol';
-import 'foundry-test-utility/contracts/utils/stdlib.sol';
-import { Test } from 'foundry-test-utility/contracts/utils/test.sol';
+import { Helper } from '../shared/helper.t.sol';
+import { Errors } from '../shared/errors.t.sol';
 
 import { MockERC1155 } from '../../mocks/MockERC1155.sol';
 
-contract MockERC1155Test is Test {
+contract MockERC1155Test is Helper {
   MockERC1155 private mockERC1155;
 
   string constant _TEST_NAME = 'MockERC1155';
   string constant _TEST_SYMBOL = 'MOCK';
 
   function setUp() public {
+    initialize_helper(LOG_LEVEL, TestType.TestWithoutFactory);
+
     // Deploy contracts
     mockERC1155 = new MockERC1155();
+  }
+
+  function build_mint(address to_, uint256 tokenId_, uint256 amount_) internal pure returns (bytes memory) {
+    return
+      abi.encodePacked(
+        bytes4(keccak256('mint(address,uint256,uint256)')),
+        abi.encodePacked(bytes32(uint256(uint160(to_))), bytes32(tokenId_), bytes32(amount_))
+      );
+  }
+
+  function build_burnFrom(address from_, uint256 tokenId_, uint256 amount_) internal pure returns (bytes memory) {
+    return
+      abi.encodePacked(
+        bytes4(keccak256('burnFrom(address,uint256,uint256)')),
+        abi.encodePacked(bytes32(uint256(uint160(from_))), bytes32(tokenId_), bytes32(amount_))
+      );
   }
 
   function test_MockERC1155_name() public {
@@ -31,33 +48,58 @@ contract MockERC1155Test is Test {
     assertEq(mockERC1155.symbol(), _TEST_SYMBOL);
   }
 
-  // function test_MockERC1155_mint(address to_, uint256 tokenId_, uint256 amount_) public {
-  //   vm.assume(to_ != address(0));
-  //   vm.assume(tokenId_ > 0);
-  //   vm.assume(amount_ > 0);
+  function test_MockERC1155_mint(address to_, uint256 tokenId_, uint256 amount_) public {
+    vm.assume(to_ != address(0));
+    vm.assume(tokenId_ > 0);
+    vm.assume(amount_ > 0);
 
-  //   assertEq(mockERC1155.balanceOf(to_, tokenId_), 0);
+    assertEq(mockERC1155.balanceOf(to_, tokenId_), 0);
 
-  //   mockERC1155.mint(to_, tokenId_, amount_);
+    bytes memory data = build_mint(to_, tokenId_, amount_);
+    help_execTransaction(
+      myMultiSig,
+      OWNERS[0],
+      address(mockERC1155),
+      0,
+      data,
+      DEFAULT_GAS * 2,
+      build_signatures(myMultiSig, OWNERS_PK, address(mockERC1155), 0, data, DEFAULT_GAS * 2)
+    );
 
-  //   assertEq(mockERC1155.balanceOf(to_, tokenId_), amount_);
-  // }
+    assertEq(mockERC1155.balanceOf(to_, tokenId_), amount_);
+  }
 
-  // function test_MockERC1155_burn(address to_, uint256 tokenId_, uint256 amount_) public {
-  //   vm.assume(to_ != address(0));
-  //   vm.assume(tokenId_ > 0);
-  //   vm.assume(amount_ > 0);
+  function test_MockERC1155_burnFrom(address to_, uint256 tokenId_, uint256 amount_) public {
+    vm.assume(to_ != address(0));
+    vm.assume(tokenId_ > 0);
+    vm.assume(amount_ > 0);
 
-  //   assertEq(mockERC1155.balanceOf(to_, tokenId_), 0);
+    assertEq(mockERC1155.balanceOf(to_, tokenId_), 0);
 
-  //   mockERC1155.mint(to_, tokenId_, amount_);
+    bytes memory data = build_mint(to_, tokenId_, amount_);
+    help_execTransaction(
+      myMultiSig,
+      OWNERS[0],
+      address(mockERC1155),
+      0,
+      data,
+      DEFAULT_GAS * 2,
+      build_signatures(myMultiSig, OWNERS_PK, address(mockERC1155), 0, data, DEFAULT_GAS * 2)
+    );
 
-  //   assertEq(mockERC1155.balanceOf(to_, tokenId_), amount_);
+    assertEq(mockERC1155.balanceOf(to_, tokenId_), amount_);
 
-  //   vm.prank(to_);
+    data = build_burnFrom(to_, tokenId_, amount_);
+    help_execTransaction(
+      myMultiSig,
+      OWNERS[0],
+      address(mockERC1155),
+      0,
+      data,
+      DEFAULT_GAS * 2,
+      build_signatures(myMultiSig, OWNERS_PK, address(mockERC1155), 0, data, DEFAULT_GAS * 2)
+    );
 
-  //   mockERC1155.burn(tokenId_, amount_);
-
-  //   assertEq(mockERC1155.balanceOf(to_, tokenId_), 0);
-  // }
+    assertEq(mockERC1155.balanceOf(to_, tokenId_), 0);
+  }
 }

@@ -6,20 +6,37 @@ pragma solidity ^0.8.0;
  */
 
 import 'foundry-test-utility/contracts/utils/console.sol';
-import { CheatCodes } from 'foundry-test-utility/contracts/utils/cheatcodes.sol';
-import 'foundry-test-utility/contracts/utils/stdlib.sol';
-import { Test } from 'foundry-test-utility/contracts/utils/test.sol';
+import { Helper } from '../shared/helper.t.sol';
+import { Errors } from '../shared/errors.t.sol';
 import { MockERC20 } from '../../mocks/MockERC20.sol';
 
-contract MockERC20Test is Test {
+contract MockERC20Test is Helper {
   MockERC20 private mockERC20;
 
   string constant _TEST_NAME = 'MockERC20';
   string constant _TEST_SYMBOL = 'MOCK';
 
   function setUp() public {
+    initialize_helper(LOG_LEVEL, TestType.TestWithoutFactory);
+
     // Deploy contracts
     mockERC20 = new MockERC20();
+  }
+
+  function build_mint(address to_, uint256 amount_) internal pure returns (bytes memory) {
+    return
+      abi.encodePacked(
+        bytes4(keccak256('mint(address,uint256)')),
+        abi.encodePacked(bytes32(uint256(uint160(to_))), bytes32(amount_))
+      );
+  }
+
+  function build_burnFrom(address from_, uint256 amount_) internal pure returns (bytes memory) {
+    return
+      abi.encodePacked(
+        bytes4(keccak256('burnFrom(address,uint256)')),
+        abi.encodePacked(bytes32(uint256(uint160(from_))), bytes32(amount_))
+      );
   }
 
   function test_MockERC20_name() public {
@@ -37,7 +54,16 @@ contract MockERC20Test is Test {
     assertEq(mockERC20.balanceOf(to_), 0);
     assertEq(mockERC20.totalSupply(), 0);
 
-    mockERC20.mint(to_, amount_);
+    bytes memory data = build_mint(to_, amount_);
+    help_execTransaction(
+      myMultiSig,
+      OWNERS[0],
+      address(mockERC20),
+      0,
+      data,
+      DEFAULT_GAS * 2,
+      build_signatures(myMultiSig, OWNERS_PK, address(mockERC20), 0, data, DEFAULT_GAS * 2)
+    );
 
     assertEq(mockERC20.balanceOf(to_), amount_);
     assertEq(mockERC20.totalSupply(), amount_);
@@ -50,13 +76,29 @@ contract MockERC20Test is Test {
     assertEq(mockERC20.balanceOf(to_), 0);
     assertEq(mockERC20.totalSupply(), 0);
 
-    mockERC20.mint(to_, amount_);
+    bytes memory data = build_mint(to_, amount_);
+    help_execTransaction(
+      myMultiSig,
+      OWNERS[0],
+      address(mockERC20),
+      0,
+      data,
+      DEFAULT_GAS * 2,
+      build_signatures(myMultiSig, OWNERS_PK, address(mockERC20), 0, data, DEFAULT_GAS * 2)
+    );
 
     assertEq(mockERC20.balanceOf(to_), amount_);
 
-    vm.prank(to_);
-
-    mockERC20.burn(amount_);
+    data = build_burnFrom(to_, amount_);
+    help_execTransaction(
+      myMultiSig,
+      OWNERS[0],
+      address(mockERC20),
+      0,
+      data,
+      DEFAULT_GAS * 2,
+      build_signatures(myMultiSig, OWNERS_PK, address(mockERC20), 0, data, DEFAULT_GAS * 2)
+    );
 
     assertEq(mockERC20.balanceOf(to_), 0);
     assertEq(mockERC20.totalSupply(), 0);
