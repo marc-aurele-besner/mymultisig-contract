@@ -51,7 +51,7 @@ contract MockERC1155UpgradeableTest is Helper {
   }
 
   function test_MockERC1155Upgradeable_mint(address to_, uint256 tokenId_, uint256 amount_) public {
-    vm.assume(to_ != address(0));
+    vm.assume(to_ != address(0) && to_.code.length == 0);
     vm.assume(tokenId_ > 0);
     vm.assume(amount_ > 0);
 
@@ -72,6 +72,7 @@ contract MockERC1155UpgradeableTest is Helper {
   }
 
   function test_MockERC1155Upgradeable_burnFrom(address to_, uint256 tokenId_, uint256 amount_) public {
+    vm.assume(to_ != address(0) && to_.code.length == 0);
     vm.assume(to_ != address(0));
     vm.assume(tokenId_ > 0);
     vm.assume(amount_ > 0);
