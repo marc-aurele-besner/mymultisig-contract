@@ -205,13 +205,35 @@ contract Functions is Constants, Signatures {
     bytes memory data_,
     uint256 txnGas_,
     bytes memory signatures_,
+    uint256 nonce_,
     Errors.RevertStatus revertType_
   ) internal {
     vm.prank(prank_);
     verify_revertCall(revertType_);
+
+    if (revertType_ == Errors.RevertStatus.Success) {
+      vm.expectEmit(true, true, true, false);
+      emit TransactionExecuted(prank_, to_, value_, data_, txnGas_, nonce_);
+    } else {
+      vm.expectEmit(true, true, true, false);
+      emit TransactionFailed(prank_, to_, value_, data_, txnGas_, nonce_);
+    }
     multiSig_.execTransaction(to_, value_, data_, txnGas_, signatures_);
 
     if (revertType_ == Errors.RevertStatus.Success) {}
+  }
+
+  function help_execTransaction(
+    MyMultiSig multiSig_,
+    address prank_,
+    address to_,
+    uint256 value_,
+    bytes memory data_,
+    uint256 txnGas_,
+    bytes memory signatures_,
+    Errors.RevertStatus revertType_
+  ) internal {
+    help_execTransaction(multiSig_, prank_, to_, value_, data_, txnGas_, signatures_, multiSig_.nonce(), revertType_);
   }
 
   function help_execTransaction(
@@ -370,8 +392,9 @@ contract Functions is Constants, Signatures {
     for (uint256 i = 0; i < to_.length; i++) {
       gas = txGas_[i];
     }
+    uint96 nonce = multiSig_.nonce();
     bytes memory signatures = build_signatures(multiSig_, ownersPk_, to, value, data, gas);
-    help_execTransaction(multiSig_, prank_, to, value, data, gas, signatures);
+    help_execTransaction(multiSig_, prank_, to, value, data, gas, signatures, nonce, revertType_);
   }
 
   function help_multiRequest(
