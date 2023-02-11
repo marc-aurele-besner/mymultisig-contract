@@ -6,22 +6,39 @@ pragma solidity ^0.8.0;
  */
 
 import 'foundry-test-utility/contracts/utils/console.sol';
-import { CheatCodes } from 'foundry-test-utility/contracts/utils/cheatcodes.sol';
-import 'foundry-test-utility/contracts/utils/stdlib.sol';
-import { Test } from 'foundry-test-utility/contracts/utils/test.sol';
+import { Helper } from '../shared/helper.t.sol';
+import { Errors } from '../shared/errors.t.sol';
 
 import { MockERC20Upgradeable } from '../../mocks/MockERC20Upgradeable.sol';
 
-contract MockERC20UpgradeableTest is Test {
+contract MockERC20UpgradeableTest is Helper {
   MockERC20Upgradeable private mockERC20Upgradeable;
 
   string constant _TEST_NAME = 'MockERC20Upgradeable';
   string constant _TEST_SYMBOL = 'MOCK';
 
   function setUp() public {
+    initialize_helper(LOG_LEVEL, TestType.TestWithoutFactory);
+
     // Deploy contracts
     mockERC20Upgradeable = new MockERC20Upgradeable();
     mockERC20Upgradeable.initialize(_TEST_NAME, _TEST_SYMBOL);
+  }
+
+  function build_mint(address to_, uint256 amount_) internal pure returns (bytes memory) {
+    return
+      abi.encodePacked(
+        bytes4(keccak256('mint(address,uint256)')),
+        abi.encodePacked(bytes32(uint256(uint160(to_))), bytes32(amount_))
+      );
+  }
+
+  function build_burnFrom(address from_, uint256 amount_) internal pure returns (bytes memory) {
+    return
+      abi.encodePacked(
+        bytes4(keccak256('burnFrom(address,uint256)')),
+        abi.encodePacked(bytes32(uint256(uint160(from_))), bytes32(amount_))
+      );
   }
 
   function test_MockERC20Upgradeable_name() public {
@@ -39,7 +56,16 @@ contract MockERC20UpgradeableTest is Test {
     assertEq(mockERC20Upgradeable.balanceOf(to_), 0);
     assertEq(mockERC20Upgradeable.totalSupply(), 0);
 
-    mockERC20Upgradeable.mint(to_, amount_);
+    bytes memory data = build_mint(to_, amount_);
+    help_execTransaction(
+      myMultiSig,
+      OWNERS[0],
+      address(mockERC20Upgradeable),
+      0,
+      data,
+      DEFAULT_GAS * 2,
+      build_signatures(myMultiSig, OWNERS_PK, address(mockERC20Upgradeable), 0, data, DEFAULT_GAS * 2)
+    );
 
     assertEq(mockERC20Upgradeable.balanceOf(to_), amount_);
     assertEq(mockERC20Upgradeable.totalSupply(), amount_);
@@ -52,13 +78,29 @@ contract MockERC20UpgradeableTest is Test {
     assertEq(mockERC20Upgradeable.balanceOf(to_), 0);
     assertEq(mockERC20Upgradeable.totalSupply(), 0);
 
-    mockERC20Upgradeable.mint(to_, amount_);
+    bytes memory data = build_mint(to_, amount_);
+    help_execTransaction(
+      myMultiSig,
+      OWNERS[0],
+      address(mockERC20Upgradeable),
+      0,
+      data,
+      DEFAULT_GAS * 2,
+      build_signatures(myMultiSig, OWNERS_PK, address(mockERC20Upgradeable), 0, data, DEFAULT_GAS * 2)
+    );
 
     assertEq(mockERC20Upgradeable.balanceOf(to_), amount_);
 
-    vm.prank(to_);
-
-    mockERC20Upgradeable.burn(amount_);
+    data = build_burnFrom(to_, amount_);
+    help_execTransaction(
+      myMultiSig,
+      OWNERS[0],
+      address(mockERC20Upgradeable),
+      0,
+      data,
+      DEFAULT_GAS * 2,
+      build_signatures(myMultiSig, OWNERS_PK, address(mockERC20Upgradeable), 0, data, DEFAULT_GAS * 2)
+    );
 
     assertEq(mockERC20Upgradeable.balanceOf(to_), 0);
     assertEq(mockERC20Upgradeable.totalSupply(), 0);
