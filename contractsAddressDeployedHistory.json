@@ -1,19 +1,19 @@
 [
   {
     "name": "MyMultiSigFactory",
-    "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-    "network": "localhost",
-    "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-    "deploymentDate": "Mon Feb 06 2023 20:15:27 GMT-0500 (Eastern Standard Time)",
-    "chainId": 31337,
-    "blockHash": "0x658d9e7d808a6d0e656c272919db5effcca3bc70132ff55a098039825c0ab2e4",
-    "blockNumber": 1,
+    "address": "0xd3A97Ac36cAC19f2dd2503DA540cD5593b0D7Ad8",
+    "network": "goerli",
+    "deployer": "0x45C36f4D95ab36758a87F293aB998d6F5736eCcc",
+    "deploymentDate": "Sun Feb 12 2023 09:06:01 GMT-0500 (Eastern Standard Time)",
+    "chainId": 5,
+    "blockHash": "",
+    "blockNumber": 0,
     "tag": "",
     "extra": {
       "owners": [
-        "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-        "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-        "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
+        "0x45C36f4D95ab36758a87F293aB998d6F5736eCcc",
+        "0x0811ec2Ec667Ecc9D86c8bEE327C23e4435edFA6",
+        "0xEa43Ae240bd259aAe6bd5558a1301E87B6D41a71"
       ],
       "threshold": 2
     }
