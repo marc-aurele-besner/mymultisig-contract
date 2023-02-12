@@ -108,7 +108,7 @@ contract Functions is Constants, Signatures {
   }
 
   // MyMultiSigFactory
-  function build_domainSeparator(MyMultiSig multiSig_, string memory contractName_) public returns (bytes32) {
+  function build_domainSeparator(MyMultiSig multiSig_, string memory contractName_) public view returns (bytes32) {
     return
       keccak256(
         abi.encode(

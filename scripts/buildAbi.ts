@@ -1,10 +1,10 @@
 import { artifacts } from 'hardhat'
-import { existsSync, rmdirSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, rmSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 
 import constants from '../constants'
 
 async function main() {
-  if (existsSync('abi')) rmdirSync('abi', { recursive: true })
+  if (existsSync('abi')) rmSync('abi', { recursive: true })
 
   const allArtifactPaths = await artifacts.getArtifactPaths()
   const filteredArtifactPaths = allArtifactPaths.filter((path: string) => path.includes(constants.CONTRACT_NAME))
