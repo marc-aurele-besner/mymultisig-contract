@@ -7,6 +7,9 @@ contract MyMultiSigFactory {
   uint256 private _multiSigCount;
 
   mapping(uint256 => MyMultiSig) private _multiSigs;
+  mapping(address => uint256) private _multiSigIndex;
+  mapping(address => uint256) private _multiSigCreatorCount;
+  mapping(address => mapping(uint256 => uint256)) private _multiSigIndexByCreator;
 
   event MyMultiSigCreated(
     address indexed creator,
@@ -27,7 +30,7 @@ contract MyMultiSigFactory {
   /// @notice Retrieves the contract version
   /// @return The version as a string memory.
   function version() public pure returns (string memory) {
-    return '0.0.2';
+    return '0.0.4';
   }
 
   /// @notice Retrieves the amount of multisig contract created via this Factory contract
@@ -43,6 +46,21 @@ contract MyMultiSigFactory {
     return address(_multiSigs[index]);
   }
 
+  /// @notice Retrieves the amount of multisig contract created via this Factory contract by a specific creator
+  /// @param creator The creator of the multisig contract
+  /// @return The current amount value as a uint256.
+  function multiSigCreatorCount(address creator) public view returns (uint256) {
+    return _multiSigCreatorCount[creator];
+  }
+
+  /// @notice Retrieves a multisig created by a specific creator by it's index
+  /// @param creator The creator of the multisig contract
+  /// @param index The index of the multisig
+  /// @return The current amount value as a uint256.
+  function multiSigByCreatorC(address creator, uint256 index) public view returns (address) {
+    return address(_multiSigs[_multiSigIndexByCreator[creator][index]]);
+  }
+
   /// @notice Executes a transaction
   /// @param contractName The name of your multisig contract
   /// @param owners The owners list
@@ -52,7 +70,11 @@ contract MyMultiSigFactory {
     address[] memory owners,
     uint16 threshold
   ) public payable returns (bool success) {
-    _multiSigs[_multiSigCount] = new MyMultiSig(contractName, owners, threshold);
+    MyMultiSig myMultiSig = new MyMultiSig(contractName, owners, threshold);
+    _multiSigs[_multiSigCount] = myMultiSig;
+    _multiSigIndex[address(myMultiSig)] = _multiSigCount;
+    _multiSigIndexByCreator[msg.sender][_multiSigCreatorCount[msg.sender]] = _multiSigCount;
+    _multiSigCreatorCount[msg.sender]++;
     emit MyMultiSigCreated(msg.sender, address(_multiSigs[_multiSigCount]), _multiSigCount, contractName, owners);
     _multiSigCount++;
     return true;

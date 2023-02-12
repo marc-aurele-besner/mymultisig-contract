@@ -59,6 +59,13 @@ const config: HardhatUserConfig = {
       },
       chainId: 31337,
     },
+    anvil9999: {
+      url: 'http://127.0.0.1:8546',
+      accounts: {
+        mnemonic: 'test test test test test test test test test test test junk',
+      },
+      chainId: 9999,
+    },
     ethereum: {
       url: `${RPC_MAINNET}`,
       chainId: 1,
