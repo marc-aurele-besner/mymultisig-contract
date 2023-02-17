@@ -1,8 +1,9 @@
 import { HardhatUserConfig } from 'hardhat/config'
+import * as dotenv from 'dotenv'
 import '@nomicfoundation/hardhat-toolbox'
 import 'hardhat-awesome-cli'
 import 'hardhat-contract-clarity'
-import * as dotenv from 'dotenv'
+import '@openzeppelin/hardhat-upgrades'
 
 dotenv.config()
 
@@ -31,6 +32,7 @@ const {
   PRIVATE_KEY_MUMBAI_01,
   PRIVATE_KEY_MUMBAI_02,
   PRIVATE_KEY_MUMBAI_03,
+  ETHERSCAN_API_KEY,
 } = process.env
 
 const listPrivateKeysOrProvideDummyPk = (
@@ -151,6 +153,12 @@ const config: HardhatUserConfig = {
       forking: {
         url: `${RPC_MUMBAI}`,
       },
+    },
+  },
+  etherscan: {
+    apiKey: {
+      mainnet: `${ETHERSCAN_API_KEY}`,
+      goerli: `${ETHERSCAN_API_KEY}`,
     },
   },
   solidity: {

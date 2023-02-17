@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.18;
 
+import '@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol';
 import './MyMultiSig.sol';
 
-contract MyMultiSigFactory {
+contract MyMultiSigFactory is Initializable {
   uint256 private _multiSigCount;
 
   mapping(uint256 => MyMultiSig) private _multiSigs;
@@ -19,7 +20,7 @@ contract MyMultiSigFactory {
     address[] originalOwners
   );
 
-  constructor() {}
+  function initialize() external initializer {}
 
   /// @notice Retrieves the contract name
   /// @return The name as a string memory.

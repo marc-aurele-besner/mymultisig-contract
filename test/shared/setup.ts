@@ -1,4 +1,4 @@
-import { ethers, network, addressBook } from 'hardhat'
+import { ethers, network, upgrades, addressBook } from 'hardhat'
 import {
   NetworkConfig,
   HardhatNetworkConfig,
@@ -39,7 +39,7 @@ const setupContract = async (
   // Get contract artifacts and deploy contract
   if (deployFactory) {
     ContractFactory = await ethers.getContractFactory(contractName)
-    contract = await ContractFactory.deploy()
+    contract = await upgrades.deployProxy(ContractFactory, [])
   } else {
     ContractFactory = await ethers.getContractFactory(contractName)
     contract = await ContractFactory.deploy(contractName, ownersAddresses, threshold)
