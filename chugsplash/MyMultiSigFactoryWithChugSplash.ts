@@ -2,10 +2,10 @@ import { UserChugSplashConfig } from '@chugsplash/core'
 
 const config: UserChugSplashConfig = {
   options: {
-    projectName: 'MyMultiSigFactory',
+    projectName: 'MyMultiSigFactoryWithChugSplash',
   },
   contracts: {
-    MyMultiSigFactory: {
+    MyMultiSigFactoryWithChugSplash: {
       contract: 'MyMultiSigFactoryWithChugSplash',
       variables: {
         _multiSigCount: 0,

@@ -1,4 +1,4 @@
-import { ethers, network, upgrades, addressBook } from 'hardhat'
+import { ethers, network, upgrades, chugsplash, addressBook } from 'hardhat'
 import {
   NetworkConfig,
   HardhatNetworkConfig,
@@ -56,6 +56,49 @@ const setupContract = async (
     network.config.chainId,
     contract.deployTransaction.blockHash,
     contract.deployTransaction.blockNumber,
+    undefined,
+    {
+      owners: ownersAddresses,
+      threshold,
+    }
+  )
+  if ((await addressBook.retrieveContract(contractName, network.name)) === undefined)
+    throw new Error('Error saving and retrieving contract from address book.')
+
+  return { contract, contractName, contractAddress: contract.address, ownersAddresses, threshold }
+}
+
+const setupContractWithChugSplash = async (
+  contractName = constants.CONTRACT_NAME as string,
+  ownersAddresses = [] as string[],
+  threshold = constants.DEFAULT_THRESHOLD as number,
+  deployFactory = false
+): Promise<SetupContractReturn> => {
+  let ContractFactory
+  let contract
+  // Get contract artifacts and deploy contract
+  if (deployFactory) {
+    await chugsplash.reset()
+    contract = await chugsplash.getContract(contractName, contractName)
+  } else {
+    ContractFactory = await ethers.getContractFactory(contractName)
+    contract = await ContractFactory.deploy(contractName, ownersAddresses, threshold)
+    // Wait for contract to be deployed
+    await contract.deployed()
+  }
+
+  await addressBook.saveContract(
+    contractName,
+    contract.address,
+    network.name,
+    contract.deployTransaction ? contract.deployTransaction.from : (await ethers.getSigners())[0].address,
+    network.config.chainId,
+    contract.deployTransaction ? contract.deployTransaction.blockHash : (await ethers.provider.getBlock('latest')).hash,
+    contract.deployTransaction
+      ? contract.deployTransaction.blockNumber
+      : (
+          await ethers.provider.getBlock('latest')
+        ).number,
     undefined,
     {
       owners: ownersAddresses,
@@ -216,5 +259,6 @@ const setupProviderAndAccount = async () => {
 
 export default {
   setupContract,
+  setupContractWithChugSplash,
   setupProviderAndAccount,
 }

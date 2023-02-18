@@ -22,16 +22,19 @@ describe('MyMultiSig - Deployed From Factory With ChugSplash', function () {
   beforeEach(async function () {
     const owners: string[] = [owner01.address, owner02.address, owner03.address]
     ownerCount = owners.length
-    await chugsplash.reset()
-
-    deployment = await chugsplash.getContract(Helper.CONTRACT_FACTORY_NAME, Helper.CONTRACT_FACTORY_NAME)
-    const tx = await deployment.createMultiSig(
+    deployment = await Helper.setupContractWithChugSplash(
+      Helper.CONTRACT_FACTORY_NAME + 'WithChugSplash',
+      [owner01.address, owner02.address, owner03.address],
+      2,
+      true
+    )
+    const tx = await deployment.contract.createMultiSig(
       Helper.CONTRACT_NAME,
       [owner01.address, owner02.address, owner03.address],
       2
     )
     await tx.wait()
-    const contractAddress = await deployment.multiSig(0)
+    const contractAddress = await deployment.contract.multiSig(0)
 
     const Contract = await ethers.getContractFactory(Helper.CONTRACT_NAME)
     contract = new ethers.Contract(contractAddress, Contract.interface, provider)
