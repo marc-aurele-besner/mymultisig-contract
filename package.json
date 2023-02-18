@@ -53,10 +53,12 @@
   },
   "homepage": "https://github.com/marc-aurele-besner/mymultisig-contract#readme",
   "devDependencies": {
+    "@chugsplash/plugins": "^0.11.1",
     "@nomicfoundation/hardhat-chai-matchers": "^1.0.5",
     "@nomicfoundation/hardhat-toolbox": "^2.0.1",
     "@nomiclabs/hardhat-ethers": "^2.2.2",
     "@nomiclabs/hardhat-etherscan": "^3.1.5",
+    "@openzeppelin/hardhat-upgrades": "^1.22.1",
     "@typechain/hardhat": "^6.1.5",
     "@types/chai": "^4.3.4",
     "@types/mocha": "^10.0.1",

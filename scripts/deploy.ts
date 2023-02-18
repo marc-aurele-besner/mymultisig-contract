@@ -1,5 +1,3 @@
-import { ethers } from 'hardhat'
-
 import Helper from '../test/shared'
 
 let provider: any
