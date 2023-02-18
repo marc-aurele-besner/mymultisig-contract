@@ -4,6 +4,7 @@ import '@nomicfoundation/hardhat-toolbox'
 import 'hardhat-awesome-cli'
 import 'hardhat-contract-clarity'
 import '@openzeppelin/hardhat-upgrades'
+import '@chugsplash/plugins'
 
 dotenv.config()
 
@@ -165,9 +166,23 @@ const config: HardhatUserConfig = {
     compilers: [
       {
         version: '0.8.18',
+        settings: {
+          outputSelection: {
+            '*': {
+              '*': ['storageLayout'],
+            },
+          },
+        },
       },
       {
         version: '0.8.0',
+        settings: {
+          outputSelection: {
+            '*': {
+              '*': ['storageLayout'],
+            },
+          },
+        },
       },
     ],
   },
