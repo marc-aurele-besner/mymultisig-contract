@@ -264,7 +264,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
   /// @notice Changes the threshold
   /// @param newThreshold The new threshold.
   /// @dev This function can only be called inside a multisig transaction.
-  function _changeThreshold(uint16 newThreshold) public {
+  function _changeThreshold(uint16 newThreshold) private {
     require(newThreshold > 0, 'MyMultiSig: threshold must be greater than 0');
     require(newThreshold <= _ownerCount, 'MyMultiSig: threshold must be less than or equal to owner count');
     _threshold = newThreshold;
