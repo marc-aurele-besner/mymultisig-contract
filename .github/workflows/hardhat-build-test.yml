@@ -19,4 +19,4 @@ jobs:
       - name: Hardhat Test
         run: yarn hardhat test
       - name: Hardhat Coverage
-        run: yarn hardhat coverage
+        run: yarn coverage

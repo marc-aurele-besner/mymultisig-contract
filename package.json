@@ -1,6 +1,6 @@
 {
   "name": "mymultisig-contract",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Multi-Signatures Solidity Smart Contract for mymultisig.app",
   "main": "index.js",
   "files": [
@@ -13,7 +13,7 @@
     "build": "hardhat run scripts/buildAbi.ts",
     "compile": "hardhat compile",
     "test": "hardhat test && forge test",
-    "coverage": "hardhat coverage",
+    "coverage": "hardhat coverage --config hardhat.config.coverage.ts --testfiles test/MyMultiSig.test.ts && hardhat coverage --config hardhat.config.coverage.ts --testfiles test/MyMultiSigFromFactory.test.ts",
     "flatten": "hardhat flatten > Flat.sol && npx hardhat flatten contracts/MyMultiSig.sol > FlatMyMultiSig.sol",
     "prettier-test": "prettier --write test/",
     "prettier-contracts": "prettier --write contracts/",
@@ -54,6 +54,8 @@
   "homepage": "https://github.com/marc-aurele-besner/mymultisig-contract#readme",
   "devDependencies": {
     "@chugsplash/plugins": "^0.11.1",
+    "@commitlint/cli": "^17.4.4",
+    "@commitlint/config-conventional": "^17.4.4",
     "@nomicfoundation/hardhat-chai-matchers": "^1.0.5",
     "@nomicfoundation/hardhat-toolbox": "^2.0.1",
     "@nomiclabs/hardhat-ethers": "^2.2.2",
@@ -68,7 +70,6 @@
     "fs": "^0.0.1-security",
     "hardhat": "^2.12.6",
     "hardhat-awesome-cli": "^0.0.23",
-    "hardhat-contract-clarity": "^0.0.2",
     "hardhat-gas-reporter": "^1.0.9",
     "prettier": "^2.8.3",
     "prettier-plugin-solidity": "^1.1.1",
@@ -83,6 +84,7 @@
     "@typechain/ethers-v5": "^10.2.0",
     "ethers": "5.4.7",
     "ethersV6": "npm:ethers",
-    "foundry-test-utility": "^0.0.7"
+    "foundry-test-utility": "^0.0.7",
+    "hardhat-contract-clarity": "^0.0.5"
   }
 }

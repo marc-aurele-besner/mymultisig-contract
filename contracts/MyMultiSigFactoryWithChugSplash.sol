@@ -28,7 +28,7 @@ contract MyMultiSigFactoryWithChugSplash {
   /// @notice Retrieves the contract version
   /// @return The version as a string memory.
   function version() public pure returns (string memory) {
-    return '0.0.4';
+    return '0.0.6';
   }
 
   /// @notice Retrieves the amount of multisig contract created via this Factory contract
@@ -55,7 +55,7 @@ contract MyMultiSigFactoryWithChugSplash {
   /// @param creator The creator of the multisig contract
   /// @param index The index of the multisig
   /// @return The current amount value as a uint256.
-  function multiSigByCreatorC(address creator, uint256 index) public view returns (address) {
+  function multiSigByCreator(address creator, uint256 index) public view returns (address) {
     return address(_multiSigs[_multiSigIndexByCreator[creator][index]]);
   }
 

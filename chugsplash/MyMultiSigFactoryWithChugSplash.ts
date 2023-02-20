@@ -9,11 +9,12 @@ const config: UserChugSplashConfig = {
       contract: 'MyMultiSigFactoryWithChugSplash',
       variables: {
         _multiSigCount: 0,
-        _multiSigs: [],
-        _multiSigIndex: [],
-        _multiSigCreatorCount: [],
-        _multiSigIndexByCreator: [],
+        _multiSigs: {},
+        _multiSigIndex: {},
+        _multiSigCreatorCount: {},
+        _multiSigIndexByCreator: {},
       },
+      constructorArgs: {},
     },
   },
 }

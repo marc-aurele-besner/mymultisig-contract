@@ -4,7 +4,6 @@ import '@nomicfoundation/hardhat-toolbox'
 import 'hardhat-awesome-cli'
 import 'hardhat-contract-clarity'
 import '@openzeppelin/hardhat-upgrades'
-import '@chugsplash/plugins'
 
 dotenv.config()
 
