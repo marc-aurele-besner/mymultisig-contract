@@ -55,7 +55,7 @@ contract MyMultiSigFactoryWithChugSplash {
   /// @param creator The creator of the multisig contract
   /// @param index The index of the multisig
   /// @return The current amount value as a uint256.
-  function multiSigByCreatorC(address creator, uint256 index) public view returns (address) {
+  function multiSigByCreator(address creator, uint256 index) public view returns (address) {
     return address(_multiSigs[_multiSigIndexByCreator[creator][index]]);
   }
 
