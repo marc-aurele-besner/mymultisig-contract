@@ -28,7 +28,7 @@ contract MyMultiSigFactoryWithChugSplash {
   /// @notice Retrieves the contract version
   /// @return The version as a string memory.
   function version() public pure returns (string memory) {
-    return '0.0.4';
+    return '0.0.6';
   }
 
   /// @notice Retrieves the amount of multisig contract created via this Factory contract
