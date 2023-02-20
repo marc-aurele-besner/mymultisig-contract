@@ -48,12 +48,20 @@ describe('MyMultiSig - Deployed From Factory', function () {
     expect(await deployment.contract.version()).to.be.equal(Helper.CONTRACT_FACTORY_VERSION)
   })
 
+  it('Contract Factory return correct multisig count', async function () {
+    expect(await deployment.contract.multiSigCount()).to.be.equal(1)
+  })
+
   it('Contract Factory return correct multisig contract address', async function () {
     expect(await deployment.contract.multiSig(0)).to.be.equal(contract.address)
   })
 
   it('Contract Factory return correct creator count', async function () {
     expect(await deployment.contract.multiSigCreatorCount(owner01.address)).to.be.equal(1)
+  })
+
+  it('Contract Factory return correct multisig contract address when calling multiSigByCreator(creator, id)', async function () {
+    expect(await deployment.contract.multiSigByCreator(owner01.address, 0)).to.be.equal(contract.address)
   })
 
   it('Contract return correct contract name', async function () {
