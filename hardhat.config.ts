@@ -34,6 +34,7 @@ const {
   PRIVATE_KEY_MUMBAI_02,
   PRIVATE_KEY_MUMBAI_03,
   ETHERSCAN_API_KEY,
+  OPENAI_API_KEY,
 } = process.env
 
 const listPrivateKeysOrProvideDummyPk = (
@@ -196,6 +197,41 @@ const config: HardhatUserConfig = {
   },
   mocha: {
     timeout: 40000,
+  },
+  clarity: {
+    openAIKey: OPENAI_API_KEY,
+    summary: {
+      // contract: 'contracts/MyMultiSigFactory.sol',
+      output: 'clarity.txt',
+      model: 'text-davinci-003',
+      prompt: 'Summarize the following contract:\n\n',
+      temperature: 0.7,
+      max_tokens: 2000,
+      top_p: 1.0,
+      frequency_penalty: 0.0,
+      presence_penalty: 0.0,
+    },
+    readme: {
+      output: 'clarity-readme.md',
+      model: 'text-davinci-003',
+      prompt: 'With the following package.json, can you generate a descriptive readme in markdown?\n\n',
+      temperature: 0.7,
+      max_tokens: 2000,
+      top_p: 1.0,
+      frequency_penalty: 0.0,
+      presence_penalty: 0.0,
+    },
+    AIhelp: {
+      error: 'How to use hardhat with openAI',
+      model: 'text-davinci-003',
+      prompt: 'Using hardhat, I have this error message:\n\n',
+      promptEnd: 'Can you explain why and how I can fix the error:\n\n',
+      temperature: 0.7,
+      max_tokens: 2000,
+      top_p: 1.0,
+      frequency_penalty: 0.0,
+      presence_penalty: 0.0,
+    },
   },
 }
 

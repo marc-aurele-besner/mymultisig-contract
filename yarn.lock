@@ -2366,7 +2366,7 @@ axios@^0.21.1:
 
 axios@^0.26.0:
   version "0.26.1"
-  resolved "https://registry.npmjs.org/axios/-/axios-0.26.1.tgz"
+  resolved "https://registry.yarnpkg.com/axios/-/axios-0.26.1.tgz#1ede41c51fcf51bbbd6fd43669caaa4f0495aaa9"
   integrity sha512-fPwcX4EvnSHuInCMItEhAGnaSEXRBjtzh9fOtsE6E1G6p7vl7edEeZe11QHf18+6+9gR5PbKV/sGKNaD8YaMeA==
   dependencies:
     follow-redirects "^1.14.8"
@@ -4442,10 +4442,10 @@ hardhat-awesome-cli@^0.0.23:
     fs "^0.0.1-security"
     inquirer "^8.2.5"
 
-hardhat-contract-clarity@^0.0.5:
-  version "0.0.5"
-  resolved "https://registry.npmjs.org/hardhat-contract-clarity/-/hardhat-contract-clarity-0.0.5.tgz"
-  integrity sha512-sWd5t5vT9Xj+JGeiIAdBwHTtXAZIeZdtUzx9JWgVOaOyejvfBNfg+4ijPZ0fFsKjgdV6Obc7V/JYz1wuDAnJZw==
+hardhat-contract-clarity@^0.1.0:
+  version "0.1.0"
+  resolved "https://registry.yarnpkg.com/hardhat-contract-clarity/-/hardhat-contract-clarity-0.1.0.tgz#00e3ab9fa6c1e794ba63f6c77ceb0268de969034"
+  integrity sha512-W+5oLMMWoX3PuoQGG8Ey/Rw2+wCFj3VjjFoLu32tLam/sQdD19akDF4wqd3ZC5LxHuE7PUsGafpvkvRxWuwDYA==
   dependencies:
     fs "^0.0.1-security"
     inquirer "^8.2.5"
@@ -6280,7 +6280,7 @@ onetime@^5.1.0, onetime@^5.1.2:
 
 openai@^3.1.0:
   version "3.1.0"
-  resolved "https://registry.npmjs.org/openai/-/openai-3.1.0.tgz"
+  resolved "https://registry.yarnpkg.com/openai/-/openai-3.1.0.tgz#13bfb228cf777155b882c2deb3a03bc5094cb7b3"
   integrity sha512-v5kKFH5o+8ld+t0arudj833Mgm3GcgBnbyN9946bj6u7bvel4Yg6YFz2A4HLIYDzmMjIo0s6vSG9x73kOwvdCg==
   dependencies:
     axios "^0.26.0"
