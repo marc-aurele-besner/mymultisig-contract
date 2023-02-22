@@ -22,9 +22,9 @@ contract MyMultiSigExtended is MyMultiSig {
   }
 
   /// @notice Set if the contract only accepts owner requests (use for UI and other integrations)
-  /// @param isOnlyOwnerRequest_ The true if the contract only accepts owner requests, false otherwise.
+  /// @param isOnlyOwnerRequest The true if the contract only accepts owner requests, false otherwise.
   /// @dev This function can only be called inside a multisig transaction.
-  function setOnlyOwnerRequest(bool isOnlyOwnerRequest_) public onlyThis {
-    _onlyOwnerRequest = isOnlyOwnerRequest_;
+  function setOnlyOwnerRequest(bool isOnlyOwnerRequest) public onlyThis {
+    _onlyOwnerRequest = isOnlyOwnerRequest;
   }
 }
