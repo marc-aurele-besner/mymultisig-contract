@@ -218,6 +218,59 @@ describe('MyMultiSig', function () {
     )
   })
 
+  it('Execute transaction without data but 1 ETH in value', async function () {
+    await Helper.sendRawTxn(
+      {
+        to: contract.address,
+        value: ethers.utils.parseEther('1'),
+        data: '',
+      },
+      owner01,
+      ethers,
+      provider
+    )
+    await Helper.execTransaction(
+      contract,
+      owner01,
+      [owner01, owner02, owner03],
+      owner01.address,
+      ethers.utils.parseEther('1'),
+      '0x',
+      Helper.DEFAULT_GAS
+    )
+  })
+
+  it('Execute transaction without data but 2x 1 ETH in value', async function () {
+    await Helper.sendRawTxn(
+      {
+        to: contract.address,
+        value: ethers.utils.parseEther('2'),
+        data: '',
+      },
+      owner01,
+      ethers,
+      provider
+    )
+    await Helper.execTransaction(
+      contract,
+      owner01,
+      [owner01, owner02, owner03],
+      owner01.address,
+      ethers.utils.parseEther('1'),
+      '0x',
+      Helper.DEFAULT_GAS
+    )
+    await Helper.execTransaction(
+      contract,
+      owner02,
+      [owner01, owner02, owner03],
+      owner01.address,
+      ethers.utils.parseEther('1'),
+      '0x',
+      Helper.DEFAULT_GAS
+    )
+  })
+
   it('Emit TransactionFailed when valid signature try to execute a invalid call', async function () {
     const MockERC20 = await ethers.getContractFactory('MockERC20')
     const data = MockERC20.interface.encodeFunctionData('transferFrom(address,address,uint256)', [
@@ -230,7 +283,7 @@ describe('MyMultiSig', function () {
       owner01,
       [owner01, owner02, owner03],
       contract.address,
-      0,
+      Helper.ZERO,
       data,
       Helper.DEFAULT_GAS,
       undefined,
@@ -240,7 +293,7 @@ describe('MyMultiSig', function () {
 
   it('Cannot reuse a signature', async function () {
     const data = contract.interface.encodeFunctionData('addOwner(address)', [user02.address])
-    const signatures = await Helper.prepareSignatures(contract, [owner01, owner02], contract.address, 0, data)
+    const signatures = await Helper.prepareSignatures(contract, [owner01, owner02], contract.address, Helper.ZERO, data)
     await Helper.execTransaction(
       contract,
       owner01,
@@ -273,7 +326,7 @@ describe('MyMultiSig', function () {
       owner01,
       [owner01, owner02, owner03],
       [contract.address, contract.address, contract.address],
-      [0, 0, 0],
+      [Helper.ZERO, Helper.ZERO, Helper.ZERO],
       [
         contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
         contract.interface.encodeFunctionData('addOwner(address)', [user02.address]),
