@@ -62,7 +62,8 @@ contract Functions is Constants, Signatures {
 
     if (testType_ == TestType.TestWithFactory) {
       myMultiSigFactory = new MyMultiSigFactory();
-      (, myMultiSig) = help_createMultiSig(ADMIN, CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD);
+      (, address newMyMultiSig) = help_createMultiSig(ADMIN, CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD);
+      myMultiSig = MyMultiSig(payable(newMyMultiSig));
     } else {
       myMultiSig = new MyMultiSig(CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD);
     }
@@ -80,14 +81,15 @@ contract Functions is Constants, Signatures {
     address[] memory owners_,
     uint16 threshold_,
     Errors.RevertStatus revertType_
-  ) internal returns (uint256 multiSigId, MyMultiSig newMultiSig) {
+  ) internal returns (uint256 multiSigId, address multiSig) {
     vm.prank(prank_);
     verify_revertCall(revertType_);
-    myMultiSigFactory.createMultiSig(contractName_, owners_, threshold_);
+    address payable newMultisigAddress = payable(myMultiSigFactory.createMultiSig(contractName_, owners_, threshold_));
 
     if (revertType_ == Errors.RevertStatus.Success) {
       multiSigId = myMultiSigFactory.multiSigCount();
-      newMultiSig = MyMultiSig(myMultiSigFactory.multiSig(multiSigId - 1));
+      MyMultiSig newMultiSig = MyMultiSig(newMultisigAddress);
+      multiSig = address(newMultiSig);
       assertEq(newMultiSig.name(), contractName_);
       assertEq(newMultiSig.threshold(), threshold_);
       uint256 ownersLength = owners_.length;
@@ -103,7 +105,7 @@ contract Functions is Constants, Signatures {
     string memory contractName_,
     address[] memory owners_,
     uint16 threshold_
-  ) internal returns (uint256 multiSigId, MyMultiSig newMultiSig) {
+  ) internal returns (uint256 multiSigId, address multiSig) {
     return help_createMultiSig(prank_, contractName_, owners_, threshold_, Errors.RevertStatus.Success);
   }
 

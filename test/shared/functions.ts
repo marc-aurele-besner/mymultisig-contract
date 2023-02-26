@@ -1,8 +1,11 @@
 import { expect } from 'chai'
+import { BigNumber, Contract } from 'ethers'
 import { ethers, network } from 'hardhat'
 
 import constants from '../../constants'
 import signature from './signatures'
+
+export const ZERO = BigNumber.from(0)
 
 export const sendRawTxn = async (input: any, sender: any, ethers: any, provider: any) => {
   const txCount = await provider.getTransactionCount(sender.address)
@@ -33,12 +36,12 @@ export const checkRawTxnResult = async (input: any, sender: any, error: undefine
   return result
 }
 
-export const getEventFromReceipt = async (receipt: any, eventName: any) => {
-  let contractInterface: any = await ethers.getContractFactory(constants.CONTRACT_NAME)
+export const getEventFromReceipt = async (contract: Contract, receipt: any, eventName: any) => {
   const log = receipt.logs.map((log: any) => {
     try {
-      return contractInterface.decodeEventLog(eventName, log.data, log.topics)
+      return contract.interface.parseLog(log)
     } catch (e) {
+      console.log('e', e)
       return
     }
   })
@@ -49,7 +52,7 @@ export const prepareSignatures = async (
   contract: any,
   owners: any[],
   to: string,
-  value: number,
+  value: BigNumber,
   data: string,
   gas = constants.DEFAULT_GAS as number
 ) => {
@@ -67,7 +70,7 @@ export const execTransaction = async (
   submitter: any,
   owners: any[],
   to: string,
-  value: number,
+  value: BigNumber,
   data: string,
   gas = constants.DEFAULT_GAS as number,
   errorMsg?: string,
@@ -80,20 +83,41 @@ export const execTransaction = async (
 
   const receipt = await checkRawTxnResult(input, submitter, errorMsg)
   if (!errorMsg) {
-    const event = await getEventFromReceipt(receipt, 'TransactionExecuted')
+    const event = await getEventFromReceipt(contract, receipt, 'TransactionExecuted')
     for (var i = 0; i < event.length; i++) {
-      if (event[i]) {
-        expect(submitter.address).to.be.equal(event[i].sender)
-        return
+      if (event[i] && event[i].name === 'TransactionExecuted') {
+        expect(event[i].args.sender).to.be.equal(submitter.address)
+        expect(event[i].args.to).to.be.equal(to)
+        expect(event[i].args.value).to.be.equal(value)
+        expect(event[i].args.data).to.be.equal(data)
+        expect(event[i].args.txnGas).to.be.equal(gas)
+        return receipt
+      } else {
+        if (
+          extraEvents &&
+          extraEvents.find((extraEvent: string) => extraEvent === 'TransactionFailed') &&
+          event[i] &&
+          event[i].name === 'TransactionFailed'
+        ) {
+          expect(event[i].args.sender).to.be.equal(submitter.address)
+          expect(event[i].args.to).to.be.equal(to)
+          expect(event[i].args.value).to.be.equal(value)
+          expect(event[i].args.data).to.be.equal(data)
+          expect(event[i].args.txnGas).to.be.equal(gas)
+          return receipt
+        } else {
+          expect.fail('TransactionExecuted event not found')
+        }
       }
     }
+    if (event.length == 0) expect.fail('TransactionExecuted event not found')
     if (extraEvents && extraEvents.length > 0) {
       for (let i = 1; i < extraEvents.length; i++) {
-        const eventsFound = await getEventFromReceipt(receipt, event)
+        const eventsFound = await getEventFromReceipt(contract, receipt, event)
         for (var ii = 0; i < eventsFound.length; ii++) {
           if (eventsFound[ii]) {
             expect(submitter.address).to.be.equal(eventsFound[ii].sender)
-            return
+            return receipt
           }
         }
       }
@@ -106,7 +130,7 @@ export const isValidSignature = async (
   submitter: any,
   owners: any[],
   to: string,
-  value: number,
+  value: BigNumber,
   data: string,
   gas = constants.DEFAULT_GAS as number,
   errorMsg?: string
@@ -128,7 +152,7 @@ export const multiRequest = async (
   submitter: any,
   owners: any[],
   to_: string[],
-  value_: number[],
+  value_: BigNumber[],
   data_: string[],
   gas_: number[],
   errorMsg?: string,
@@ -167,7 +191,7 @@ export const addOwner = async (
 ) => {
   const data = contract.interface.encodeFunctionData('addOwner(address)', [ownerToAdd])
 
-  await execTransaction(contract, submitter, owners, contract.address, 0, data, gas, errorMsg, extraEvents)
+  await execTransaction(contract, submitter, owners, contract.address, ZERO, data, gas, errorMsg, extraEvents)
 
   if (!errorMsg) expect(await contract.isOwner(ownerToAdd)).to.be.true
 }
@@ -183,7 +207,7 @@ export const removeOwner = async (
 ) => {
   const data = contract.interface.encodeFunctionData('removeOwner(address)', [ownerToRemove])
 
-  await execTransaction(contract, submitter, owners, contract.address, 0, data, gas, undefined, extraEvents)
+  await execTransaction(contract, submitter, owners, contract.address, ZERO, data, gas, undefined, extraEvents)
 
   if (!errorMsg) expect(await contract.isOwner(ownerToRemove)).to.be.false
   else expect(await contract.isOwner(ownerToRemove)).to.be.true
@@ -200,7 +224,7 @@ export const changeThreshold = async (
 ) => {
   const data = contract.interface.encodeFunctionData('changeThreshold(uint16)', [newThreshold])
 
-  await execTransaction(contract, submitter, owners, contract.address, 0, data, gas, errorMsg, extraEvents)
+  await execTransaction(contract, submitter, owners, contract.address, ZERO, data, gas, errorMsg, extraEvents)
 
   if (!errorMsg) expect(await contract.threshold()).to.be.equal(newThreshold)
 }
@@ -217,7 +241,7 @@ export const replaceOwner = async (
 ) => {
   const data = contract.interface.encodeFunctionData('replaceOwner(address,address)', [ownerToRemove, ownerToAdd])
 
-  await execTransaction(contract, submitter, owners, contract.address, 0, data, gas, errorMsg, extraEvents)
+  await execTransaction(contract, submitter, owners, contract.address, ZERO, data, gas, errorMsg, extraEvents)
 
   if (!errorMsg) {
     expect(await contract.isOwner(ownerToAdd)).to.be.true
