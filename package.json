@@ -4,15 +4,16 @@
   "description": "Multi-Signatures Solidity Smart Contract for mymultisig.app",
   "main": "index.js",
   "files": [
+    "constants/*.ts",
     "abi/*.json",
     "contractsAddressDeployed.json",
     "LICENSE",
     "README.md"
   ],
   "scripts": {
+    "test": "bash ./test.sh",
     "build": "hardhat run scripts/buildAbi.ts",
     "compile": "hardhat compile",
-    "test": "hardhat test && forge test",
     "coverage": "hardhat coverage --config hardhat.config.coverage.ts --testfiles test/MyMultiSig.test.ts && hardhat coverage --config hardhat.config.coverage.ts --testfiles test/MyMultiSigFromFactory.test.ts",
     "flatten": "hardhat flatten > Flat.sol && npx hardhat flatten contracts/MyMultiSig.sol > FlatMyMultiSig.sol",
     "prettier-test": "prettier --write test/",
@@ -53,38 +54,38 @@
   },
   "homepage": "https://github.com/marc-aurele-besner/mymultisig-contract#readme",
   "devDependencies": {
-    "@chugsplash/plugins": "^0.11.1",
     "@commitlint/cli": "^17.4.4",
     "@commitlint/config-conventional": "^17.4.4",
-    "@nomicfoundation/hardhat-chai-matchers": "^1.0.5",
     "@nomicfoundation/hardhat-toolbox": "^2.0.1",
     "@nomiclabs/hardhat-ethers": "^2.2.2",
-    "@nomiclabs/hardhat-etherscan": "^3.1.5",
     "@openzeppelin/hardhat-upgrades": "^1.22.1",
     "@typechain/hardhat": "^6.1.5",
     "@types/chai": "^4.3.4",
     "@types/mocha": "^10.0.1",
-    "@types/node": "^18.11.19",
     "chai": "^4.3.7",
     "dotenv": "^16.0.3",
     "fs": "^0.0.1-security",
     "hardhat": "^2.12.6",
     "hardhat-awesome-cli": "^0.0.23",
     "hardhat-gas-reporter": "^1.0.9",
-    "prettier": "^2.8.3",
-    "prettier-plugin-solidity": "^1.1.1",
     "solidity-coverage": "^0.8.2",
     "ts-node": "^10.9.1",
     "typechain": "^8.1.1",
     "typescript": "^4.9.5"
   },
   "dependencies": {
+    "@chugsplash/plugins": "^0.12.0",
+    "@nomicfoundation/hardhat-chai-matchers": "^1.0.6",
+    "@nomiclabs/hardhat-etherscan": "^3.1.6",
     "@openzeppelin/contracts": "^4.8.1",
     "@openzeppelin/contracts-upgradeable": "^4.8.1",
     "@typechain/ethers-v5": "^10.2.0",
+    "@types/node": "^18.14.1",
     "ethers": "5.4.7",
     "ethersV6": "npm:ethers",
     "foundry-test-utility": "^0.0.7",
-    "hardhat-contract-clarity": "^0.1.0"
+    "hardhat-contract-clarity": "^0.1.0",
+    "prettier": "^2.8.4",
+    "prettier-plugin-solidity": "^1.1.2"
   }
 }
