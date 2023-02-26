@@ -28,7 +28,7 @@ contract MyMultiSigFactorable {
   /// @notice Retrieves the contract version
   /// @return The version as a string memory.
   function version() public pure returns (string memory) {
-    return '0.0.7';
+    return '0.0.8';
   }
 
   /// @notice Retrieves the amount of multisig contract created via this Factory contract
@@ -67,7 +67,7 @@ contract MyMultiSigFactorable {
     string memory contractName,
     address[] memory owners,
     uint16 threshold
-  ) public payable returns (bool success) {
+  ) public payable returns (address contractAddress) {
     MyMultiSig myMultiSig = new MyMultiSig(contractName, owners, threshold);
     _multiSigs[_multiSigCount] = myMultiSig;
     _multiSigIndex[address(myMultiSig)] = _multiSigCount;
@@ -75,7 +75,7 @@ contract MyMultiSigFactorable {
     _multiSigCreatorCount[msg.sender]++;
     emit MyMultiSigCreated(msg.sender, address(_multiSigs[_multiSigCount]), _multiSigCount, contractName, owners);
     _multiSigCount++;
-    return true;
+    return address(_multiSigs[_multiSigCount]);
   }
 
   /// @notice Creates a new multisig contract with extended features
@@ -87,7 +87,7 @@ contract MyMultiSigFactorable {
     address[] memory owners,
     uint16 threshold,
     bool isOnlyOwnerRequest
-  ) public payable returns (bool success) {
+  ) public payable returns (address contractAddress) {
     MyMultiSigExtended myMultiSig = new MyMultiSigExtended(contractName, owners, threshold, isOnlyOwnerRequest);
     _multiSigs[_multiSigCount] = MyMultiSig(myMultiSig);
     _multiSigIndex[address(myMultiSig)] = _multiSigCount;
@@ -95,6 +95,6 @@ contract MyMultiSigFactorable {
     _multiSigCreatorCount[msg.sender]++;
     emit MyMultiSigCreated(msg.sender, address(_multiSigs[_multiSigCount]), _multiSigCount, contractName, owners);
     _multiSigCount++;
-    return true;
+    return address(_multiSigs[_multiSigCount]);
   }
 }

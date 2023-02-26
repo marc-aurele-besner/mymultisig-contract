@@ -1,4 +1,5 @@
 import { network } from 'hardhat'
+import { BigNumber } from 'ethers'
 
 import constants from '../../constants'
 
@@ -7,7 +8,7 @@ export default {
     contractAddress: string,
     sourceWallet: any,
     to: string,
-    value: number,
+    value: BigNumber,
     data: string,
     gas: number,
     nonce: string

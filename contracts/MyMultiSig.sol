@@ -65,7 +65,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
   /// @notice Retrieves the contract version
   /// @return The version as a string memory.
   function version() public pure returns (string memory) {
-    return '0.0.7';
+    return '0.0.8';
   }
 
   /// @notice Retrieves the current threshold value
@@ -120,24 +120,24 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
   }
 
   /// @notice Prepare multiple transactions
-  /// @param to_ The address to which the transaction is made. (as a array)
-  /// @param value_ The amount of Ether to be transferred. (as a array)
-  /// @param data_ The data to be passed along with the transaction. (as a array)
-  /// @param txGas_ The gas limit for the transaction. (as a array)
+  /// @param to The address to which the transaction is made. (as a array)
+  /// @param value The amount of Ether to be transferred. (as a array)
+  /// @param data The data to be passed along with the transaction. (as a array)
+  /// @param txGas The gas limit for the transaction. (as a array)
   function multiRequest(
-    address[] memory to_,
-    uint256[] memory value_,
-    bytes[] memory data_,
-    uint256[] memory txGas_
+    address[] memory to,
+    uint256[] memory value,
+    bytes[] memory data,
+    uint256[] memory txGas
   ) public payable onlyThis returns (bool success) {
-    uint256 qty = to_.length;
+    uint256 qty = to.length;
     for (uint256 i; i < qty; ) {
-      address to = to_[i];
-      uint256 value = value_[i];
-      bytes memory data = data_[i];
-      uint256 txGas = txGas_[i];
+      address to_ = to[i];
+      uint256 value_ = value[i];
+      bytes memory data_ = data[i];
+      uint256 txGas_ = txGas[i];
       assembly {
-        success := call(txGas, to, value, add(data, 0x20), mload(data), 0, 0)
+        success := call(txGas_, to_, value_, add(data_, 0x20), mload(data_), 0, 0)
       }
       unchecked {
         ++i;
@@ -281,4 +281,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
     _owners[oldOwner] = false;
     _owners[newOwner] = true;
   }
+
+  /// @notice Receives Ether
+  receive() external payable {}
 }
