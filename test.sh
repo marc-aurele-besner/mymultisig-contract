@@ -54,6 +54,11 @@ ${NC}"
 # Make sure the dependencies are up to date
 yarn outdated
 
+printf "${BYELLOW}Let's make sure we build the latest version of the contracts ABI 📦
+${NC}"
+
+yarn build
+
 printf "${BYELLOW}Let's make sure the contracts are compiled 📦
 ${NC}"
 

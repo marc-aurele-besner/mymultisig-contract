@@ -2897,7 +2897,7 @@ cli-width@^2.0.0:
 
 cli-width@^3.0.0:
   version "3.0.0"
-  resolved "https://registry.npmjs.org/cli-width/-/cli-width-3.0.0.tgz"
+  resolved "https://registry.yarnpkg.com/cli-width/-/cli-width-3.0.0.tgz#a2f48437a2caa9a22436e794bf071ec9e61cedf6"
   integrity sha512-FxqpkPPwu1HjuN93Omfm4h8uIanXofW0RxVEW3k5RKx+mJJYSthzNhp32Kzxxy3YAEZ/Dc/EWN1vZRY0+kOhbw==
 
 cliui@^5.0.0:
@@ -3997,7 +3997,7 @@ figures@^2.0.0:
 
 figures@^3.0.0:
   version "3.2.0"
-  resolved "https://registry.npmjs.org/figures/-/figures-3.2.0.tgz"
+  resolved "https://registry.yarnpkg.com/figures/-/figures-3.2.0.tgz#625c18bd293c604dc4a8ddb2febf0c88341746af"
   integrity sha512-yaduQFRKLXYOGgEn6AZau90j3ggSOyiqXU0F9JZfeXYhNa+Jk4X+s45A2zg5jns87GAFa34BBm2kXw4XpNcbdg==
   dependencies:
     escape-string-regexp "^1.0.5"
@@ -4523,19 +4523,20 @@ hard-rejection@^2.1.0:
   resolved "https://registry.npmjs.org/hard-rejection/-/hard-rejection-2.1.0.tgz"
   integrity sha512-VIZB+ibDhx7ObhAe7OVtoEbuP4h/MuOTHJ+J8h/eBXotJYl0fBgR72xDFCKgIh22OJZIOVNxBMWuhAr10r8HdA==
 
-hardhat-awesome-cli@^0.0.23:
-  version "0.0.23"
-  resolved "https://registry.npmjs.org/hardhat-awesome-cli/-/hardhat-awesome-cli-0.0.23.tgz"
-  integrity sha512-w4Mm3QNvkv38E5n3kUz3cAm73INbvPnFh8UyikZo3OgXCQm9rJ9Doqg+kshvijKfWudsYIS/NSFDkEKAwHwZRQ==
+hardhat-awesome-cli@^0.1.1:
+  version "0.1.1"
+  resolved "https://registry.yarnpkg.com/hardhat-awesome-cli/-/hardhat-awesome-cli-0.1.1.tgz#b90a60814b614872d550605f3e17f5b994d02e14"
+  integrity sha512-2+nOJX/npK+rzRx92fG4tvsn1YhzPcnx6ffleP4rIW/77ikxK26qQfkvwJOVeL1rka2rH0QdYxqvluzc/mBY/g==
   dependencies:
     dotenv "^16.0.3"
     fs "^0.0.1-security"
+    hardhat "^2.12.7"
     inquirer "^8.2.5"
 
-hardhat-contract-clarity@^0.1.0:
-  version "0.1.0"
-  resolved "https://registry.yarnpkg.com/hardhat-contract-clarity/-/hardhat-contract-clarity-0.1.0.tgz#00e3ab9fa6c1e794ba63f6c77ceb0268de969034"
-  integrity sha512-W+5oLMMWoX3PuoQGG8Ey/Rw2+wCFj3VjjFoLu32tLam/sQdD19akDF4wqd3ZC5LxHuE7PUsGafpvkvRxWuwDYA==
+hardhat-contract-clarity@^0.1.1:
+  version "0.1.1"
+  resolved "https://registry.yarnpkg.com/hardhat-contract-clarity/-/hardhat-contract-clarity-0.1.1.tgz#4c723dff5a97190e6378ae320a96e0ce0f5f8286"
+  integrity sha512-uZUfJ8lMeuG3KAuwVLEea+9CA/gRri29ODJ19J2Vh3MR4SUYh42uakEN/S7uSjSEfaIWSevtl2FafXM05sCdMg==
   dependencies:
     fs "^0.0.1-security"
     inquirer "^8.2.5"
@@ -4569,7 +4570,7 @@ hardhat-gas-reporter@^1.0.9:
     eth-gas-reporter "^0.2.25"
     sha1 "^1.1.1"
 
-hardhat@^2.10.0, hardhat@^2.12.6, hardhat@^2.9.6:
+hardhat@^2.10.0, hardhat@^2.12.6, hardhat@^2.12.7, hardhat@^2.9.6:
   version "2.12.7"
   resolved "https://registry.npmjs.org/hardhat/-/hardhat-2.12.7.tgz"
   integrity sha512-voWoN6zn5d8BOEaczSyK/1PyfdeOeI3SbGCFb36yCHTJUt6OIqLb+ZDX30VhA1UsYKzLqG7UnWl3fKJUuANc6A==
@@ -4873,7 +4874,7 @@ inquirer@^6.3.1:
 
 inquirer@^8.2.5:
   version "8.2.5"
-  resolved "https://registry.npmjs.org/inquirer/-/inquirer-8.2.5.tgz"
+  resolved "https://registry.yarnpkg.com/inquirer/-/inquirer-8.2.5.tgz#d8654a7542c35a9b9e069d27e2df4858784d54f8"
   integrity sha512-QAgPDQMEgrDssk1XiwwHoOGYF9BAbUcc1+j+FhEvaOt8/cKRqyLn0U5qA6F74fGhTMGxf92pOvPBeh29jQJDTQ==
   dependencies:
     ansi-escapes "^4.2.1"
@@ -6156,7 +6157,7 @@ mute-stream@0.0.7:
 
 mute-stream@0.0.8:
   version "0.0.8"
-  resolved "https://registry.npmjs.org/mute-stream/-/mute-stream-0.0.8.tgz"
+  resolved "https://registry.yarnpkg.com/mute-stream/-/mute-stream-0.0.8.tgz#1630c42b2251ff81e2a283de96a5497ea92e5e0d"
   integrity sha512-nnbWWOkoWyUsTjKrhgD0dcz22mdkSnpYqbEjIm2nhwhuxlSkpywJmBo8h0ZqJdkp73mb90SssHkN4rsRaBAfAA==
 
 nanoid@3.3.3:
@@ -7159,7 +7160,7 @@ rxjs@^6.4.0:
 
 rxjs@^7.5.5:
   version "7.8.0"
-  resolved "https://registry.npmjs.org/rxjs/-/rxjs-7.8.0.tgz"
+  resolved "https://registry.yarnpkg.com/rxjs/-/rxjs-7.8.0.tgz#90a938862a82888ff4c7359811a595e14e1e09a4"
   integrity sha512-F2+gxDshqmIub1KdvZkaEfGDwLNpPvk9Fs6LD/MyQxNgMds/WH9OdDDXOmxUZpME+iSK3rQCctkL0DYyytUqMg==
   dependencies:
     tslib "^2.1.0"

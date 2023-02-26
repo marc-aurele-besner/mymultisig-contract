@@ -62,8 +62,7 @@ contract Functions is Constants, Signatures {
 
     if (testType_ == TestType.TestWithFactory) {
       myMultiSigFactory = new MyMultiSigFactory();
-      (, address newMyMultiSig) = help_createMultiSig(ADMIN, CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD);
-      myMultiSig = MyMultiSig(payable(newMyMultiSig));
+      (, myMultiSig) = help_createMultiSig(ADMIN, CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD);
     } else {
       myMultiSig = new MyMultiSig(CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD);
     }
@@ -81,21 +80,20 @@ contract Functions is Constants, Signatures {
     address[] memory owners_,
     uint16 threshold_,
     Errors.RevertStatus revertType_
-  ) internal returns (uint256 multiSigId, address multiSig) {
+  ) internal returns (uint256 multiSigId, MyMultiSig multiSig) {
     vm.prank(prank_);
     verify_revertCall(revertType_);
-    address payable newMultisigAddress = payable(myMultiSigFactory.createMultiSig(contractName_, owners_, threshold_));
+    address newMultisigAddress = myMultiSigFactory.createMultiSig(contractName_, owners_, threshold_);
 
     if (revertType_ == Errors.RevertStatus.Success) {
       multiSigId = myMultiSigFactory.multiSigCount();
-      MyMultiSig newMultiSig = MyMultiSig(newMultisigAddress);
-      multiSig = address(newMultiSig);
-      assertEq(newMultiSig.name(), contractName_);
-      assertEq(newMultiSig.threshold(), threshold_);
+      multiSig = MyMultiSig(payable(myMultiSigFactory.multiSig(multiSigId - 1)));
+      assertEq(multiSig.name(), contractName_);
+      assertEq(multiSig.threshold(), threshold_);
       uint256 ownersLength = owners_.length;
-      assertEq(newMultiSig.ownerCount(), ownersLength);
+      assertEq(multiSig.ownerCount(), ownersLength);
       for (uint256 i = 0; i < ownersLength; i++) {
-        assertTrue(newMultiSig.isOwner(owners_[i]));
+        assertTrue(multiSig.isOwner(owners_[i]));
       }
     }
   }
@@ -105,7 +103,7 @@ contract Functions is Constants, Signatures {
     string memory contractName_,
     address[] memory owners_,
     uint16 threshold_
-  ) internal returns (uint256 multiSigId, address multiSig) {
+  ) internal returns (uint256 multiSigId, MyMultiSig multiSig) {
     return help_createMultiSig(prank_, contractName_, owners_, threshold_, Errors.RevertStatus.Success);
   }
 

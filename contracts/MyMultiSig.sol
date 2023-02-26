@@ -65,7 +65,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
   /// @notice Retrieves the contract version
   /// @return The version as a string memory.
   function version() public pure returns (string memory) {
-    return '0.0.7';
+    return '0.0.8';
   }
 
   /// @notice Retrieves the current threshold value
@@ -281,4 +281,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
     _owners[oldOwner] = false;
     _owners[newOwner] = true;
   }
+
+  /// @notice Receives Ether
+  receive() external payable {}
 }

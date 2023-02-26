@@ -1,6 +1,6 @@
 {
   "name": "mymultisig-contract",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "Multi-Signatures Solidity Smart Contract for mymultisig.app",
   "main": "index.js",
   "files": [
@@ -66,7 +66,6 @@
     "dotenv": "^16.0.3",
     "fs": "^0.0.1-security",
     "hardhat": "^2.12.6",
-    "hardhat-awesome-cli": "^0.0.23",
     "hardhat-gas-reporter": "^1.0.9",
     "solidity-coverage": "^0.8.2",
     "ts-node": "^10.9.1",
@@ -84,7 +83,8 @@
     "ethers": "5.4.7",
     "ethersV6": "npm:ethers",
     "foundry-test-utility": "^0.0.7",
-    "hardhat-contract-clarity": "^0.1.0",
+    "hardhat-awesome-cli": "^0.1.1",
+    "hardhat-contract-clarity": "^0.1.1",
     "prettier": "^2.8.4",
     "prettier-plugin-solidity": "^1.1.2"
   }
