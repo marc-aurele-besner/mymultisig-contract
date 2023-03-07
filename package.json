@@ -73,7 +73,7 @@
     "typescript": "^4.9.5"
   },
   "dependencies": {
-    "@chugsplash/plugins": "^0.12.0",
+    "@chugsplash/plugins": "^0.13.0",
     "@nomicfoundation/hardhat-chai-matchers": "^1.0.6",
     "@nomiclabs/hardhat-etherscan": "^3.1.6",
     "@openzeppelin/contracts": "^4.8.1",
