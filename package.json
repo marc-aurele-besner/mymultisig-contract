@@ -80,7 +80,7 @@
     "@openzeppelin/contracts-upgradeable": "^4.8.1",
     "@typechain/ethers-v5": "^10.2.0",
     "@types/node": "^18.14.1",
-    "ethers": "5.4.7",
+    "ethers": "5.7.2",
     "ethersV6": "npm:ethers",
     "foundry-test-utility": "^0.0.7",
     "hardhat-awesome-cli": "^0.1.1",
