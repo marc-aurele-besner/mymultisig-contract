@@ -36,12 +36,11 @@ export const checkRawTxnResult = async (input: any, sender: any, error: undefine
   return result
 }
 
-export const getEventFromReceipt = async (contract: Contract, receipt: any, eventName: any) => {
+export const getEventFromReceipt = async (contract: Contract, receipt: any) => {
   const log = receipt.logs.map((log: any) => {
     try {
       return contract.interface.parseLog(log)
     } catch (e) {
-      console.log('e', e)
       return
     }
   })
@@ -83,7 +82,8 @@ export const execTransaction = async (
 
   const receipt = await checkRawTxnResult(input, submitter, errorMsg)
   if (!errorMsg) {
-    const event = await getEventFromReceipt(contract, receipt, 'TransactionExecuted')
+    const event = await getEventFromReceipt(contract, receipt)
+    let found = false
     for (var i = 0; i < event.length; i++) {
       if (event[i] && event[i].name === 'TransactionExecuted') {
         expect(event[i].args.sender).to.be.equal(submitter.address)
@@ -91,6 +91,7 @@ export const execTransaction = async (
         expect(event[i].args.value).to.be.equal(value)
         expect(event[i].args.data).to.be.equal(data)
         expect(event[i].args.txnGas).to.be.equal(gas)
+        found = true
         return receipt
       } else {
         if (
@@ -104,18 +105,19 @@ export const execTransaction = async (
           expect(event[i].args.value).to.be.equal(value)
           expect(event[i].args.data).to.be.equal(data)
           expect(event[i].args.txnGas).to.be.equal(gas)
+          found = true
           return receipt
         } else {
-          expect.fail('TransactionExecuted event not found')
+          if (found) expect.fail('TransactionExecuted event not found')
         }
       }
     }
     if (event.length == 0) expect.fail('TransactionExecuted event not found')
     if (extraEvents && extraEvents.length > 0) {
       for (let i = 1; i < extraEvents.length; i++) {
-        const eventsFound = await getEventFromReceipt(contract, receipt, event)
+        const eventsFound = await getEventFromReceipt(contract, receipt)
         for (var ii = 0; i < eventsFound.length; ii++) {
-          if (eventsFound[ii]) {
+          if (eventsFound[ii] && eventsFound[ii].name === extraEvents[i]) {
             expect(submitter.address).to.be.equal(eventsFound[ii].sender)
             return receipt
           }

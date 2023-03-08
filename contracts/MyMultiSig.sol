@@ -43,11 +43,11 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
   }
 
   constructor(string memory name_, address[] memory owners_, uint16 threshold_) EIP712(name_, version()) {
-    require(owners_.length <= 2 ** 16 - 1, 'MyMultiSig: cannot add owner above 2^16 - 1');
     _name = name_;
     uint256 length = owners_.length;
-    for (uint256 i = 0; i < length; ) {
-      _owners[owners_[i]] = true;
+    require(length <= 2 ** 16 - 1, 'MyMultiSig: cannot add owner above 2^16 - 1');
+    for (uint256 i = 0; i < length;) {
+      _addOwner(owners_[i]);
       unchecked {
         ++i;
       }
@@ -65,7 +65,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
   /// @notice Retrieves the contract version
   /// @return The version as a string memory.
   function version() public pure returns (string memory) {
-    return '0.0.8';
+    return '0.0.9';
   }
 
   /// @notice Retrieves the current threshold value
@@ -239,9 +239,17 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
   /// @notice Adds an owner
   /// @param owner The address to be added as an owner.
   /// @dev This function can only be called inside a multisig transaction.
+  function _addOwner(address owner) private {
+    require(!_owners[owner], 'MyMultiSig: owner already exists');
+    _owners[owner] = true;
+  }
+
+  /// @notice Adds an owner
+  /// @param owner The address to be added as an owner.
+  /// @dev This function can only be called inside a multisig transaction.
   function addOwner(address owner) public onlyThis {
     require(_ownerCount < 2 ** 16 - 1, 'MyMultiSig: cannot add owner above 2^16 - 1');
-    _owners[owner] = true;
+    _addOwner(owner);
   }
 
   /// @notice Removes an owner

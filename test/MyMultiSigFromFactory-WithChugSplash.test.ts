@@ -1,5 +1,5 @@
 import { expect } from 'chai'
-import { ethers, chugsplash } from 'hardhat'
+import { ethers } from 'hardhat'
 
 import Helper from './shared'
 
@@ -103,7 +103,7 @@ describe('MyMultiSig - Deployed From Factory With ChugSplash', function () {
         owner01,
         [owner01],
         contract.address,
-        0,
+        Helper.ZERO,
         contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
         Helper.DEFAULT_GAS
       )
@@ -117,7 +117,7 @@ describe('MyMultiSig - Deployed From Factory With ChugSplash', function () {
         owner01,
         [owner01, owner02],
         contract.address,
-        0,
+        Helper.ZERO,
         contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
         Helper.DEFAULT_GAS
       )
@@ -131,7 +131,7 @@ describe('MyMultiSig - Deployed From Factory With ChugSplash', function () {
         owner01,
         [owner01, owner02, owner03],
         contract.address,
-        0,
+        Helper.ZERO,
         contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
         Helper.DEFAULT_GAS
       )
@@ -145,7 +145,7 @@ describe('MyMultiSig - Deployed From Factory With ChugSplash', function () {
         user01,
         [user01, user02, user03],
         contract.address,
-        0,
+        Helper.ZERO,
         contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
         Helper.DEFAULT_GAS
       )
@@ -159,7 +159,7 @@ describe('MyMultiSig - Deployed From Factory With ChugSplash', function () {
         user01,
         [owner01, user02, owner03],
         contract.address,
-        0,
+        Helper.ZERO,
         contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
         Helper.DEFAULT_GAS
       )
@@ -305,6 +305,52 @@ describe('MyMultiSig - Deployed From Factory With ChugSplash', function () {
     )
   })
 
+  it('Can mint token from MockERC20 contract', async function () {
+    const MockERC20 = await ethers.getContractFactory('MockERC20')
+    const mockERC20 = await MockERC20.deploy()
+    await mockERC20.deployed()
+    const data = MockERC20.interface.encodeFunctionData('mint(address,uint256)', [contract.address, 10])
+    await Helper.execTransaction(
+      contract,
+      owner01,
+      [owner01, owner02, owner03],
+      mockERC20.address,
+      Helper.ZERO,
+      data,
+      Helper.DEFAULT_GAS * 2
+    )
+    expect(await mockERC20.balanceOf(contract.address)).to.be.equal(10)
+  })
+
+  it('Can mint token from MockERC20 contract, then transfer them to owner01', async function () {
+    const MockERC20 = await ethers.getContractFactory('MockERC20')
+    const mockERC20 = await MockERC20.deploy()
+    await mockERC20.deployed()
+    const data = MockERC20.interface.encodeFunctionData('mint(address,uint256)', [contract.address, 10])
+    await Helper.execTransaction(
+      contract,
+      owner01,
+      [owner01, owner02, owner03],
+      mockERC20.address,
+      Helper.ZERO,
+      data,
+      Helper.DEFAULT_GAS * 2
+    )
+    expect(await mockERC20.balanceOf(contract.address)).to.be.equal(10)
+    const data2 = MockERC20.interface.encodeFunctionData('transfer(address,uint256)', [owner01.address, 10])
+    await Helper.execTransaction(
+      contract,
+      owner01,
+      [owner01, owner02, owner03],
+      mockERC20.address,
+      Helper.ZERO,
+      data2,
+      Helper.DEFAULT_GAS * 2
+    )
+    expect(await mockERC20.balanceOf(contract.address)).to.be.equal(0)
+    expect(await mockERC20.balanceOf(owner01.address)).to.be.equal(10)
+  })
+
   it('Emit TransactionFailed when valid signature try to execute a invalid call', async function () {
     const MockERC20 = await ethers.getContractFactory('MockERC20')
     const data = MockERC20.interface.encodeFunctionData('transferFrom(address,address,uint256)', [
@@ -317,7 +363,7 @@ describe('MyMultiSig - Deployed From Factory With ChugSplash', function () {
       owner01,
       [owner01, owner02, owner03],
       contract.address,
-      0,
+      Helper.ZERO,
       data,
       Helper.DEFAULT_GAS,
       undefined,
@@ -333,7 +379,7 @@ describe('MyMultiSig - Deployed From Factory With ChugSplash', function () {
       owner01,
       [owner01, owner02],
       contract.address,
-      0,
+      Helper.ZERO,
       data,
       Helper.DEFAULT_GAS,
       undefined,
@@ -345,7 +391,7 @@ describe('MyMultiSig - Deployed From Factory With ChugSplash', function () {
       owner01,
       [owner01, owner02],
       contract.address,
-      0,
+      Helper.ZERO,
       data,
       Helper.DEFAULT_GAS,
       Helper.errors.INVALID_OWNER,

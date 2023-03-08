@@ -28,7 +28,7 @@ contract MyMultiSigFactorable {
   /// @notice Retrieves the contract version
   /// @return The version as a string memory.
   function version() public pure returns (string memory) {
-    return '0.0.8';
+    return '0.0.9';
   }
 
   /// @notice Retrieves the amount of multisig contract created via this Factory contract
