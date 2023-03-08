@@ -20,3 +20,6 @@ typechain-types
 
 # Build files
 abi
+
+# Wok in progress
+.wip
