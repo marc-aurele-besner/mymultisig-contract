@@ -406,4 +406,28 @@ describe('MyMultiSig', function () {
     expect(await mockERC20.balanceOf(contract.address)).to.be.equal(0)
     expect(await mockERC20.balanceOf(owner01.address)).to.be.equal(10)
   })
+
+  it('Can mint token from MockERC20 contract, then transfer them to owner01, owner02 ans owner03 in a multiRequest', async function () {
+    const MockERC20 = await ethers.getContractFactory('MockERC20')
+    const mockERC20 = await MockERC20.deploy()
+    await mockERC20.deployed()
+    await Helper.multiRequest(
+      contract,
+      owner01,
+      [owner01, owner02, owner03],
+      [mockERC20.address, mockERC20.address, mockERC20.address, mockERC20.address],
+      [Helper.ZERO, Helper.ZERO, Helper.ZERO, Helper.ZERO],
+      [
+        MockERC20.interface.encodeFunctionData('mint(address,uint256)', [contract.address, 150]),
+        MockERC20.interface.encodeFunctionData('transfer(address,uint256)', [owner01.address, 50]),
+        MockERC20.interface.encodeFunctionData('transfer(address,uint256)', [owner02.address, 50]),
+        MockERC20.interface.encodeFunctionData('transfer(address,uint256)', [owner03.address, 50]),
+      ],
+      [Helper.DEFAULT_GAS * 2, Helper.DEFAULT_GAS * 2, Helper.DEFAULT_GAS * 2, Helper.DEFAULT_GAS * 2]
+    )
+    expect(await mockERC20.balanceOf(contract.address)).to.be.equal(0)
+    expect(await mockERC20.balanceOf(owner01.address)).to.be.equal(50)
+    expect(await mockERC20.balanceOf(owner02.address)).to.be.equal(50)
+    expect(await mockERC20.balanceOf(owner03.address)).to.be.equal(50)
+  })
 })
