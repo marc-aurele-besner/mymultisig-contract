@@ -6,13 +6,14 @@
   "files": [
     "constants/*.ts",
     "abi/*.json",
+    "types/*.ts",
     "contractsAddressDeployed.json",
     "LICENSE",
     "README.md"
   ],
   "scripts": {
     "test": "bash ./test.sh",
-    "build": "hardhat run scripts/buildAbi.ts",
+    "build": "hardhat run scripts/buildAbi.ts && hardhat run scripts/buildTypes.ts",
     "compile": "hardhat compile",
     "coverage": "hardhat coverage --config hardhat.config.coverage.ts --testfiles test/MyMultiSig.test.ts && hardhat coverage --config hardhat.config.coverage.ts --testfiles test/MyMultiSigFromFactory.test.ts",
     "flatten": "hardhat flatten > Flat.sol && npx hardhat flatten contracts/MyMultiSig.sol > FlatMyMultiSig.sol",
