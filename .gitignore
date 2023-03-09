@@ -9,6 +9,7 @@ typechain-types
 cache
 artifacts
 Flat*.sol
+deployments
 
 
 node_modules
@@ -23,3 +24,6 @@ abi
 
 # Wok in progress
 .wip
+
+# ChugSplash
+.canonical-configs
