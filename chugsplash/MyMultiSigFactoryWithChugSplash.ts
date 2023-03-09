@@ -1,4 +1,6 @@
-module.exports = {
+import { UserChugSplashConfig } from '@chugsplash/core'
+
+const config: UserChugSplashConfig = {
   options: {
     projectName: 'MyMultiSigFactoryWithChugSplash',
   },
@@ -16,3 +18,5 @@ module.exports = {
     },
   },
 }
+
+export default config
