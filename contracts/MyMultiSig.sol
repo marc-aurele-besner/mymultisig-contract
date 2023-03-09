@@ -46,7 +46,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
     _name = name_;
     uint256 length = owners_.length;
     require(length <= 2 ** 16 - 1, 'MyMultiSig: cannot add owner above 2^16 - 1');
-    for (uint256 i = 0; i < length;) {
+    for (uint256 i = 0; i < length; ) {
       _addOwner(owners_[i]);
       unchecked {
         ++i;
@@ -65,7 +65,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
   /// @notice Retrieves the contract version
   /// @return The version as a string memory.
   function version() public pure returns (string memory) {
-    return '0.0.9';
+    return '0.0.10';
   }
 
   /// @notice Retrieves the current threshold value

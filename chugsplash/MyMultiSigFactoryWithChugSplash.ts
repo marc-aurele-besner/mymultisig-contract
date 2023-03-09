@@ -13,6 +13,7 @@ const config: UserChugSplashConfig = {
         _multiSigIndex: {},
         _multiSigCreatorCount: {},
         _multiSigIndexByCreator: {},
+        _multiSigCreationType: {},
       },
       constructorArgs: {},
     },
