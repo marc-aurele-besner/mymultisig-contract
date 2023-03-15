@@ -83,7 +83,7 @@
     "@types/node": "^18.14.1",
     "ethers": "5.7.2",
     "ethersV6": "npm:ethers",
-    "foundry-test-utility": "^0.0.7",
+    "foundry-test-utility": "^0.1.0",
     "hardhat-awesome-cli": "^0.1.1",
     "hardhat-contract-clarity": "^0.1.1",
     "prettier": "^2.8.4",
