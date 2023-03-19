@@ -86,6 +86,13 @@ const setupContractWithChugSplash = async (
     // Wait for contract to be deployed
     await contract.deployed()
   }
+  const factoryDetail =
+    contractName === constants.CONTRACT_FACTORY_NAME
+      ? {
+          factoryName: constants.CONTRACT_FACTORY_NAME,
+          factoryVersion: constants.CONTRACT_FACTORY_VERSION,
+        }
+      : {}
 
   await addressBook.saveContract(
     contractName,
@@ -101,6 +108,7 @@ const setupContractWithChugSplash = async (
         ).number,
     undefined,
     {
+      ...factoryDetail,
       owners: ownersAddresses,
       threshold,
     }

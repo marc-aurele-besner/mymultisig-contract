@@ -58,38 +58,38 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
 
   /// @notice Retrieves the contract name
   /// @return The name as a string memory.
-  function name() public view returns (string memory) {
+  function name() public view virtual returns (string memory) {
     return _name;
   }
 
   /// @notice Retrieves the contract version
   /// @return The version as a string memory.
-  function version() public pure returns (string memory) {
-    return '0.0.10';
+  function version() public pure virtual returns (string memory) {
+    return '0.0.11';
   }
 
   /// @notice Retrieves the current threshold value
   /// @return The current threshold value as a uint16.
-  function threshold() public view returns (uint16) {
+  function threshold() public view virtual returns (uint16) {
     return _threshold;
   }
 
   /// @notice Retrieves the amount of owners
   /// @return The amount of owners value as a uint16.
-  function ownerCount() public view returns (uint16) {
+  function ownerCount() public view virtual returns (uint16) {
     return _ownerCount;
   }
 
   /// @notice Retrieves the last txn nonce used
   /// @return The txn nonce value as a uint16.
-  function nonce() public view returns (uint96) {
+  function nonce() public view virtual returns (uint96) {
     return _txnNonce;
   }
 
   /// @notice Determines if the address is the owner
   /// @param owner The address to be checked.
   /// @return True if the address is the owner, false otherwise.
-  function isOwner(address owner) public view returns (bool) {
+  function isOwner(address owner) public view virtual returns (bool) {
     return _owners[owner];
   }
 
@@ -105,7 +105,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
     bytes memory data,
     uint256 txnGas,
     bytes memory signatures
-  ) public payable nonReentrant returns (bool success) {
+  ) public payable virtual nonReentrant returns (bool success) {
     require(_validateSignature(to, value, data, txnGas, signatures), 'MyMultiSig: invalid signatures');
     _txnNonce++;
     uint256 gasBefore = gasleft();
@@ -129,7 +129,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
     uint256[] memory value,
     bytes[] memory data,
     uint256[] memory txGas
-  ) public payable onlyThis returns (bool success) {
+  ) public payable virtual onlyThis returns (bool success) {
     uint256 qty = to.length;
     for (uint256 i; i < qty; ) {
       address to_ = to[i];
@@ -202,6 +202,26 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
     return true;
   }
 
+  /// @notice Determines if the owner is valid
+  /// @param txHash The transaction hash.
+  /// @param signatures The signatures to be used for the transaction.
+  /// @param txnNonce The transaction nonce.
+  /// @param currentIndex The current owner index.
+  function _validateOwner(
+    bytes32 txHash,
+    bytes memory signatures,
+    uint256 txnNonce,
+    uint16 currentIndex
+  ) internal virtual returns (address currentOwner) {
+    unchecked {
+      currentOwner = _getCurrentOwner(txHash, signatures, currentIndex);
+      uint256 currentOwnerNonce = uint256(uint96(txnNonce)) + uint256(uint160(currentOwner) << 96);
+      require(_owners[currentOwner], 'MyMultiSig: invalid owner');
+      require(!_ownerNonceSigned[currentOwnerNonce], 'MyMultiSig: owner already signed');
+      _ownerNonceSigned[currentOwnerNonce] = true;
+    }
+  }
+
   /// @notice Determines if the signature is valid
   /// @param to The address to which the transaction is made.
   /// @param value The amount of Ether to be transferred.
@@ -215,21 +235,16 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
     bytes memory data,
     uint256 txnGas,
     bytes memory signatures
-  ) private returns (bool valid) {
+  ) internal virtual returns (bool valid) {
     uint16 threshold_ = _threshold;
     if (signatures.length < 65 * threshold_) return (false);
+    uint256 txnNonce = _txnNonce;
     bytes32 txHash = _hashTypedDataV4(
-      keccak256(abi.encode(_TRANSACTION_TYPEHASH, to, value, keccak256(data), txnGas, _txnNonce))
+      keccak256(abi.encode(_TRANSACTION_TYPEHASH, to, value, keccak256(data), txnGas, txnNonce))
     );
-    address currentOwner;
-    uint256 currentOwnerNonce;
     for (uint16 i; i < threshold_; ) {
       unchecked {
-        currentOwner = _getCurrentOwner(txHash, signatures, i);
-        currentOwnerNonce = uint256(uint96(_txnNonce)) + uint256(uint160(currentOwner) << 96);
-        require(_owners[currentOwner], 'MyMultiSig: invalid owner');
-        require(!_ownerNonceSigned[currentOwnerNonce], 'MyMultiSig: owner already signed');
-        _ownerNonceSigned[currentOwnerNonce] = true;
+        _validateOwner(txHash, signatures, txnNonce, i);
         ++i;
       }
     }
@@ -247,7 +262,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
   /// @notice Adds an owner
   /// @param owner The address to be added as an owner.
   /// @dev This function can only be called inside a multisig transaction.
-  function addOwner(address owner) public onlyThis {
+  function addOwner(address owner) public virtual onlyThis {
     require(_ownerCount < 2 ** 16 - 1, 'MyMultiSig: cannot add owner above 2^16 - 1');
     _addOwner(owner);
   }
@@ -256,7 +271,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
   /// @param owner The owner to be removed.
   /// @dev This function can only be called inside a multisig transaction.
 
-  function removeOwner(address owner) public onlyThis {
+  function removeOwner(address owner) public virtual onlyThis {
     if (_ownerCount <= _threshold) revert('MyMultiSig: cannot remove owner below threshold');
     _owners[owner] = false;
     _ownerCount--;
@@ -265,7 +280,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
   /// @notice Changes the threshold
   /// @param newThreshold The new threshold.
   /// @dev This function can only be called inside a multisig transaction.
-  function changeThreshold(uint16 newThreshold) public onlyThis {
+  function changeThreshold(uint16 newThreshold) public virtual onlyThis {
     _changeThreshold(newThreshold);
   }
 
@@ -282,7 +297,15 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
   /// @param oldOwner The owner to be replaced.
   /// @param newOwner The new owner.
   /// @dev This function can only be called inside a multisig transaction.
-  function replaceOwner(address oldOwner, address newOwner) public onlyThis {
+  function replaceOwner(address oldOwner, address newOwner) public virtual onlyThis {
+    _replaceOwner(oldOwner, newOwner);
+  }
+
+  /// @notice Replaces an owner with a new owner (internal)
+  /// @param oldOwner The owner to be replaced.
+  /// @param newOwner The new owner.
+  /// @dev This function can only be called inside a multisig transaction.
+  function _replaceOwner(address oldOwner, address newOwner) internal virtual {
     require(_owners[oldOwner], 'MyMultiSig: old owner must be an owner');
     require(!_owners[newOwner], 'MyMultiSig: new owner must not be an owner');
     require(newOwner != address(0), 'MyMultiSig: new owner must not be the zero address');
