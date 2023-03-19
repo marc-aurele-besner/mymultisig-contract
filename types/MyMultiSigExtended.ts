@@ -43,6 +43,9 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     "removeOwner(address)": FunctionFragment;
     "replaceOwner(address,address)": FunctionFragment;
     "setOnlyOwnerRequest(bool)": FunctionFragment;
+    "setOwnerSettings(uint256,address)": FunctionFragment;
+    "setTranferInactiveOwnershipAftert(uint256)": FunctionFragment;
+    "takeOverOwnership(address)": FunctionFragment;
     "threshold()": FunctionFragment;
     "version()": FunctionFragment;
   };
@@ -62,6 +65,9 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
       | "removeOwner"
       | "replaceOwner"
       | "setOnlyOwnerRequest"
+      | "setOwnerSettings"
+      | "setTranferInactiveOwnershipAftert"
+      | "takeOverOwnership"
       | "threshold"
       | "version"
   ): FunctionFragment;
@@ -129,6 +135,18 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     functionFragment: "setOnlyOwnerRequest",
     values: [PromiseOrValue<boolean>]
   ): string;
+  encodeFunctionData(
+    functionFragment: "setOwnerSettings",
+    values: [PromiseOrValue<BigNumberish>, PromiseOrValue<string>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "setTranferInactiveOwnershipAftert",
+    values: [PromiseOrValue<BigNumberish>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "takeOverOwnership",
+    values: [PromiseOrValue<string>]
+  ): string;
   encodeFunctionData(functionFragment: "threshold", values?: undefined): string;
   encodeFunctionData(functionFragment: "version", values?: undefined): string;
 
@@ -167,6 +185,18 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "setOnlyOwnerRequest",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "setOwnerSettings",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "setTranferInactiveOwnershipAftert",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "takeOverOwnership",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "threshold", data: BytesLike): Result;
@@ -349,6 +379,22 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
+    setOwnerSettings(
+      tranferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
+      delegatee: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    setTranferInactiveOwnershipAftert(
+      tranferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    takeOverOwnership(
+      owner: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
     threshold(overrides?: CallOverrides): Promise<[number]>;
 
     version(overrides?: CallOverrides): Promise<[string]>;
@@ -419,6 +465,22 @@ export interface MyMultiSigExtended extends BaseContract {
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
+  setOwnerSettings(
+    tranferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
+    delegatee: PromiseOrValue<string>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  setTranferInactiveOwnershipAftert(
+    tranferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  takeOverOwnership(
+    owner: PromiseOrValue<string>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
   threshold(overrides?: CallOverrides): Promise<number>;
 
   version(overrides?: CallOverrides): Promise<string>;
@@ -486,6 +548,22 @@ export interface MyMultiSigExtended extends BaseContract {
 
     setOnlyOwnerRequest(
       isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    setOwnerSettings(
+      tranferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
+      delegatee: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    setTranferInactiveOwnershipAftert(
+      tranferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    takeOverOwnership(
+      owner: PromiseOrValue<string>,
       overrides?: CallOverrides
     ): Promise<void>;
 
@@ -622,6 +700,22 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
+    setOwnerSettings(
+      tranferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
+      delegatee: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    setTranferInactiveOwnershipAftert(
+      tranferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    takeOverOwnership(
+      owner: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
     threshold(overrides?: CallOverrides): Promise<BigNumber>;
 
     version(overrides?: CallOverrides): Promise<BigNumber>;
@@ -692,6 +786,22 @@ export interface MyMultiSigExtended extends BaseContract {
 
     setOnlyOwnerRequest(
       isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    setOwnerSettings(
+      tranferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
+      delegatee: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    setTranferInactiveOwnershipAftert(
+      tranferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    takeOverOwnership(
+      owner: PromiseOrValue<string>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
