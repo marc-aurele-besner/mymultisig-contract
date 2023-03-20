@@ -45,6 +45,14 @@ const setupContract = async (
     contract = await ContractFactory.deploy(contractName, ownersAddresses, threshold)
   }
 
+  const deploymentDetail =
+    contractName === constants.CONTRACT_FACTORY_NAME
+      ? {
+          factoryName: constants.CONTRACT_FACTORY_NAME,
+          factoryVersion: constants.CONTRACT_FACTORY_VERSION,
+        }
+      : {}
+
   // Wait for contract to be deployed
   await contract.deployed()
 
@@ -58,6 +66,7 @@ const setupContract = async (
     contract.deployTransaction.blockNumber,
     undefined,
     {
+      ...deploymentDetail,
       owners: ownersAddresses,
       threshold,
     }

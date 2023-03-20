@@ -1,15 +1,17 @@
 [
   {
     "name": "MyMultiSigFactory",
-    "address": "0xd3A97Ac36cAC19f2dd2503DA540cD5593b0D7Ad8",
+    "address": "0x2D254390e35b59fe87a31e538D5604346b017082",
     "network": "goerli",
     "deployer": "0x45C36f4D95ab36758a87F293aB998d6F5736eCcc",
-    "deploymentDate": "Sun Feb 12 2023 09:06:01 GMT-0500 (Eastern Standard Time)",
+    "deploymentDate": "Sun Mar 19 2023 22:14:05 GMT-0400 (Eastern Daylight Saving Time)",
     "chainId": 5,
     "blockHash": "",
     "blockNumber": 0,
     "tag": "",
     "extra": {
+      "factoryName": "MyMultiSigFactory",
+      "factoryVersion": "0.0.12",
       "owners": [
         "0x45C36f4D95ab36758a87F293aB998d6F5736eCcc",
         "0x0811ec2Ec667Ecc9D86c8bEE327C23e4435edFA6",

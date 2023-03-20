@@ -14,6 +14,8 @@ let contract: any
 async function main() {
   ;[provider, owner01, owner02, owner03, user01, user02, user03] = await Helper.setupProviderAndAccount()
 
+  console.log('Owners: ', owner01.address, owner02.address, owner03.address)
+
   const owners: string[] = [owner01.address, owner02.address, owner03.address]
   ownerCount = owners.length
   deployment = await Helper.setupContract(
