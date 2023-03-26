@@ -1,5 +1,4 @@
 name: Report a bug
-projects: marc-aurele-besner/1
 description: Report a bug, give details on how to reproduce it
 title: 'bug: <title>'
 body:

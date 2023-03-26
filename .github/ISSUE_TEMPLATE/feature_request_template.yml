@@ -1,5 +1,4 @@
 name: Request feature
-projects: marc-aurele-besner/1
 description: Request a feature, explain it's use case
 title: 'feature: <title>'
 body:
