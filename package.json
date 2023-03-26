@@ -84,7 +84,7 @@
     "ethers": "5.7.2",
     "ethersV6": "npm:ethers",
     "foundry-test-utility": "^0.1.0",
-    "hardhat-awesome-cli": "^0.1.1",
+    "hardhat-awesome-cli": "^0.1.3",
     "hardhat-contract-clarity": "^0.1.1",
     "prettier": "^2.8.4",
     "prettier-plugin-solidity": "^1.1.2"
