@@ -33,8 +33,10 @@ export interface MyMultiSigInterface extends utils.Interface {
     "addOwner(address)": FunctionFragment;
     "changeThreshold(uint16)": FunctionFragment;
     "execTransaction(address,uint256,bytes,uint256,bytes)": FunctionFragment;
+    "generateHash(address,uint256,bytes,uint256,uint256)": FunctionFragment;
+    "incrementNonce()": FunctionFragment;
     "isOwner(address)": FunctionFragment;
-    "isValidSignature(address,uint256,bytes,uint256,bytes)": FunctionFragment;
+    "isValidSignature(address,uint256,bytes,uint256,uint256,bytes)": FunctionFragment;
     "multiRequest(address[],uint256[],bytes[],uint256[])": FunctionFragment;
     "name()": FunctionFragment;
     "nonce()": FunctionFragment;
@@ -50,6 +52,8 @@ export interface MyMultiSigInterface extends utils.Interface {
       | "addOwner"
       | "changeThreshold"
       | "execTransaction"
+      | "generateHash"
+      | "incrementNonce"
       | "isOwner"
       | "isValidSignature"
       | "multiRequest"
@@ -81,6 +85,20 @@ export interface MyMultiSigInterface extends utils.Interface {
     ]
   ): string;
   encodeFunctionData(
+    functionFragment: "generateHash",
+    values: [
+      PromiseOrValue<string>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BytesLike>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BigNumberish>
+    ]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "incrementNonce",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
     functionFragment: "isOwner",
     values: [PromiseOrValue<string>]
   ): string;
@@ -90,6 +108,7 @@ export interface MyMultiSigInterface extends utils.Interface {
       PromiseOrValue<string>,
       PromiseOrValue<BigNumberish>,
       PromiseOrValue<BytesLike>,
+      PromiseOrValue<BigNumberish>,
       PromiseOrValue<BigNumberish>,
       PromiseOrValue<BytesLike>
     ]
@@ -127,6 +146,14 @@ export interface MyMultiSigInterface extends utils.Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "execTransaction",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "generateHash",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "incrementNonce",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "isOwner", data: BytesLike): Result;
@@ -283,6 +310,19 @@ export interface MyMultiSig extends BaseContract {
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
+    generateHash(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<[string]>;
+
+    incrementNonce(
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
     isOwner(
       owner: PromiseOrValue<string>,
       overrides?: CallOverrides
@@ -293,6 +333,7 @@ export interface MyMultiSig extends BaseContract {
       value: PromiseOrValue<BigNumberish>,
       data: PromiseOrValue<BytesLike>,
       txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
       signatures: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<[boolean] & { valid: boolean }>;
@@ -346,6 +387,19 @@ export interface MyMultiSig extends BaseContract {
     overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
+  generateHash(
+    to: PromiseOrValue<string>,
+    value: PromiseOrValue<BigNumberish>,
+    data: PromiseOrValue<BytesLike>,
+    txnGas: PromiseOrValue<BigNumberish>,
+    txnNonce: PromiseOrValue<BigNumberish>,
+    overrides?: CallOverrides
+  ): Promise<string>;
+
+  incrementNonce(
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
   isOwner(
     owner: PromiseOrValue<string>,
     overrides?: CallOverrides
@@ -356,6 +410,7 @@ export interface MyMultiSig extends BaseContract {
     value: PromiseOrValue<BigNumberish>,
     data: PromiseOrValue<BytesLike>,
     txnGas: PromiseOrValue<BigNumberish>,
+    txnNonce: PromiseOrValue<BigNumberish>,
     signatures: PromiseOrValue<BytesLike>,
     overrides?: CallOverrides
   ): Promise<boolean>;
@@ -409,6 +464,17 @@ export interface MyMultiSig extends BaseContract {
       overrides?: CallOverrides
     ): Promise<boolean>;
 
+    generateHash(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<string>;
+
+    incrementNonce(overrides?: CallOverrides): Promise<void>;
+
     isOwner(
       owner: PromiseOrValue<string>,
       overrides?: CallOverrides
@@ -419,6 +485,7 @@ export interface MyMultiSig extends BaseContract {
       value: PromiseOrValue<BigNumberish>,
       data: PromiseOrValue<BytesLike>,
       txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
       signatures: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<boolean>;
@@ -535,6 +602,19 @@ export interface MyMultiSig extends BaseContract {
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
+    generateHash(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    incrementNonce(
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
     isOwner(
       owner: PromiseOrValue<string>,
       overrides?: CallOverrides
@@ -545,6 +625,7 @@ export interface MyMultiSig extends BaseContract {
       value: PromiseOrValue<BigNumberish>,
       data: PromiseOrValue<BytesLike>,
       txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
       signatures: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
@@ -599,6 +680,19 @@ export interface MyMultiSig extends BaseContract {
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
+    generateHash(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    incrementNonce(
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
     isOwner(
       owner: PromiseOrValue<string>,
       overrides?: CallOverrides
@@ -609,6 +703,7 @@ export interface MyMultiSig extends BaseContract {
       value: PromiseOrValue<BigNumberish>,
       data: PromiseOrValue<BytesLike>,
       txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
       signatures: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;

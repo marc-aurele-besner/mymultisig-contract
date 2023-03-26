@@ -124,7 +124,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
     uint256 txnGas,
     uint256 txnNonce,
     bytes memory signatures
-  ) internal virtual nonReentrant returns (bool success) {
+  ) internal virtual returns (bool success) {
     require(_validateSignature(to, value, data, txnGas, txnNonce, signatures), 'MyMultiSig: invalid signatures');
     _txnNonce++;
     uint256 gasBefore = gasleft();
