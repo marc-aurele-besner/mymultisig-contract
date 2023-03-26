@@ -1,8 +1,1 @@
 blank_issues_enabled: false
-contact_links:
-  - name: Report a bug
-    url: https://github.com/marc-aurele-besner/mymultisig-contract/issues/new?&labels=bug&projects=marc-aurele-besner/1&template=bug_template.yaml
-    about: Report a bug, give details on how to reproduce it
-  - name: Request feature
-    url: https://github.com/marc-aurele-besner/mymultisig-contract/issues/new?&labels=feature&projects=marc-aurele-besner/1&template=feature_request_template.yaml
-    about: Request a feature, explain it's use case
