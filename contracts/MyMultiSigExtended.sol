@@ -14,6 +14,7 @@ contract MyMultiSigExtended is MyMultiSig {
   }
   mapping(address => OwnerSettings) private _ownerSettings;
   mapping(address => bool) private _ownersOrDelegates;
+  mapping(uint256 => bool) private _noncesUsed;
 
   constructor(
     string memory name_,
@@ -35,6 +36,23 @@ contract MyMultiSigExtended is MyMultiSig {
   /// @dev This function can only be called inside a multisig transaction.
   function setOnlyOwnerRequest(bool isOnlyOwnerRequest) public virtual onlyThis {
     _onlyOwnerRequest = isOnlyOwnerRequest;
+  }
+
+  /// @notice Executes a transaction
+  /// @param to The address to which the transaction is made.
+  /// @param value The amount of Ether to be transferred.
+  /// @param data The data to be passed along with the transaction.
+  /// @param txnGas The gas limit for the transaction.
+  /// @param signatures The signatures to be used for the transaction.
+  function execTransaction(
+    address to,
+    uint256 value,
+    bytes memory data,
+    uint256 txnGas,
+    uint256 txnNonce,
+    bytes memory signatures
+  ) public payable virtual nonReentrant returns (bool success) {
+    success = _execTransaction(to, value, data, txnGas, txnNonce, signatures);
   }
 
   /// @notice Determines if the owner is valid
@@ -97,5 +115,9 @@ contract MyMultiSigExtended is MyMultiSig {
       address(0)
     );
     _replaceOwner(owner, msg.sender);
+  }
+
+  function markNonceAsUsed(uint256 nonce) public virtual onlyThis {
+    _noncesUsed[nonce] = true;
   }
 }

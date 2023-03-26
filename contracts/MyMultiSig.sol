@@ -106,17 +106,34 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
     uint256 txnGas,
     bytes memory signatures
   ) public payable virtual nonReentrant returns (bool success) {
-    require(_validateSignature(to, value, data, txnGas, signatures), 'MyMultiSig: invalid signatures');
+    success = _execTransaction(to, value, data, txnGas, _txnNonce, signatures);
+    if (_txnNonce > uint96(2 ** 96 - 1000)) emit ContractEndOfLife(2 ** 96 - _txnNonce - 1);
+  }
+
+  /// @notice Executes a transaction (internal)
+  /// @param to The address to which the transaction is made.
+  /// @param value The amount of Ether to be transferred.
+  /// @param data The data to be passed along with the transaction.
+  /// @param txnGas The gas limit for the transaction.
+  /// @param txnNonce The nonce for the transaction.
+  /// @param signatures The signatures to be used for the transaction.
+  function _execTransaction(
+    address to,
+    uint256 value,
+    bytes memory data,
+    uint256 txnGas,
+    uint256 txnNonce,
+    bytes memory signatures
+  ) internal virtual nonReentrant returns (bool success) {
+    require(_validateSignature(to, value, data, txnGas, txnNonce, signatures), 'MyMultiSig: invalid signatures');
     _txnNonce++;
     uint256 gasBefore = gasleft();
     assembly {
       success := call(txnGas, to, value, add(data, 0x20), mload(data), 0, 0)
     }
     require(gasBefore - gasleft() < txnGas, 'MyMultiSig: not enough gas');
-    if (success) emit TransactionExecuted(msg.sender, to, value, data, txnGas, _txnNonce);
-    else emit TransactionFailed(msg.sender, to, value, data, txnGas, _txnNonce);
-    if (_txnNonce > uint96(2 ** 96 - 1000)) emit ContractEndOfLife(2 ** 96 - _txnNonce - 1);
-    return success;
+    if (success) emit TransactionExecuted(msg.sender, to, value, data, txnGas, txnNonce);
+    else emit TransactionFailed(msg.sender, to, value, data, txnGas, txnNonce);
   }
 
   /// @notice Prepare multiple transactions
@@ -181,18 +198,16 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
     uint256 value,
     bytes memory data,
     uint256 txnGas,
+    uint256 txnNonce,
     bytes memory signatures
   ) public view returns (bool valid) {
     uint16 threshold_ = _threshold;
     if (signatures.length < 65 * threshold_) return false;
     address currentOwner;
+    bytes32 txHash = generateHash(to, value, data, txnGas, _txnNonce);
     for (uint16 i; i < threshold_; ) {
       unchecked {
-        currentOwner = _getCurrentOwner(
-          _hashTypedDataV4(keccak256(abi.encode(_TRANSACTION_TYPEHASH, to, value, keccak256(data), txnGas, _txnNonce))),
-          signatures,
-          i
-        );
+        currentOwner = _getCurrentOwner(txHash, signatures, i);
         if (
           !_owners[currentOwner] || _ownerNonceSigned[uint256(uint96(_txnNonce)) + uint256(uint160(currentOwner) << 96)]
         ) return false;
@@ -234,14 +249,13 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
     uint256 value,
     bytes memory data,
     uint256 txnGas,
+    uint256 txnNonce,
     bytes memory signatures
   ) internal virtual returns (bool valid) {
     uint16 threshold_ = _threshold;
     if (signatures.length < 65 * threshold_) return (false);
-    uint256 txnNonce = _txnNonce;
-    bytes32 txHash = _hashTypedDataV4(
-      keccak256(abi.encode(_TRANSACTION_TYPEHASH, to, value, keccak256(data), txnGas, txnNonce))
-    );
+    txnNonce = _txnNonce;
+    bytes32 txHash = generateHash(to, value, data, txnGas, txnNonce);
     for (uint16 i; i < threshold_; ) {
       unchecked {
         _validateOwner(txHash, signatures, txnNonce, i);
@@ -311,6 +325,28 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
     require(newOwner != address(0), 'MyMultiSig: new owner must not be the zero address');
     _owners[oldOwner] = false;
     _owners[newOwner] = true;
+  }
+
+  function generateHash(
+    address to,
+    uint256 value,
+    bytes memory data,
+    uint256 txnGas,
+    uint256 txnNonce
+  ) public view virtual returns (bytes32) {
+    return _hashTypedDataV4(keccak256(abi.encode(_TRANSACTION_TYPEHASH, to, value, keccak256(data), txnGas, txnNonce)));
+  }
+
+  /// @notice Returns the current transaction nonce
+  /// @return The current transaction nonce.
+  function verifyNonce(uint256 nonce) internal view virtual returns (bool) {
+    return nonce == _txnNonce;
+  }
+
+  /// @notice Increments the transaction nonce, can be use to invalidate previous signatures
+  /// @dev This function can only be called inside a multisig transaction.
+  function incrementNonce() public virtual onlyThis {
+    _txnNonce++;
   }
 
   /// @notice Receives Ether
