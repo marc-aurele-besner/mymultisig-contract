@@ -268,7 +268,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
   /// @notice Adds an owner
   /// @param owner The address to be added as an owner.
   /// @dev This function can only be called inside a multisig transaction.
-  function _addOwner(address owner) private {
+  function _addOwner(address owner) internal virtual {
     require(!_owners[owner], 'MyMultiSig: owner already exists');
     _owners[owner] = true;
   }
