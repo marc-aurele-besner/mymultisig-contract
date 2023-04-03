@@ -1,5 +1,6 @@
 import { expect } from 'chai'
 import { ethers } from 'hardhat'
+import { time } from '@nomicfoundation/hardhat-network-helpers'
 
 import Helper from './index'
 
@@ -804,7 +805,6 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       await Helper.setOwnerSettings(
         contract,
         owner01,
-        [owner01, owner02, owner03],
         ethers.BigNumber.from(60).mul(60).mul(24).mul(14),
         user02.address
       )
@@ -814,7 +814,6 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       await Helper.setOwnerSettings(
         contract,
         owner01,
-        [owner01, owner02, owner03],
         ethers.BigNumber.from(60).mul(60).mul(24).mul(31),
         user03.address
       )
@@ -830,7 +829,6 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       await Helper.setOwnerSettings(
         contract,
         owner01,
-        [owner01, owner02, owner03],
         ethers.BigNumber.from(60).mul(60).mul(24).mul(5),
         user03.address,
         undefined,
@@ -842,7 +840,6 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       await Helper.setOwnerSettings(
         contract,
         owner01,
-        [owner01, owner02, owner03],
         ethers.BigNumber.from(60).mul(60).mul(24).mul(31),
         owner02.address,
         undefined,
@@ -860,12 +857,47 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       await Helper.setOwnerSettings(
         contract,
         owner01,
-        [owner01, owner02, owner03],
         ethers.BigNumber.from(60).mul(60).mul(24).mul(5),
         owner03.address,
         undefined,
         Helper.errors.OWNER_SETTINGS_MUST_BE_GREATER_THAN_MINIMUM
       )
+    })
+
+    it('Can set owner settings then transfer ownership', async function () {
+      await Helper.setTransferInactiveOwnershipAfter(
+        contract,
+        owner01,
+        [owner01, owner02, owner03],
+        ethers.BigNumber.from(60).mul(60).mul(24).mul(7)
+      )
+      await Helper.setOwnerSettings(contract, owner01, ethers.BigNumber.from(60).mul(60).mul(24).mul(8), user03.address)
+      await time.increase(60 * 60 * 24 * 9)
+      await Helper.takeOverOwnership(contract, user03, owner01.address)
+    })
+
+    it('Can set owner settings then transfer ownership too early (should fail)', async function () {
+      await Helper.setTransferInactiveOwnershipAfter(
+        contract,
+        owner01,
+        [owner01, owner02, owner03],
+        ethers.BigNumber.from(60).mul(60).mul(24).mul(7)
+      )
+      await Helper.setOwnerSettings(contract, owner01, ethers.BigNumber.from(60).mul(60).mul(24).mul(8), user03.address)
+      await time.increase(60 * 60 * 24 * 5)
+      await Helper.takeOverOwnership(contract, user03, owner01.address, Helper.errors.OWNER_STILL_ACTIVE)
+    })
+
+    it('Can set owner settings then transfer ownership (not delegatee) (should fail)', async function () {
+      await Helper.setTransferInactiveOwnershipAfter(
+        contract,
+        owner01,
+        [owner01, owner02, owner03],
+        ethers.BigNumber.from(60).mul(60).mul(24).mul(7)
+      )
+      await Helper.setOwnerSettings(contract, owner01, ethers.BigNumber.from(60).mul(60).mul(24).mul(8), user03.address)
+      await time.increase(60 * 60 * 24 * 9)
+      await Helper.takeOverOwnership(contract, user02, owner01.address, Helper.errors.SENDER_NOT_DELEGATEE)
     })
 
     it('Execute transaction without data but 1 ETH in value', async function () {

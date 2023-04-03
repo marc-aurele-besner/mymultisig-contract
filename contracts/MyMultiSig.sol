@@ -285,10 +285,18 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
   /// @param owner The owner to be removed.
   /// @dev This function can only be called inside a multisig transaction.
 
-  function removeOwner(address owner) public virtual onlyThis {
+  function _removeOwner(address owner) internal virtual {
     if (_ownerCount <= _threshold) revert('MyMultiSig: cannot remove owner below threshold');
     _owners[owner] = false;
     _ownerCount--;
+  }
+
+  /// @notice Removes an owner
+  /// @param owner The owner to be removed.
+  /// @dev This function can only be called inside a multisig transaction.
+
+  function removeOwner(address owner) public virtual onlyThis {
+    _removeOwner(owner);
   }
 
   /// @notice Changes the threshold

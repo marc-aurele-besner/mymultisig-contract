@@ -50,6 +50,12 @@ contract MyMultiSigExtended is MyMultiSig {
     _onlyOwnerRequest = isOnlyOwnerRequest;
   }
 
+  /// @notice Retrieves if the nonce has been used
+  /// @return The true if the nonce has been used, false otherwise.
+  function isNonceUsed(uint256 nonce) public view virtual returns (bool) {
+    return _noncesUsed[nonce];
+  }
+
   /// @notice Executes a transaction
   /// @param to The address to which the transaction is made.
   /// @param value The amount of Ether to be transferred.
@@ -92,6 +98,26 @@ contract MyMultiSigExtended is MyMultiSig {
     super._addOwner(owner);
   }
 
+  /// @notice Removes an owner
+  /// @param owner The owner to be removed.
+  /// @dev This function can only be called inside a multisig transaction.
+
+  function _removeOwner(address owner) internal virtual override {
+    _ownersOrDelegates[owner] = false;
+    _ownerSettings[owner].delegate = address(0);
+    super._removeOwner(owner);
+  }
+
+  /// @notice Replaces an owner with a new owner (internal)
+  /// @param oldOwner The owner to be replaced.
+  /// @param newOwner The new owner.
+  /// @dev This function can only be called inside a multisig transaction.
+  function _replaceOwner(address oldOwner, address newOwner) internal virtual override {
+    _ownersOrDelegates[oldOwner] = false;
+    _ownersOrDelegates[newOwner] = true;
+    super._replaceOwner(oldOwner, newOwner);
+  }
+
   /// @notice Set an amount of time after which the other owners can transfer the ownership to a new owner
   /// @param transferInactiveOwnershipAfter The amount of time after which the other owners can transfer the ownership to a new owner.
   /// @dev This function can only be called inside a multisig transaction.
@@ -121,19 +147,16 @@ contract MyMultiSigExtended is MyMultiSig {
   /// @notice Delegatee can take the ownership after the transferInactiveOwnershipAfter time
   /// @param owner The owner address.
   function takeOverOwnership(address owner) external virtual {
+    require(isOwner(owner), 'MyMultiSigExtended: owner is not an owner');
     OwnerSettings memory ownerSettings = _ownerSettings[owner];
     require(ownerSettings.delegate == msg.sender, 'MyMultiSigExtended: msg.sender is not the delegatee');
     require(
       ownerSettings.lastAction + ownerSettings.transferInactiveOwnershipAfter < block.timestamp,
       'MyMultiSigExtended: owner is still active'
     );
-    _ownersOrDelegates[owner] = false;
-    _ownersOrDelegates[msg.sender] = true;
-    _ownerSettings[msg.sender] = OwnerSettings(
-      block.timestamp,
-      ownerSettings.transferInactiveOwnershipAfter,
-      address(0)
-    );
+    _ownerSettings[owner].delegate = address(0);
+    _ownerSettings[msg.sender].lastAction = block.timestamp;
+    _ownerSettings[msg.sender].delegate = address(0);
     _replaceOwner(owner, msg.sender);
   }
 

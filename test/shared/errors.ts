@@ -22,6 +22,8 @@ export default {
   OWNER_SETTINGS_MUST_BE_GREATER_THAN_MINIMUM:
     'MyMultiSigExtended: transferInactiveOwnershipAfter must be greater than _minimumtransferInactiveOwnershipAfter',
   OWNER_SETTINGS_DELEGATEE_MUST_NOT_BE_OWNER: 'MyMultiSigExtended: delegatee is already an owner or delegatee',
+  OWNER_STILL_ACTIVE: 'MyMultiSigExtended: owner is still active',
+  SENDER_NOT_DELEGATEE: 'MyMultiSigExtended: msg.sender is not the delegatee',
 
   PANIC_CODE_0x11:
     'VM Exception while processing transaction: reverted with panic code 0x11 (Arithmetic operation underflowed or overflowed outside of an unchecked block)',

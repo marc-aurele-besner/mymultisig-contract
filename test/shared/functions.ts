@@ -345,10 +345,37 @@ export const setTransferInactiveOwnershipAfter = async (
     expect(await contract.minimumTransferInactiveOwnershipAfter()).to.be.equal(transferInactiveOwnershipAfter)
 }
 
-export const setOwnerSettings = async (
+export const markNonceAsUsed = async (
   contract: MyMultiSigExtended,
   submitter: Wallet,
   owners: Wallet[],
+  nonce: BigNumber,
+  gas = constants.DEFAULT_GAS as number,
+  errorMsg?: string,
+  extraEvents?: string[]
+) => {
+  const data = contract.interface.encodeFunctionData('markNonceAsUsed', [nonce]) as `0x${string}`
+
+  await execTransaction(
+    contract,
+    submitter,
+    owners,
+    contract.address as `0x${string}`,
+    ZERO,
+    data,
+    gas,
+    errorMsg,
+    extraEvents
+  )
+  expect(await contract.isNonceUsed(nonce)).to.be.true
+
+  if (!errorMsg && (!extraEvents || !extraEvents.find((e) => e === 'TransactionFailed')))
+    expect(await contract.isNonceUsed(nonce)).to.be.false
+}
+
+export const setOwnerSettings = async (
+  contract: MyMultiSigExtended,
+  submitter: Wallet,
   transferInactiveOwnershipAfter: BigNumber,
   delegatee: `0x${string}`,
   checkLastActive?: BigNumber,
@@ -366,5 +393,27 @@ export const setOwnerSettings = async (
     await expect(
       contract.connect(submitter).setOwnerSettings(transferInactiveOwnershipAfter, delegatee)
     ).to.be.revertedWith(errorMsg)
+  }
+}
+
+export const takeOverOwnership = async (
+  contract: MyMultiSigExtended,
+  submitter: Wallet,
+  originalOwner: `0x${string}`,
+  errorMsg?: string
+) => {
+  if (!errorMsg) {
+    const originalOwnerSettings = await contract.ownerSettings(originalOwner)
+
+    const tx = await contract.connect(submitter).takeOverOwnership(originalOwner)
+    await tx.wait()
+
+    const finalOwnerSettings = await contract.ownerSettings(originalOwner)
+
+    expect(await contract.isOwner(originalOwnerSettings.delegate)).to.be.true
+    expect(await contract.isOwner(originalOwner)).to.be.false
+    // expect(finalOwnerSettings.delegate).to.be.equal(ethers.constants.AddressZero)
+  } else {
+    await expect(contract.connect(submitter).takeOverOwnership(originalOwner)).to.be.revertedWith(errorMsg)
   }
 }
