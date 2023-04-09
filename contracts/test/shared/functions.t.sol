@@ -158,43 +158,23 @@ contract Functions is Constants, Signatures {
     bytes[] memory data_,
     uint256[] memory txGas_
   ) internal pure returns (bytes memory) {
-    bytes memory to;
-    bytes memory value;
-    bytes memory data;
-    bytes memory txGas;
-    for (uint256 i = 0; i < to_.length; i++) {
-      to = abi.encodePacked(to, bytes32(uint256(uint160(to_[i]))));
-      value = abi.encodePacked(value, bytes32(value_[i]));
-      data = abi.encodePacked(data, data_[i]);
-      txGas = abi.encodePacked(txGas, bytes32(txGas_[i]));
-    }
-    return
-      abi.encodePacked(
-        bytes4(keccak256('multiRequest(address[],uint256[],bytes[],uint256[])')),
-        abi.encodePacked(to, value, data, txGas)
-      );
+    return abi.encodeWithSignature('multiRequest(address[],uint256[],bytes[],uint256[])', to_, value_, data_, txGas_);
   }
 
   function build_addOwner(address owner) internal pure returns (bytes memory) {
-    return abi.encodePacked(bytes4(keccak256('addOwner(address)')), abi.encodePacked(bytes32(uint256(uint160(owner)))));
+    return abi.encodeWithSignature('addOwner(address)', owner);
   }
 
   function build_removeOwner(address owner) internal pure returns (bytes memory) {
-    return
-      abi.encodePacked(bytes4(keccak256('removeOwner(address)')), abi.encodePacked(bytes32(uint256(uint160(owner)))));
+    return abi.encodeWithSignature('removeOwner(address)', owner);
   }
 
   function build_changeThreshold(uint16 newThreshold) internal pure returns (bytes memory) {
-    return
-      abi.encodePacked(bytes4(keccak256('changeThreshold(uint16)')), abi.encodePacked(bytes32(uint256(newThreshold))));
+    return abi.encodeWithSignature('changeThreshold(uint16)', newThreshold);
   }
 
   function build_replaceOwner(address oldOwner, address newOwner) internal pure returns (bytes memory) {
-    return
-      abi.encodePacked(
-        bytes4(keccak256('replaceOwner(address,address)')),
-        abi.encodePacked(bytes32(uint256(uint160(oldOwner))), bytes32(uint256(uint160(newOwner))))
-      );
+    return abi.encodeWithSignature('replaceOwner(address,address)', oldOwner, newOwner);
   }
 
   function help_execTransaction(
@@ -390,7 +370,7 @@ contract Functions is Constants, Signatures {
     bytes memory data = build_multiRequest(to_, value_, data_, txGas_);
     uint256 gas;
     for (uint256 i = 0; i < to_.length; i++) {
-      gas = txGas_[i];
+      gas += txGas_[i];
     }
     uint96 nonce = multiSig_.nonce();
     bytes memory signatures = build_signatures(multiSig_, ownersPk_, to, value, data, gas);

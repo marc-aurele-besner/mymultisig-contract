@@ -11,13 +11,13 @@ contract Constants is Errors {
   string constant CONTRACT_VERSION = '0.0.12';
 
   uint16 constant DEFAULT_THRESHOLD = 2;
-  uint256 constant DEFAULT_GAS = 30000;
+  uint256 constant DEFAULT_GAS = 35000;
 
   uint256 public constant OWNERS_COUNT = 5;
   uint256[] public OWNERS_PK;
   address[] public OWNERS;
 
-  uint256 public constant NOT_OWNERS_COUNT = 5;
+  uint256 public constant NOT_OWNERS_COUNT = 25;
   uint256[] public NOT_OWNERS_PK;
   address[] public NOT_OWNERS;
 

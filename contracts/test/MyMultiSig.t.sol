@@ -57,23 +57,35 @@ contract TestMyMultiSig is Helper {
     help_replaceOwner(OWNERS[0], myMultiSig, OWNERS_PK, OWNERS[0], NOT_OWNERS[0]);
   }
 
-  // function testMyMultiSig_multiRequest() public {
-  //   buildTo.push(address(myMultiSig));
-  //   buildTo.push(address(myMultiSig));
-  //   buildTo.push(address(myMultiSig));
+  function testMyMultiSig_multiRequest_add3Owners() public {
+    uint256 NEW_OWNERS_COUNT = 3;
+    for (uint256 i = 0; i < NEW_OWNERS_COUNT; i++) {
+      buildTo.push(address(myMultiSig));
+      buildValue.push(0);
+      buildData.push(build_addOwner(NOT_OWNERS[i]));
+      buildGas.push(DEFAULT_GAS);
+    }
 
-  //   buildValue.push(0);
-  //   buildValue.push(0);
-  //   buildValue.push(0);
+    help_multiRequest(OWNERS[0], myMultiSig, OWNERS_PK, buildTo, buildValue, buildData, buildGas);
 
-  //   buildData.push(build_addOwner(NOT_OWNERS[0]));
-  //   buildData.push(build_addOwner(NOT_OWNERS[1]));
-  //   buildData.push(build_addOwner(NOT_OWNERS[2]));
+    for (uint256 i = 0; i < NEW_OWNERS_COUNT; i++) {
+      assertTrue(myMultiSig.isOwner(NOT_OWNERS[i]));
+    }
+  }
 
-  //   buildGas.push(DEFAULT_GAS);
-  //   buildGas.push(DEFAULT_GAS);
-  //   buildGas.push(DEFAULT_GAS);
+  function testMyMultiSig_multiRequest_add5Owners() public {
+    uint256 NEW_OWNERS_COUNT = 5;
+    for (uint256 i = 0; i < NEW_OWNERS_COUNT; i++) {
+      buildTo.push(address(myMultiSig));
+      buildValue.push(0);
+      buildData.push(build_addOwner(NOT_OWNERS[i]));
+      buildGas.push(DEFAULT_GAS);
+    }
 
-  //   help_multiRequest(OWNERS[0], myMultiSig, OWNERS_PK, buildTo, buildValue, buildData, buildGas);
-  // }
+    help_multiRequest(OWNERS[0], myMultiSig, OWNERS_PK, buildTo, buildValue, buildData, buildGas);
+
+    for (uint256 i = 0; i < NEW_OWNERS_COUNT; i++) {
+      assertTrue(myMultiSig.isOwner(NOT_OWNERS[i]));
+    }
+  }
 }
