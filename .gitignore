@@ -27,3 +27,7 @@ abi
 
 # ChugSplash
 .canonical-configs
+
+# Foundry Coverage report
+report
+lcov.info
