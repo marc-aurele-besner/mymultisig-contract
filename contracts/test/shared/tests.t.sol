@@ -5,7 +5,7 @@ import 'foundry-test-utility/contracts/utils/console.sol';
 import { Helper } from './helper.t.sol';
 import { Errors } from './errors.t.sol';
 
-abstract contract Scenario_Basic is Helper {
+abstract contract TestBasic is Helper {
   address[] buildTo;
   uint256[] buildValue;
   bytes[] buildData;
