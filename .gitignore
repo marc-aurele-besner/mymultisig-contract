@@ -31,3 +31,6 @@ abi
 # Foundry Coverage report
 report
 lcov.info
+
+# Local deployment
+deployments/Hardhat
