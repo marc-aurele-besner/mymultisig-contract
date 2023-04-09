@@ -8,18 +8,26 @@ import { Constants } from './constants.t.sol';
 import { Errors } from './errors.t.sol';
 
 import { MyMultiSigFactory } from '../../MyMultiSigFactory.sol';
+import { MyMultiSigFactoryWithChugSplash } from '../../MyMultiSigFactoryWithChugSplash.sol';
 import { MyMultiSig } from '../../MyMultiSig.sol';
+import { MyMultiSigExtended } from '../../MyMultiSigExtended.sol';
 
 contract Functions is Constants, Signatures {
   uint8 LOG_LEVEL;
   uint256 DEFAULT_BLOCKS_COUNT;
 
   MyMultiSigFactory public myMultiSigFactory;
+  MyMultiSigFactoryWithChugSplash public myMultiSigFactoryWithChugSplash;
+  MyMultiSigExtended public myMultiSigExtended;
   MyMultiSig public myMultiSig;
 
   enum TestType {
     TestWithFactory,
-    TestWithoutFactory
+    TestWithChugSplash,
+    TestWithoutFactory,
+    TestWithFactory_extended,
+    TestWithChugSplash_extended,
+    TestWithoutFactory_extended
   }
 
   // MyMultiSigFactory
@@ -60,9 +68,20 @@ contract Functions is Constants, Signatures {
     vm.warp(100);
     vm.prank(ADMIN);
 
-    if (testType_ == TestType.TestWithFactory) {
+    if (testType_ == TestType.TestWithFactory || testType_ == TestType.TestWithFactory_extended) {
       myMultiSigFactory = new MyMultiSigFactory();
-      (, myMultiSig) = help_createMultiSig(ADMIN, CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD);
+      if (testType_ == TestType.TestWithFactory)
+        (, myMultiSig) = help_createMultiSig(ADMIN, CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD);
+      // else
+      //   (, myMultiSig) = createMyMultiSigExtended(ADMIN, CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD, ONLY_OWNERS_REQUEST);
+    } else if (testType_ == TestType.TestWithChugSplash || testType_ == TestType.TestWithChugSplash_extended) {
+      // if (testType_ == TestType.TestWithChugSplash)
+      // myMultiSigFactoryWithChugSplash = new MyMultiSigFactoryWithChugSplash();
+      // else
+      // (, myMultiSig) = help_createMultiSig(ADMIN, CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD);
+    } else if (testType_ == TestType.TestWithoutFactory_extended) {
+      myMultiSigExtended = new MyMultiSigExtended(CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD, ONLY_OWNERS_REQUEST);
+      myMultiSig = MyMultiSig(payable(address(myMultiSigExtended)));
     } else {
       myMultiSig = new MyMultiSig(CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD);
     }

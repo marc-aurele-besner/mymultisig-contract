@@ -271,6 +271,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
   function _addOwner(address owner) internal virtual {
     require(!_owners[owner], 'MyMultiSig: owner already exists');
     _owners[owner] = true;
+    ++_ownerCount;
   }
 
   /// @notice Adds an owner
@@ -288,7 +289,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
   function _removeOwner(address owner) internal virtual {
     if (_ownerCount <= _threshold) revert('MyMultiSig: cannot remove owner below threshold');
     _owners[owner] = false;
-    _ownerCount--;
+    --_ownerCount;
   }
 
   /// @notice Removes an owner
