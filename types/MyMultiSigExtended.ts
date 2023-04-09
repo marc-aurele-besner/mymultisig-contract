@@ -28,23 +28,44 @@ import type {
   PromiseOrValue,
 } from "../common";
 
+export declare namespace MyMultiSigExtended {
+  export type OwnerSettingsStruct = {
+    lastAction: PromiseOrValue<BigNumberish>;
+    transferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>;
+    delegate: PromiseOrValue<string>;
+  };
+
+  export type OwnerSettingsStructOutput = [BigNumber, BigNumber, string] & {
+    lastAction: BigNumber;
+    transferInactiveOwnershipAfter: BigNumber;
+    delegate: string;
+  };
+}
+
 export interface MyMultiSigExtendedInterface extends utils.Interface {
   functions: {
     "addOwner(address)": FunctionFragment;
     "allowOnlyOwnerRequest()": FunctionFragment;
     "changeThreshold(uint16)": FunctionFragment;
+    "execTransaction(address,uint256,bytes,uint256,uint256,bytes)": FunctionFragment;
     "execTransaction(address,uint256,bytes,uint256,bytes)": FunctionFragment;
+    "generateHash(address,uint256,bytes,uint256,uint256)": FunctionFragment;
+    "incrementNonce()": FunctionFragment;
+    "isNonceUsed(uint256)": FunctionFragment;
     "isOwner(address)": FunctionFragment;
-    "isValidSignature(address,uint256,bytes,uint256,bytes)": FunctionFragment;
+    "isValidSignature(address,uint256,bytes,uint256,uint256,bytes)": FunctionFragment;
+    "markNonceAsUsed(uint256)": FunctionFragment;
+    "minimumTransferInactiveOwnershipAfter()": FunctionFragment;
     "multiRequest(address[],uint256[],bytes[],uint256[])": FunctionFragment;
     "name()": FunctionFragment;
     "nonce()": FunctionFragment;
     "ownerCount()": FunctionFragment;
+    "ownerSettings(address)": FunctionFragment;
     "removeOwner(address)": FunctionFragment;
     "replaceOwner(address,address)": FunctionFragment;
     "setOnlyOwnerRequest(bool)": FunctionFragment;
     "setOwnerSettings(uint256,address)": FunctionFragment;
-    "setTranferInactiveOwnershipAftert(uint256)": FunctionFragment;
+    "setTransferInactiveOwnershipAfter(uint256)": FunctionFragment;
     "takeOverOwnership(address)": FunctionFragment;
     "threshold()": FunctionFragment;
     "version()": FunctionFragment;
@@ -55,18 +76,25 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
       | "addOwner"
       | "allowOnlyOwnerRequest"
       | "changeThreshold"
-      | "execTransaction"
+      | "execTransaction(address,uint256,bytes,uint256,uint256,bytes)"
+      | "execTransaction(address,uint256,bytes,uint256,bytes)"
+      | "generateHash"
+      | "incrementNonce"
+      | "isNonceUsed"
       | "isOwner"
       | "isValidSignature"
+      | "markNonceAsUsed"
+      | "minimumTransferInactiveOwnershipAfter"
       | "multiRequest"
       | "name"
       | "nonce"
       | "ownerCount"
+      | "ownerSettings"
       | "removeOwner"
       | "replaceOwner"
       | "setOnlyOwnerRequest"
       | "setOwnerSettings"
-      | "setTranferInactiveOwnershipAftert"
+      | "setTransferInactiveOwnershipAfter"
       | "takeOverOwnership"
       | "threshold"
       | "version"
@@ -85,7 +113,18 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     values: [PromiseOrValue<BigNumberish>]
   ): string;
   encodeFunctionData(
-    functionFragment: "execTransaction",
+    functionFragment: "execTransaction(address,uint256,bytes,uint256,uint256,bytes)",
+    values: [
+      PromiseOrValue<string>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BytesLike>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BytesLike>
+    ]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "execTransaction(address,uint256,bytes,uint256,bytes)",
     values: [
       PromiseOrValue<string>,
       PromiseOrValue<BigNumberish>,
@@ -93,6 +132,24 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
       PromiseOrValue<BigNumberish>,
       PromiseOrValue<BytesLike>
     ]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "generateHash",
+    values: [
+      PromiseOrValue<string>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BytesLike>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BigNumberish>
+    ]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "incrementNonce",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "isNonceUsed",
+    values: [PromiseOrValue<BigNumberish>]
   ): string;
   encodeFunctionData(
     functionFragment: "isOwner",
@@ -105,8 +162,17 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
       PromiseOrValue<BigNumberish>,
       PromiseOrValue<BytesLike>,
       PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BigNumberish>,
       PromiseOrValue<BytesLike>
     ]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "markNonceAsUsed",
+    values: [PromiseOrValue<BigNumberish>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "minimumTransferInactiveOwnershipAfter",
+    values?: undefined
   ): string;
   encodeFunctionData(
     functionFragment: "multiRequest",
@@ -122,6 +188,10 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
   encodeFunctionData(
     functionFragment: "ownerCount",
     values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "ownerSettings",
+    values: [PromiseOrValue<string>]
   ): string;
   encodeFunctionData(
     functionFragment: "removeOwner",
@@ -140,7 +210,7 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     values: [PromiseOrValue<BigNumberish>, PromiseOrValue<string>]
   ): string;
   encodeFunctionData(
-    functionFragment: "setTranferInactiveOwnershipAftert",
+    functionFragment: "setTransferInactiveOwnershipAfter",
     values: [PromiseOrValue<BigNumberish>]
   ): string;
   encodeFunctionData(
@@ -160,12 +230,36 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
-    functionFragment: "execTransaction",
+    functionFragment: "execTransaction(address,uint256,bytes,uint256,uint256,bytes)",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "execTransaction(address,uint256,bytes,uint256,bytes)",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "generateHash",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "incrementNonce",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "isNonceUsed",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "isOwner", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "isValidSignature",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "markNonceAsUsed",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "minimumTransferInactiveOwnershipAfter",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -175,6 +269,10 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
   decodeFunctionResult(functionFragment: "name", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "nonce", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "ownerCount", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "ownerSettings",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "removeOwner",
     data: BytesLike
@@ -192,7 +290,7 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
-    functionFragment: "setTranferInactiveOwnershipAftert",
+    functionFragment: "setTransferInactiveOwnershipAfter",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -326,7 +424,17 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
-    execTransaction(
+    "execTransaction(address,uint256,bytes,uint256,uint256,bytes)"(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
+      signatures: PromiseOrValue<BytesLike>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    "execTransaction(address,uint256,bytes,uint256,bytes)"(
       to: PromiseOrValue<string>,
       value: PromiseOrValue<BigNumberish>,
       data: PromiseOrValue<BytesLike>,
@@ -334,6 +442,24 @@ export interface MyMultiSigExtended extends BaseContract {
       signatures: PromiseOrValue<BytesLike>,
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
+
+    generateHash(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<[string]>;
+
+    incrementNonce(
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    isNonceUsed(
+      nonce: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<[boolean]>;
 
     isOwner(
       owner: PromiseOrValue<string>,
@@ -345,9 +471,19 @@ export interface MyMultiSigExtended extends BaseContract {
       value: PromiseOrValue<BigNumberish>,
       data: PromiseOrValue<BytesLike>,
       txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
       signatures: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<[boolean] & { valid: boolean }>;
+
+    markNonceAsUsed(
+      nonce: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    minimumTransferInactiveOwnershipAfter(
+      overrides?: CallOverrides
+    ): Promise<[BigNumber]>;
 
     multiRequest(
       to: PromiseOrValue<string>[],
@@ -362,6 +498,11 @@ export interface MyMultiSigExtended extends BaseContract {
     nonce(overrides?: CallOverrides): Promise<[BigNumber]>;
 
     ownerCount(overrides?: CallOverrides): Promise<[number]>;
+
+    ownerSettings(
+      owner: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<[MyMultiSigExtended.OwnerSettingsStructOutput]>;
 
     removeOwner(
       owner: PromiseOrValue<string>,
@@ -380,13 +521,13 @@ export interface MyMultiSigExtended extends BaseContract {
     ): Promise<ContractTransaction>;
 
     setOwnerSettings(
-      tranferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
+      transferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
       delegatee: PromiseOrValue<string>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
-    setTranferInactiveOwnershipAftert(
-      tranferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
+    setTransferInactiveOwnershipAfter(
+      transferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
@@ -412,7 +553,17 @@ export interface MyMultiSigExtended extends BaseContract {
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
-  execTransaction(
+  "execTransaction(address,uint256,bytes,uint256,uint256,bytes)"(
+    to: PromiseOrValue<string>,
+    value: PromiseOrValue<BigNumberish>,
+    data: PromiseOrValue<BytesLike>,
+    txnGas: PromiseOrValue<BigNumberish>,
+    txnNonce: PromiseOrValue<BigNumberish>,
+    signatures: PromiseOrValue<BytesLike>,
+    overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  "execTransaction(address,uint256,bytes,uint256,bytes)"(
     to: PromiseOrValue<string>,
     value: PromiseOrValue<BigNumberish>,
     data: PromiseOrValue<BytesLike>,
@@ -420,6 +571,24 @@ export interface MyMultiSigExtended extends BaseContract {
     signatures: PromiseOrValue<BytesLike>,
     overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
+
+  generateHash(
+    to: PromiseOrValue<string>,
+    value: PromiseOrValue<BigNumberish>,
+    data: PromiseOrValue<BytesLike>,
+    txnGas: PromiseOrValue<BigNumberish>,
+    txnNonce: PromiseOrValue<BigNumberish>,
+    overrides?: CallOverrides
+  ): Promise<string>;
+
+  incrementNonce(
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  isNonceUsed(
+    nonce: PromiseOrValue<BigNumberish>,
+    overrides?: CallOverrides
+  ): Promise<boolean>;
 
   isOwner(
     owner: PromiseOrValue<string>,
@@ -431,9 +600,19 @@ export interface MyMultiSigExtended extends BaseContract {
     value: PromiseOrValue<BigNumberish>,
     data: PromiseOrValue<BytesLike>,
     txnGas: PromiseOrValue<BigNumberish>,
+    txnNonce: PromiseOrValue<BigNumberish>,
     signatures: PromiseOrValue<BytesLike>,
     overrides?: CallOverrides
   ): Promise<boolean>;
+
+  markNonceAsUsed(
+    nonce: PromiseOrValue<BigNumberish>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  minimumTransferInactiveOwnershipAfter(
+    overrides?: CallOverrides
+  ): Promise<BigNumber>;
 
   multiRequest(
     to: PromiseOrValue<string>[],
@@ -448,6 +627,11 @@ export interface MyMultiSigExtended extends BaseContract {
   nonce(overrides?: CallOverrides): Promise<BigNumber>;
 
   ownerCount(overrides?: CallOverrides): Promise<number>;
+
+  ownerSettings(
+    owner: PromiseOrValue<string>,
+    overrides?: CallOverrides
+  ): Promise<MyMultiSigExtended.OwnerSettingsStructOutput>;
 
   removeOwner(
     owner: PromiseOrValue<string>,
@@ -466,13 +650,13 @@ export interface MyMultiSigExtended extends BaseContract {
   ): Promise<ContractTransaction>;
 
   setOwnerSettings(
-    tranferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
+    transferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
     delegatee: PromiseOrValue<string>,
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
-  setTranferInactiveOwnershipAftert(
-    tranferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
+  setTransferInactiveOwnershipAfter(
+    transferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
@@ -498,12 +682,38 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: CallOverrides
     ): Promise<void>;
 
-    execTransaction(
+    "execTransaction(address,uint256,bytes,uint256,uint256,bytes)"(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
+      signatures: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<boolean>;
+
+    "execTransaction(address,uint256,bytes,uint256,bytes)"(
       to: PromiseOrValue<string>,
       value: PromiseOrValue<BigNumberish>,
       data: PromiseOrValue<BytesLike>,
       txnGas: PromiseOrValue<BigNumberish>,
       signatures: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<boolean>;
+
+    generateHash(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<string>;
+
+    incrementNonce(overrides?: CallOverrides): Promise<void>;
+
+    isNonceUsed(
+      nonce: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
     ): Promise<boolean>;
 
@@ -517,9 +727,19 @@ export interface MyMultiSigExtended extends BaseContract {
       value: PromiseOrValue<BigNumberish>,
       data: PromiseOrValue<BytesLike>,
       txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
       signatures: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<boolean>;
+
+    markNonceAsUsed(
+      nonce: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    minimumTransferInactiveOwnershipAfter(
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
 
     multiRequest(
       to: PromiseOrValue<string>[],
@@ -534,6 +754,11 @@ export interface MyMultiSigExtended extends BaseContract {
     nonce(overrides?: CallOverrides): Promise<BigNumber>;
 
     ownerCount(overrides?: CallOverrides): Promise<number>;
+
+    ownerSettings(
+      owner: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<MyMultiSigExtended.OwnerSettingsStructOutput>;
 
     removeOwner(
       owner: PromiseOrValue<string>,
@@ -552,13 +777,13 @@ export interface MyMultiSigExtended extends BaseContract {
     ): Promise<void>;
 
     setOwnerSettings(
-      tranferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
+      transferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
       delegatee: PromiseOrValue<string>,
       overrides?: CallOverrides
     ): Promise<void>;
 
-    setTranferInactiveOwnershipAftert(
-      tranferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
+    setTransferInactiveOwnershipAfter(
+      transferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
     ): Promise<void>;
 
@@ -647,13 +872,41 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
-    execTransaction(
+    "execTransaction(address,uint256,bytes,uint256,uint256,bytes)"(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
+      signatures: PromiseOrValue<BytesLike>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    "execTransaction(address,uint256,bytes,uint256,bytes)"(
       to: PromiseOrValue<string>,
       value: PromiseOrValue<BigNumberish>,
       data: PromiseOrValue<BytesLike>,
       txnGas: PromiseOrValue<BigNumberish>,
       signatures: PromiseOrValue<BytesLike>,
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    generateHash(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    incrementNonce(
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    isNonceUsed(
+      nonce: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
     ): Promise<BigNumber>;
 
     isOwner(
@@ -666,7 +919,17 @@ export interface MyMultiSigExtended extends BaseContract {
       value: PromiseOrValue<BigNumberish>,
       data: PromiseOrValue<BytesLike>,
       txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
       signatures: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    markNonceAsUsed(
+      nonce: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    minimumTransferInactiveOwnershipAfter(
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
@@ -683,6 +946,11 @@ export interface MyMultiSigExtended extends BaseContract {
     nonce(overrides?: CallOverrides): Promise<BigNumber>;
 
     ownerCount(overrides?: CallOverrides): Promise<BigNumber>;
+
+    ownerSettings(
+      owner: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
 
     removeOwner(
       owner: PromiseOrValue<string>,
@@ -701,13 +969,13 @@ export interface MyMultiSigExtended extends BaseContract {
     ): Promise<BigNumber>;
 
     setOwnerSettings(
-      tranferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
+      transferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
       delegatee: PromiseOrValue<string>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
-    setTranferInactiveOwnershipAftert(
-      tranferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
+    setTransferInactiveOwnershipAfter(
+      transferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
@@ -736,13 +1004,41 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
-    execTransaction(
+    "execTransaction(address,uint256,bytes,uint256,uint256,bytes)"(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
+      signatures: PromiseOrValue<BytesLike>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    "execTransaction(address,uint256,bytes,uint256,bytes)"(
       to: PromiseOrValue<string>,
       value: PromiseOrValue<BigNumberish>,
       data: PromiseOrValue<BytesLike>,
       txnGas: PromiseOrValue<BigNumberish>,
       signatures: PromiseOrValue<BytesLike>,
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    generateHash(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    incrementNonce(
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    isNonceUsed(
+      nonce: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
     isOwner(
@@ -755,7 +1051,17 @@ export interface MyMultiSigExtended extends BaseContract {
       value: PromiseOrValue<BigNumberish>,
       data: PromiseOrValue<BytesLike>,
       txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
       signatures: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    markNonceAsUsed(
+      nonce: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    minimumTransferInactiveOwnershipAfter(
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
@@ -772,6 +1078,11 @@ export interface MyMultiSigExtended extends BaseContract {
     nonce(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     ownerCount(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    ownerSettings(
+      owner: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
 
     removeOwner(
       owner: PromiseOrValue<string>,
@@ -790,13 +1101,13 @@ export interface MyMultiSigExtended extends BaseContract {
     ): Promise<PopulatedTransaction>;
 
     setOwnerSettings(
-      tranferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
+      transferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
       delegatee: PromiseOrValue<string>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
-    setTranferInactiveOwnershipAftert(
-      tranferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
+    setTransferInactiveOwnershipAfter(
+      transferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 

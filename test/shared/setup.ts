@@ -32,7 +32,8 @@ const setupContract = async (
   contractName = constants.CONTRACT_NAME as string,
   ownersAddresses = [] as string[],
   threshold = constants.DEFAULT_THRESHOLD as number,
-  deployFactory = false
+  deployFactory = false,
+  deployExtended = false
 ): Promise<SetupContractReturn> => {
   let ContractFactory
   let contract
@@ -41,8 +42,18 @@ const setupContract = async (
     ContractFactory = await ethers.getContractFactory(contractName)
     contract = await upgrades.deployProxy(ContractFactory, [])
   } else {
-    ContractFactory = await ethers.getContractFactory(contractName)
-    contract = await ContractFactory.deploy(contractName, ownersAddresses, threshold)
+    if (!deployExtended) {
+      ContractFactory = await ethers.getContractFactory(contractName)
+      contract = await ContractFactory.deploy(contractName, ownersAddresses, threshold)
+    } else {
+      ContractFactory = await ethers.getContractFactory(contractName + 'Extended')
+      contract = await ContractFactory.deploy(
+        contractName,
+        ownersAddresses,
+        threshold,
+        constants.DEFAULT_ALLOW_ONLY_OWNER
+      )
+    }
   }
 
   const deploymentDetail =

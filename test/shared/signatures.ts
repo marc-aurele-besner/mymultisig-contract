@@ -11,7 +11,7 @@ export default {
     value: BigNumber,
     data: string,
     gas: number,
-    nonce: string
+    nonce: BigNumber
   ) {
     var signature = await sourceWallet._signTypedData(
       {

@@ -1,13 +1,14 @@
 import { expect } from 'chai'
-import { BigNumber, Contract } from 'ethers'
+import { BigNumber, BytesLike, Contract, Wallet } from 'ethers'
 import { ethers, network } from 'hardhat'
 
 import constants from '../../constants'
 import signature from './signatures'
+import { MyMultiSig, MyMultiSigExtended } from '../../typechain-types'
 
 export const ZERO = BigNumber.from(0)
 
-export const sendRawTxn = async (input: any, sender: any, ethers: any, provider: any) => {
+export const sendRawTxn = async (input: any, sender: Wallet, ethers: any, provider: any) => {
   const txCount = await provider.getTransactionCount(sender.address)
   const rawTx = {
     chainId: network.config.chainId,
@@ -23,7 +24,7 @@ export const sendRawTxn = async (input: any, sender: any, ethers: any, provider:
   return await provider.waitForTransaction(hash)
 }
 
-export const checkRawTxnResult = async (input: any, sender: any, error: undefined | string) => {
+export const checkRawTxnResult = async (input: any, sender: Wallet, error: undefined | string) => {
   let result
   if (error)
     if (network.name === 'hardhat' || network.name === 'localhost')
@@ -48,14 +49,14 @@ export const getEventFromReceipt = async (contract: Contract, receipt: any) => {
 }
 
 export const prepareSignatures = async (
-  contract: any,
-  owners: any[],
-  to: string,
+  contract: MyMultiSig | MyMultiSigExtended,
+  owners: Wallet[],
+  to: `0x${string}`,
   value: BigNumber,
-  data: string,
-  gas = constants.DEFAULT_GAS as number
+  data: `0x${string}`,
+  gas = constants.DEFAULT_GAS as number,
+  nonce = BigNumber.from(0)
 ) => {
-  const nonce = await contract.nonce()
   let signatures = '0x'
   for (var i = 0; i < owners.length; i++) {
     const sig = await signature.signMultiSigTxn(contract.address, owners[i], to, value, data, gas, nonce)
@@ -65,20 +66,23 @@ export const prepareSignatures = async (
 }
 
 export const execTransaction = async (
-  contract: any,
-  submitter: any,
-  owners: any[],
-  to: string,
+  contract: MyMultiSig | MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
+  to: `0x${string}`,
   value: BigNumber,
-  data: string,
+  data: `0x${string}`,
   gas = constants.DEFAULT_GAS as number,
   errorMsg?: string,
   extraEvents?: string[],
   signatures?: string
 ) => {
-  if (!signatures) signatures = await prepareSignatures(contract, owners, to, value, data, gas)
+  const nonce = await contract.nonce()
+  if (!signatures) signatures = await prepareSignatures(contract, owners, to, value, data, gas, nonce)
 
-  const input = await contract.connect(submitter).populateTransaction.execTransaction(to, value, data, gas, signatures)
+  const input = await contract
+    .connect(submitter)
+    .populateTransaction['execTransaction(address,uint256,bytes,uint256,bytes)'](to, value, data, gas, signatures)
 
   const receipt = await checkRawTxnResult(input, submitter, errorMsg)
   if (!errorMsg) {
@@ -106,7 +110,6 @@ export const execTransaction = async (
           expect(event[i].args.data).to.be.equal(data)
           expect(event[i].args.txnGas).to.be.equal(gas)
           found = true
-          return receipt
         } else {
           if (found) expect.fail('TransactionExecuted event not found')
         }
@@ -119,41 +122,42 @@ export const execTransaction = async (
         for (var ii = 0; i < eventsFound.length; ii++) {
           if (eventsFound[ii] && eventsFound[ii].name === extraEvents[i]) {
             expect(submitter.address).to.be.equal(eventsFound[ii].sender)
-            return receipt
           }
         }
       }
     }
   }
+  return receipt
 }
 
 export const isValidSignature = async (
-  contract: any,
-  submitter: any,
-  owners: any[],
-  to: string,
+  contract: MyMultiSig | MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
+  to: `0x${string}`,
   value: BigNumber,
-  data: string,
+  data: `0x${string}`,
   gas = constants.DEFAULT_GAS as number,
+  nonce = BigNumber.from(0),
   errorMsg?: string
 ) => {
-  const signatures = prepareSignatures(contract, owners, to, value, data, gas)
+  const signatures = prepareSignatures(contract, owners, to, value, data, gas, nonce)
 
-  if (!errorMsg) return await contract.connect(submitter).isValidSignature(to, value, data, gas, signatures)
+  if (!errorMsg) return await contract.connect(submitter).isValidSignature(to, value, data, gas, nonce, signatures)
   else {
     const input = await contract
       .connect(submitter)
-      .populateTransaction.isValidSignature(to, value, data, gas, signatures)
+      .populateTransaction.isValidSignature(to, value, data, gas, nonce, signatures)
     await checkRawTxnResult(input, submitter, errorMsg)
     return false
   }
 }
 
 export const multiRequest = async (
-  contract: any,
-  submitter: any,
-  owners: any[],
-  to_: string[],
+  contract: MyMultiSig | MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
+  to_: `0x${string}`[],
   value_: BigNumber[],
   data_: string[],
   gas_: number[],
@@ -168,14 +172,9 @@ export const multiRequest = async (
     contract,
     submitter,
     owners,
-    contract.address,
-    0,
-    contract.interface.encodeFunctionData('multiRequest(address[],uint256[],bytes[],uint256[])', [
-      to_,
-      value_,
-      data_,
-      gas_,
-    ]),
+    contract.address as `0x${string}`,
+    BigNumber.from(0),
+    contract.interface.encodeFunctionData('multiRequest', [to_, value_, data_, gas_]) as `0x${string}`,
     gas,
     errorMsg,
     extraEvents
@@ -183,70 +182,238 @@ export const multiRequest = async (
 }
 
 export const addOwner = async (
-  contract: any,
-  submitter: any,
-  owners: any[],
+  contract: MyMultiSig | MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
   ownerToAdd: string,
   gas = constants.DEFAULT_GAS as number,
   errorMsg?: string,
   extraEvents?: string[]
 ) => {
-  const data = contract.interface.encodeFunctionData('addOwner(address)', [ownerToAdd])
+  const data = contract.interface.encodeFunctionData('addOwner', [ownerToAdd]) as `0x${string}`
 
-  await execTransaction(contract, submitter, owners, contract.address, ZERO, data, gas, errorMsg, extraEvents)
+  await execTransaction(
+    contract,
+    submitter,
+    owners,
+    contract.address as `0x${string}`,
+    ZERO,
+    data,
+    gas,
+    errorMsg,
+    extraEvents
+  )
 
   if (!errorMsg) expect(await contract.isOwner(ownerToAdd)).to.be.true
 }
 
 export const removeOwner = async (
-  contract: any,
-  submitter: any,
-  owners: any[],
+  contract: MyMultiSig | MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
   ownerToRemove: string,
   gas = constants.DEFAULT_GAS,
   errorMsg?: string,
   extraEvents?: string[]
 ) => {
-  const data = contract.interface.encodeFunctionData('removeOwner(address)', [ownerToRemove])
+  const data = contract.interface.encodeFunctionData('removeOwner', [ownerToRemove]) as `0x${string}`
 
-  await execTransaction(contract, submitter, owners, contract.address, ZERO, data, gas, undefined, extraEvents)
+  await execTransaction(
+    contract,
+    submitter,
+    owners,
+    contract.address as `0x${string}`,
+    ZERO,
+    data,
+    gas,
+    undefined,
+    extraEvents
+  )
 
   if (!errorMsg) expect(await contract.isOwner(ownerToRemove)).to.be.false
   else expect(await contract.isOwner(ownerToRemove)).to.be.true
 }
 
 export const changeThreshold = async (
-  contract: any,
-  submitter: any,
-  owners: any[],
+  contract: MyMultiSig | MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
   newThreshold: number,
   gas = constants.DEFAULT_GAS,
   errorMsg?: string,
   extraEvents?: string[]
 ) => {
-  const data = contract.interface.encodeFunctionData('changeThreshold(uint16)', [newThreshold])
+  const data = contract.interface.encodeFunctionData('changeThreshold', [newThreshold]) as `0x${string}`
 
-  await execTransaction(contract, submitter, owners, contract.address, ZERO, data, gas, errorMsg, extraEvents)
+  await execTransaction(
+    contract,
+    submitter,
+    owners,
+    contract.address as `0x${string}`,
+    ZERO,
+    data,
+    gas,
+    errorMsg,
+    extraEvents
+  )
 
   if (!errorMsg) expect(await contract.threshold()).to.be.equal(newThreshold)
 }
 
 export const replaceOwner = async (
-  contract: any,
-  submitter: any,
-  owners: any[],
+  contract: MyMultiSig | MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
   ownerToAdd: string,
   ownerToRemove: string,
   gas = constants.DEFAULT_GAS,
   errorMsg?: string,
   extraEvents?: string[]
 ) => {
-  const data = contract.interface.encodeFunctionData('replaceOwner(address,address)', [ownerToRemove, ownerToAdd])
+  const data = contract.interface.encodeFunctionData('replaceOwner', [ownerToRemove, ownerToAdd]) as `0x${string}`
 
-  await execTransaction(contract, submitter, owners, contract.address, ZERO, data, gas, errorMsg, extraEvents)
+  await execTransaction(
+    contract,
+    submitter,
+    owners,
+    contract.address as `0x${string}`,
+    ZERO,
+    data,
+    gas,
+    errorMsg,
+    extraEvents
+  )
 
   if (!errorMsg) {
     expect(await contract.isOwner(ownerToAdd)).to.be.true
     expect(await contract.isOwner(ownerToRemove)).to.be.false
+  }
+}
+
+export const setOnlyOwnerRequest = async (
+  contract: MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
+  isOnlyOwnerRequest: boolean,
+  gas = constants.DEFAULT_GAS as number,
+  errorMsg?: string,
+  extraEvents?: string[]
+) => {
+  const data = contract.interface.encodeFunctionData('setOnlyOwnerRequest', [isOnlyOwnerRequest]) as `0x${string}`
+
+  await execTransaction(
+    contract,
+    submitter,
+    owners,
+    contract.address as `0x${string}`,
+    ZERO,
+    data,
+    gas,
+    errorMsg,
+    extraEvents
+  )
+
+  if (!errorMsg) expect(await contract.allowOnlyOwnerRequest()).to.be.equal(isOnlyOwnerRequest)
+}
+
+export const setTransferInactiveOwnershipAfter = async (
+  contract: MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
+  transferInactiveOwnershipAfter: BigNumber,
+  gas = constants.DEFAULT_GAS as number,
+  errorMsg?: string,
+  extraEvents?: string[]
+) => {
+  const data = contract.interface.encodeFunctionData('setTransferInactiveOwnershipAfter', [
+    transferInactiveOwnershipAfter,
+  ]) as `0x${string}`
+
+  await execTransaction(
+    contract,
+    submitter,
+    owners,
+    contract.address as `0x${string}`,
+    ZERO,
+    data,
+    gas,
+    errorMsg,
+    extraEvents
+  )
+
+  if (!errorMsg && (!extraEvents || !extraEvents.find((e) => e === 'TransactionFailed')))
+    expect(await contract.minimumTransferInactiveOwnershipAfter()).to.be.equal(transferInactiveOwnershipAfter)
+}
+
+export const markNonceAsUsed = async (
+  contract: MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
+  nonce: BigNumber,
+  gas = constants.DEFAULT_GAS as number,
+  errorMsg?: string,
+  extraEvents?: string[]
+) => {
+  const data = contract.interface.encodeFunctionData('markNonceAsUsed', [nonce]) as `0x${string}`
+
+  await execTransaction(
+    contract,
+    submitter,
+    owners,
+    contract.address as `0x${string}`,
+    ZERO,
+    data,
+    gas,
+    errorMsg,
+    extraEvents
+  )
+  expect(await contract.isNonceUsed(nonce)).to.be.true
+
+  if (!errorMsg && (!extraEvents || !extraEvents.find((e) => e === 'TransactionFailed')))
+    expect(await contract.isNonceUsed(nonce)).to.be.false
+}
+
+export const setOwnerSettings = async (
+  contract: MyMultiSigExtended,
+  submitter: Wallet,
+  transferInactiveOwnershipAfter: BigNumber,
+  delegatee: `0x${string}`,
+  checkLastActive?: BigNumber,
+  errorMsg?: string
+) => {
+  if (!errorMsg) {
+    const tx = await contract.connect(submitter).setOwnerSettings(transferInactiveOwnershipAfter, delegatee)
+    await tx.wait()
+
+    const ownerSettings = await contract.ownerSettings(submitter.address)
+    if (checkLastActive) expect(ownerSettings.lastAction).to.be.equal(checkLastActive)
+    expect(ownerSettings.transferInactiveOwnershipAfter).to.be.equal(transferInactiveOwnershipAfter)
+    expect(ownerSettings.delegate).to.be.equal(delegatee)
+  } else {
+    await expect(
+      contract.connect(submitter).setOwnerSettings(transferInactiveOwnershipAfter, delegatee)
+    ).to.be.revertedWith(errorMsg)
+  }
+}
+
+export const takeOverOwnership = async (
+  contract: MyMultiSigExtended,
+  submitter: Wallet,
+  originalOwner: `0x${string}`,
+  errorMsg?: string
+) => {
+  if (!errorMsg) {
+    const originalOwnerSettings = await contract.ownerSettings(originalOwner)
+
+    const tx = await contract.connect(submitter).takeOverOwnership(originalOwner)
+    await tx.wait()
+
+    const finalOwnerSettings = await contract.ownerSettings(originalOwner)
+
+    expect(await contract.isOwner(originalOwnerSettings.delegate)).to.be.true
+    expect(await contract.isOwner(originalOwner)).to.be.false
+    // expect(finalOwnerSettings.delegate).to.be.equal(ethers.constants.AddressZero)
+  } else {
+    await expect(contract.connect(submitter).takeOverOwnership(originalOwner)).to.be.revertedWith(errorMsg)
   }
 }

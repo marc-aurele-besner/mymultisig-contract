@@ -1,7 +1,7 @@
 import { HardhatUserConfig } from 'hardhat/config'
 import * as dotenv from 'dotenv'
 import '@nomicfoundation/hardhat-toolbox'
-import 'hardhat-awesome-cli'
+import 'deployment-tool'
 import 'hardhat-contract-clarity'
 import '@openzeppelin/hardhat-upgrades'
 import '@chugsplash/plugins'
