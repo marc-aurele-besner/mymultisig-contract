@@ -14,6 +14,11 @@
       "address": "0x2D254390e35b59fe87a31e538D5604346b017082",
       "txHash": "0xb9a2a3303d75c17102c4041278e1064970c187351aab85e177302304719adb16",
       "kind": "transparent"
+    },
+    {
+      "address": "0x4e1E125ACb50b47123bb2946F6924b595EC12432",
+      "txHash": "0x6894b92ab4da7d649a465c6c61dacf1214334103c40d427522df3cb330573912",
+      "kind": "transparent"
     }
   ],
   "impls": {
@@ -247,6 +252,130 @@
             "numberOfBytes": "32"
           },
           "t_mapping(t_uint256,t_enum(CreationType)12278)": {
+            "label": "mapping(uint256 => enum MyMultiSigFactorableModels.CreationType)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_uint256)": {
+            "label": "mapping(uint256 => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        }
+      }
+    },
+    "900edd52b3f2c67f6cff57d7f7be7f4768c0755ad0c709f5db11e6e9a1abed8e": {
+      "address": "0x4A18f7537bdf962Bae8c6748ba3bb40C2Fa166fC",
+      "txHash": "0x91595f0ed438fac4d18af1bc1d1f021a3f09b3d0e23433b14492535a4e0b19c7",
+      "layout": {
+        "solcVersion": "0.8.18",
+        "storage": [
+          {
+            "label": "_multiSigCount",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint256",
+            "contract": "MyMultiSigFactorable",
+            "src": "contracts/abstracts/MyMultiSigFactorable.sol:8"
+          },
+          {
+            "label": "_multiSigs",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_mapping(t_uint256,t_contract(MyMultiSig)11806)",
+            "contract": "MyMultiSigFactorable",
+            "src": "contracts/abstracts/MyMultiSigFactorable.sol:10"
+          },
+          {
+            "label": "_multiSigIndex",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "MyMultiSigFactorable",
+            "src": "contracts/abstracts/MyMultiSigFactorable.sol:11"
+          },
+          {
+            "label": "_multiSigCreatorCount",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "MyMultiSigFactorable",
+            "src": "contracts/abstracts/MyMultiSigFactorable.sol:12"
+          },
+          {
+            "label": "_multiSigIndexByCreator",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_mapping(t_address,t_mapping(t_uint256,t_uint256))",
+            "contract": "MyMultiSigFactorable",
+            "src": "contracts/abstracts/MyMultiSigFactorable.sol:13"
+          },
+          {
+            "label": "_multiSigCreationType",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_mapping(t_uint256,t_enum(CreationType)12539)",
+            "contract": "MyMultiSigFactorable",
+            "src": "contracts/abstracts/MyMultiSigFactorable.sol:14"
+          },
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_uint8",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:62",
+            "retypedFrom": "bool"
+          },
+          {
+            "label": "_initializing",
+            "offset": 1,
+            "slot": "6",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:67"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_contract(MyMultiSig)11806": {
+            "label": "contract MyMultiSig",
+            "numberOfBytes": "20"
+          },
+          "t_enum(CreationType)12539": {
+            "label": "enum MyMultiSigFactorableModels.CreationType",
+            "members": [
+              "SIMPLE",
+              "EXTENDED"
+            ],
+            "numberOfBytes": "1"
+          },
+          "t_mapping(t_address,t_mapping(t_uint256,t_uint256))": {
+            "label": "mapping(address => mapping(uint256 => uint256))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_contract(MyMultiSig)11806)": {
+            "label": "mapping(uint256 => contract MyMultiSig)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_enum(CreationType)12539)": {
             "label": "mapping(uint256 => enum MyMultiSigFactorableModels.CreationType)",
             "numberOfBytes": "32"
           },
