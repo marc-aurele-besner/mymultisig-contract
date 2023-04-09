@@ -153,7 +153,7 @@
 
 "@commitlint/cli@^17.4.4":
   version "17.5.1"
-  resolved "https://registry.yarnpkg.com/@commitlint/cli/-/cli-17.5.1.tgz#db176538db7b4140c8856c88a46bd15ec705f881"
+  resolved "https://registry.npmjs.org/@commitlint/cli/-/cli-17.5.1.tgz"
   integrity sha512-pRRgGSzdHQHehxZbGA3qF6wVPyl+EEQgTe/t321rtMLFbuJ7nRj2waS17s/v5oEbyZtiY5S8PGB6XtEIm0I+Sg==
   dependencies:
     "@commitlint/format" "^17.4.4"
@@ -261,7 +261,7 @@
 
 "@commitlint/read@^17.5.1":
   version "17.5.1"
-  resolved "https://registry.yarnpkg.com/@commitlint/read/-/read-17.5.1.tgz#fec903b766e2c41e3cefa80630040fcaba4f786c"
+  resolved "https://registry.npmjs.org/@commitlint/read/-/read-17.5.1.tgz"
   integrity sha512-7IhfvEvB//p9aYW09YVclHbdf1u7g7QhxeYW9ZHSO8Huzp8Rz7m05aCO1mFG7G8M+7yfFnXB5xOmG18brqQIBg==
   dependencies:
     "@commitlint/top-level" "^17.4.0"
@@ -1618,9 +1618,9 @@
   integrity sha512-/fvYntiO1GeICvqbQ3doGDIP97vWmvFt83GKguJ6prmQM2iXZfFcq6YE8KteFyRtX2/h5Hf91BYvPodJKFYv5Q==
 
 "@types/node@*", "@types/node@>=13.7.0", "@types/node@^18.14.1":
-  version "18.15.11"
-  resolved "https://registry.yarnpkg.com/@types/node/-/node-18.15.11.tgz#b3b790f09cb1696cffcec605de025b088fa4225f"
-  integrity sha512-E5Kwq2n4SbMzQOn6wnmBjuK9ouqlURrcZDVfbo9ftDDTFt3nk7ZKK4GMOzoYgnpQJKcxwQw+lGaBvvlMo0qN/Q==
+  version "18.15.9"
+  resolved "https://registry.npmjs.org/@types/node/-/node-18.15.9.tgz"
+  integrity sha512-dUxhiNzBLr6IqlZXz6e/rN2YQXlFgOei/Dxy+e3cyXTJ4txSUbGT2/fmnD6zd/75jDMeW5bDee+YXxlFKHoV0A==
 
 "@types/node@^10.0.3":
   version "10.17.60"
@@ -3777,7 +3777,7 @@ fs-extra@^10.0.0:
 
 fs-extra@^11.0.0:
   version "11.1.1"
-  resolved "https://registry.yarnpkg.com/fs-extra/-/fs-extra-11.1.1.tgz#da69f7c39f3b002378b0954bb6ae7efdc0876e2d"
+  resolved "https://registry.npmjs.org/fs-extra/-/fs-extra-11.1.1.tgz"
   integrity sha512-MGIE4HOvQCeUCzmlHs0vXpih4ysz4wg9qiSAu6cd42lVwPbTM1TjV7RusoyQqMmk/95gdQZX72u+YW+c3eEpFQ==
   dependencies:
     graceful-fs "^4.2.0"
@@ -7594,7 +7594,7 @@ typedarray@^0.0.6:
 
 "typescript@^4.6.4 || ^5.0.0":
   version "5.0.3"
-  resolved "https://registry.yarnpkg.com/typescript/-/typescript-5.0.3.tgz#fe976f0c826a88d0a382007681cbb2da44afdedf"
+  resolved "https://registry.npmjs.org/typescript/-/typescript-5.0.3.tgz"
   integrity sha512-xv8mOEDnigb/tN9PSMTwSEqAnUvkoXMQlicOb0IUVDBSQCgBSaAAROUZYy2IcUy5qU6XajK5jjjO7TMWqBTKZA==
 
 typescript@^5.0.4:
