@@ -329,12 +329,15 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
       const MockERC20 = await ethers.getContractFactory('MockERC20')
       const mockERC20 = await MockERC20.deploy()
       await mockERC20.deployed()
-      const data = MockERC20.interface.encodeFunctionData('mint(address,uint256)', [contract.address, 10])
+      const data = MockERC20.interface.encodeFunctionData('mint(address,uint256)', [
+        contract.address,
+        10,
+      ]) as `0x${string}`
       await Helper.execTransaction(
         contract,
         owner01,
         [owner01, owner02, owner03],
-        mockERC20.address,
+        mockERC20.address as `0x${string}`,
         Helper.ZERO,
         data,
         Helper.DEFAULT_GAS * 2
@@ -346,23 +349,29 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
       const MockERC20 = await ethers.getContractFactory('MockERC20')
       const mockERC20 = await MockERC20.deploy()
       await mockERC20.deployed()
-      const data = MockERC20.interface.encodeFunctionData('mint(address,uint256)', [contract.address, 10])
+      const data = MockERC20.interface.encodeFunctionData('mint(address,uint256)', [
+        contract.address,
+        10,
+      ]) as `0x${string}`
       await Helper.execTransaction(
         contract,
         owner01,
         [owner01, owner02, owner03],
-        mockERC20.address,
+        mockERC20.address as `0x${string}`,
         Helper.ZERO,
         data,
         Helper.DEFAULT_GAS * 2
       )
       expect(await mockERC20.balanceOf(contract.address)).to.be.equal(10)
-      const data2 = MockERC20.interface.encodeFunctionData('transfer(address,uint256)', [owner01.address, 10])
+      const data2 = MockERC20.interface.encodeFunctionData('transfer(address,uint256)', [
+        owner01.address,
+        10,
+      ]) as `0x${string}`
       await Helper.execTransaction(
         contract,
         owner01,
         [owner01, owner02, owner03],
-        mockERC20.address,
+        mockERC20.address as `0x${string}`,
         Helper.ZERO,
         data2,
         Helper.DEFAULT_GAS * 2
@@ -377,22 +386,134 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         contract.address,
         owner01.address,
         10,
-      ])
+      ]) as `0x${string}`
       await Helper.execTransaction(
         contract,
         owner01,
         [owner01, owner02, owner03],
         contract.address,
         Helper.ZERO,
-        data,
+        data as `0x${string}`,
         Helper.DEFAULT_GAS,
         undefined,
         ['TransactionFailed']
       )
     })
 
+    it('Can mint token from MockERC721 contract', async function () {
+      const MockERC721 = await ethers.getContractFactory('MockERC721')
+      const mockERC721 = await MockERC721.deploy()
+      await mockERC721.deployed()
+      const data = MockERC721.interface.encodeFunctionData('mint(address,uint256)', [
+        contract.address,
+        10,
+      ]) as `0x${string}`
+      await Helper.execTransaction(
+        contract,
+        owner01,
+        [owner01, owner02, owner03],
+        mockERC721.address as `0x${string}`,
+        Helper.ZERO,
+        data,
+        Helper.DEFAULT_GAS * 2
+      )
+      expect(await mockERC721.balanceOf(contract.address)).to.be.equal(10)
+    })
+
+    it('Can mint token from MockERC721 contract, then transfer them to owner01', async function () {
+      const MockERC721 = await ethers.getContractFactory('MockERC721')
+      const mockERC721 = await MockERC721.deploy()
+      await mockERC721.deployed()
+      const data = MockERC721.interface.encodeFunctionData('mint(address,uint256)', [
+        contract.address,
+        10,
+      ]) as `0x${string}`
+      await Helper.execTransaction(
+        contract,
+        owner01,
+        [owner01, owner02, owner03],
+        mockERC721.address as `0x${string}`,
+        Helper.ZERO,
+        data,
+        Helper.DEFAULT_GAS * 2
+      )
+      expect(await mockERC721.balanceOf(contract.address)).to.be.equal(10)
+      const data2 = mockERC721.interface.encodeFunctionData('transfer(address,uint256)', [
+        owner01.address,
+        10,
+      ]) as `0x${string}`
+      await Helper.execTransaction(
+        contract,
+        owner01,
+        [owner01, owner02, owner03],
+        mockERC721.address as `0x${string}`,
+        Helper.ZERO,
+        data2,
+        Helper.DEFAULT_GAS * 2
+      )
+      expect(await mockERC721.balanceOf(contract.address)).to.be.equal(0)
+      expect(await mockERC721.balanceOf(owner01.address)).to.be.equal(10)
+    })
+
+    it('Can mint token from MockERC1155 contract', async function () {
+      const MockERC1155 = await ethers.getContractFactory('MockERC1155')
+      const mockERC1155 = await MockERC1155.deploy()
+      await mockERC1155.deployed()
+      const data = MockERC1155.interface.encodeFunctionData('mint(address,uint256,uint256)', [
+        contract.address,
+        10,
+        5,
+      ]) as `0x${string}`
+      await Helper.execTransaction(
+        contract,
+        owner01,
+        [owner01, owner02, owner03],
+        mockERC1155.address as `0x${string}`,
+        Helper.ZERO,
+        data,
+        Helper.DEFAULT_GAS * 2
+      )
+      expect(await mockERC1155.balanceOf(contract.address, 10)).to.be.equal(5)
+    })
+
+    it('Can mint token from MockERC1155 contract, then transfer them to owner01', async function () {
+      const MockERC1155 = await ethers.getContractFactory('MockERC1155')
+      const mockERC1155 = await MockERC1155.deploy()
+      await mockERC1155.deployed()
+      const data = MockERC1155.interface.encodeFunctionData('mint(address,uint256,uint256)', [
+        contract.address,
+        10,
+        5,
+      ]) as `0x${string}`
+      await Helper.execTransaction(
+        contract,
+        owner01,
+        [owner01, owner02, owner03],
+        mockERC1155.address as `0x${string}`,
+        Helper.ZERO,
+        data,
+        Helper.DEFAULT_GAS * 2
+      )
+      expect(await mockERC1155.balanceOf(contract.address, 10)).to.be.equal(5)
+      const data2 = mockERC1155.interface.encodeFunctionData(
+        'safeTransferFrom(address,address,uint256,uint256,bytes)',
+        [contract.address, owner01.address, 10, 2, '0x']
+      ) as `0x${string}`
+      await Helper.execTransaction(
+        contract,
+        owner01,
+        [owner01, owner02, owner03],
+        mockERC1155.address as `0x${string}`,
+        Helper.ZERO,
+        data2,
+        Helper.DEFAULT_GAS * 2
+      )
+      expect(await mockERC1155.balanceOf(contract.address, 10)).to.be.equal(3)
+      expect(await mockERC1155.balanceOf(owner01.address, 10)).to.be.equal(2)
+    })
+
     it('Cannot reuse a signature', async function () {
-      const data = contract.interface.encodeFunctionData('addOwner(address)', [user02.address])
+      const data = contract.interface.encodeFunctionData('addOwner(address)', [user02.address]) as `0x${string}`
       const signatures = await Helper.prepareSignatures(
         contract,
         [owner01, owner02],
@@ -455,7 +576,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         contract,
         owner01,
         [owner01, owner02, owner03],
-        [mockERC20.address, mockERC20.address],
+        [mockERC20.address, mockERC20.address] as [`0x${string}`, `0x${string}`],
         [Helper.ZERO, Helper.ZERO],
         [
           MockERC20.interface.encodeFunctionData('mint(address,uint256)', [contract.address, 10]),
@@ -475,7 +596,12 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         contract,
         owner01,
         [owner01, owner02, owner03],
-        [mockERC20.address, mockERC20.address, mockERC20.address, mockERC20.address],
+        [mockERC20.address, mockERC20.address, mockERC20.address, mockERC20.address] as [
+          `0x${string}`,
+          `0x${string}`,
+          `0x${string}`,
+          `0x${string}`
+        ],
         [Helper.ZERO, Helper.ZERO, Helper.ZERO, Helper.ZERO],
         [
           MockERC20.interface.encodeFunctionData('mint(address,uint256)', [contract.address, 150]),
@@ -957,12 +1083,15 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       const MockERC20 = await ethers.getContractFactory('MockERC20')
       const mockERC20 = await MockERC20.deploy()
       await mockERC20.deployed()
-      const data = MockERC20.interface.encodeFunctionData('mint(address,uint256)', [contract.address, 10])
+      const data = MockERC20.interface.encodeFunctionData('mint(address,uint256)', [
+        contract.address,
+        10,
+      ]) as `0x${string}`
       await Helper.execTransaction(
         contract,
         owner01,
         [owner01, owner02, owner03],
-        mockERC20.address,
+        mockERC20.address as `0x${string}`,
         Helper.ZERO,
         data,
         Helper.DEFAULT_GAS * 2
@@ -974,23 +1103,29 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       const MockERC20 = await ethers.getContractFactory('MockERC20')
       const mockERC20 = await MockERC20.deploy()
       await mockERC20.deployed()
-      const data = MockERC20.interface.encodeFunctionData('mint(address,uint256)', [contract.address, 10])
+      const data = MockERC20.interface.encodeFunctionData('mint(address,uint256)', [
+        contract.address,
+        10,
+      ]) as `0x${string}`
       await Helper.execTransaction(
         contract,
         owner01,
         [owner01, owner02, owner03],
-        mockERC20.address,
+        mockERC20.address as `0x${string}`,
         Helper.ZERO,
         data,
         Helper.DEFAULT_GAS * 2
       )
       expect(await mockERC20.balanceOf(contract.address)).to.be.equal(10)
-      const data2 = MockERC20.interface.encodeFunctionData('transfer(address,uint256)', [owner01.address, 10])
+      const data2 = MockERC20.interface.encodeFunctionData('transfer(address,uint256)', [
+        owner01.address,
+        10,
+      ]) as `0x${string}`
       await Helper.execTransaction(
         contract,
         owner01,
         [owner01, owner02, owner03],
-        mockERC20.address,
+        mockERC20.address as `0x${string}`,
         Helper.ZERO,
         data2,
         Helper.DEFAULT_GAS * 2
@@ -1012,7 +1147,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         [owner01, owner02, owner03],
         contract.address,
         Helper.ZERO,
-        data,
+        data as `0x${string}`,
         Helper.DEFAULT_GAS,
         undefined,
         ['TransactionFailed']
@@ -1034,7 +1169,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         [owner01, owner02],
         contract.address,
         Helper.ZERO,
-        data,
+        data as `0x${string}`,
         Helper.DEFAULT_GAS,
         undefined,
         ['OwnerAdded'],
@@ -1046,7 +1181,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         [owner01, owner02],
         contract.address,
         Helper.ZERO,
-        data,
+        data as `0x${string}`,
         Helper.DEFAULT_GAS,
         Helper.errors.INVALID_OWNER,
         undefined,
@@ -1059,7 +1194,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         contract,
         owner01,
         [owner01, owner02, owner03],
-        [contract.address, contract.address, contract.address],
+        [contract.address, contract.address, contract.address] as [`0x${string}`, `0x${string}`, `0x${string}`],
         [Helper.ZERO, Helper.ZERO, Helper.ZERO],
         [
           contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
@@ -1083,7 +1218,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         contract,
         owner01,
         [owner01, owner02, owner03],
-        [mockERC20.address, mockERC20.address],
+        [mockERC20.address, mockERC20.address] as [`0x${string}`, `0x${string}`],
         [Helper.ZERO, Helper.ZERO],
         [
           MockERC20.interface.encodeFunctionData('mint(address,uint256)', [contract.address, 10]),
@@ -1103,7 +1238,12 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         contract,
         owner01,
         [owner01, owner02, owner03],
-        [mockERC20.address, mockERC20.address, mockERC20.address, mockERC20.address],
+        [mockERC20.address, mockERC20.address, mockERC20.address, mockERC20.address] as [
+          `0x${string}`,
+          `0x${string}`,
+          `0x${string}`,
+          `0x${string}`
+        ],
         [Helper.ZERO, Helper.ZERO, Helper.ZERO, Helper.ZERO],
         [
           MockERC20.interface.encodeFunctionData('mint(address,uint256)', [contract.address, 150]),

@@ -123,7 +123,7 @@ export interface MyMultiSigFactoryWithChugSplashInterface
   decodeFunctionResult(functionFragment: "version", data: BytesLike): Result;
 
   events: {
-    "MyMultiSigCreated(address,address,uint256,string,address[])": EventFragment;
+    "MyMultiSigCreated(address,address,uint256,string,address[],uint16)": EventFragment;
   };
 
   getEvent(nameOrSignatureOrTopic: "MyMultiSigCreated"): EventFragment;
@@ -135,9 +135,10 @@ export interface MyMultiSigCreatedEventObject {
   contractIndex: BigNumber;
   contractName: string;
   originalOwners: string[];
+  threshold: number;
 }
 export type MyMultiSigCreatedEvent = TypedEvent<
-  [string, string, BigNumber, string, string[]],
+  [string, string, BigNumber, string, string[], number],
   MyMultiSigCreatedEventObject
 >;
 
@@ -301,19 +302,21 @@ export interface MyMultiSigFactoryWithChugSplash extends BaseContract {
   };
 
   filters: {
-    "MyMultiSigCreated(address,address,uint256,string,address[])"(
+    "MyMultiSigCreated(address,address,uint256,string,address[],uint16)"(
       creator?: PromiseOrValue<string> | null,
       contractAddress?: PromiseOrValue<string> | null,
       contractIndex?: PromiseOrValue<BigNumberish> | null,
       contractName?: null,
-      originalOwners?: null
+      originalOwners?: null,
+      threshold?: null
     ): MyMultiSigCreatedEventFilter;
     MyMultiSigCreated(
       creator?: PromiseOrValue<string> | null,
       contractAddress?: PromiseOrValue<string> | null,
       contractIndex?: PromiseOrValue<BigNumberish> | null,
       contractName?: null,
-      originalOwners?: null
+      originalOwners?: null,
+      threshold?: null
     ): MyMultiSigCreatedEventFilter;
   };
 

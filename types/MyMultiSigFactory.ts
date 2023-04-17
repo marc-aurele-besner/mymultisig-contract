@@ -131,7 +131,7 @@ export interface MyMultiSigFactoryInterface extends utils.Interface {
 
   events: {
     "Initialized(uint8)": EventFragment;
-    "MyMultiSigCreated(address,address,uint256,string,address[])": EventFragment;
+    "MyMultiSigCreated(address,address,uint256,string,address[],uint16)": EventFragment;
   };
 
   getEvent(nameOrSignatureOrTopic: "Initialized"): EventFragment;
@@ -151,9 +151,10 @@ export interface MyMultiSigCreatedEventObject {
   contractIndex: BigNumber;
   contractName: string;
   originalOwners: string[];
+  threshold: number;
 }
 export type MyMultiSigCreatedEvent = TypedEvent<
-  [string, string, BigNumber, string, string[]],
+  [string, string, BigNumber, string, string[], number],
   MyMultiSigCreatedEventObject
 >;
 
@@ -330,19 +331,21 @@ export interface MyMultiSigFactory extends BaseContract {
     "Initialized(uint8)"(version?: null): InitializedEventFilter;
     Initialized(version?: null): InitializedEventFilter;
 
-    "MyMultiSigCreated(address,address,uint256,string,address[])"(
+    "MyMultiSigCreated(address,address,uint256,string,address[],uint16)"(
       creator?: PromiseOrValue<string> | null,
       contractAddress?: PromiseOrValue<string> | null,
       contractIndex?: PromiseOrValue<BigNumberish> | null,
       contractName?: null,
-      originalOwners?: null
+      originalOwners?: null,
+      threshold?: null
     ): MyMultiSigCreatedEventFilter;
     MyMultiSigCreated(
       creator?: PromiseOrValue<string> | null,
       contractAddress?: PromiseOrValue<string> | null,
       contractIndex?: PromiseOrValue<BigNumberish> | null,
       contractName?: null,
-      originalOwners?: null
+      originalOwners?: null,
+      threshold?: null
     ): MyMultiSigCreatedEventFilter;
   };
 
