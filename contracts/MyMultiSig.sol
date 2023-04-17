@@ -3,8 +3,10 @@ pragma solidity 0.8.18;
 
 import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 import '@openzeppelin/contracts/utils/cryptography/EIP712.sol';
+import '@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol';
+import '@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol';
 
-contract MyMultiSig is ReentrancyGuard, EIP712 {
+contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   string private _name;
   uint96 private _txnNonce;
   uint16 private _threshold;
@@ -348,8 +350,8 @@ contract MyMultiSig is ReentrancyGuard, EIP712 {
 
   /// @notice Returns the current transaction nonce
   /// @return The current transaction nonce.
-  function verifyNonce(uint256 nonce) internal view virtual returns (bool) {
-    return nonce == _txnNonce;
+  function verifyNonce(uint256 nonce_) internal view virtual returns (bool) {
+    return nonce_ == _txnNonce;
   }
 
   /// @notice Increments the transaction nonce, can be use to invalidate previous signatures

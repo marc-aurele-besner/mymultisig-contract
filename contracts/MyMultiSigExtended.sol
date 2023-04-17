@@ -148,10 +148,10 @@ contract MyMultiSigExtended is MyMultiSig {
   /// @param owner The owner address.
   function takeOverOwnership(address owner) external virtual {
     require(isOwner(owner), 'MyMultiSigExtended: owner is not an owner');
-    OwnerSettings memory ownerSettings = _ownerSettings[owner];
-    require(ownerSettings.delegate == msg.sender, 'MyMultiSigExtended: msg.sender is not the delegatee');
+    OwnerSettings memory tempOwnerSettings = _ownerSettings[owner];
+    require(tempOwnerSettings.delegate == msg.sender, 'MyMultiSigExtended: msg.sender is not the delegatee');
     require(
-      ownerSettings.lastAction + ownerSettings.transferInactiveOwnershipAfter < block.timestamp,
+      tempOwnerSettings.lastAction + tempOwnerSettings.transferInactiveOwnershipAfter < block.timestamp,
       'MyMultiSigExtended: owner is still active'
     );
     _ownerSettings[owner].delegate = address(0);
