@@ -67,7 +67,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @notice Retrieves the contract version
   /// @return The version as a string memory.
   function version() public pure virtual returns (string memory) {
-    return '0.1.0';
+    return '0.1.1';
   }
 
   /// @notice Retrieves the current threshold value

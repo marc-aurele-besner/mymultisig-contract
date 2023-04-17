@@ -417,7 +417,8 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         data,
         Helper.DEFAULT_GAS * 2
       )
-      expect(await mockERC721.balanceOf(contract.address)).to.be.equal(10)
+      expect(await mockERC721.balanceOf(contract.address)).to.be.equal(1)
+      expect(await mockERC721.ownerOf(10)).to.be.equal(contract.address)
     })
 
     it('Can mint token from MockERC721 contract, then transfer them to owner01', async function () {
@@ -437,8 +438,10 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         data,
         Helper.DEFAULT_GAS * 2
       )
-      expect(await mockERC721.balanceOf(contract.address)).to.be.equal(10)
-      const data2 = mockERC721.interface.encodeFunctionData('transfer(address,uint256)', [
+      expect(await mockERC721.balanceOf(contract.address)).to.be.equal(1)
+      expect(await mockERC721.ownerOf(10)).to.be.equal(contract.address)
+      const data2 = mockERC721.interface.encodeFunctionData('transferFrom(address,address,uint256)', [
+        contract.address,
         owner01.address,
         10,
       ]) as `0x${string}`
@@ -452,7 +455,8 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         Helper.DEFAULT_GAS * 2
       )
       expect(await mockERC721.balanceOf(contract.address)).to.be.equal(0)
-      expect(await mockERC721.balanceOf(owner01.address)).to.be.equal(10)
+      expect(await mockERC721.balanceOf(owner01.address)).to.be.equal(1)
+      expect(await mockERC721.ownerOf(10)).to.be.equal(owner01.address)
     })
 
     it('Can mint token from MockERC1155 contract', async function () {
