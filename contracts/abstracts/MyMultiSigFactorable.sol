@@ -18,7 +18,8 @@ contract MyMultiSigFactorable {
     address indexed contractAddress,
     uint256 indexed contractIndex,
     string contractName,
-    address[] originalOwners
+    address[] originalOwners,
+    uint16 threshold
   );
 
   /// @notice Retrieves the contract name
@@ -110,27 +111,27 @@ contract MyMultiSigFactorable {
   }
 
   /// @notice Creates a new multisig contract (internal)
-  /// @param creationType The type of creation
-  /// @param myMultiSig Contract deployed (casted as MyMultiSig if extended)
-  /// @param contractName The name of your multisig contract
-  /// @param owners The owners list
-  /// @param threshold The amount of owners signature require to execute transactions
+  /// @param creationType_ The type of creation
+  /// @param myMultiSig_ Contract deployed (casted as MyMultiSig if extended)
+  /// @param contractName_ The name of your multisig contract
+  /// @param owners_ The owners list
+  /// @param threshold_ The amount of owners signature require to execute transactions
   function _saveCreateMyMultiSig(
-    MyMultiSigFactorableModels.CreationType creationType,
-    MyMultiSig myMultiSig,
-    string memory contractName,
-    address[] memory owners,
-    uint16 threshold
+    MyMultiSigFactorableModels.CreationType creationType_,
+    MyMultiSig myMultiSig_,
+    string memory contractName_,
+    address[] memory owners_,
+    uint16 threshold_
   ) internal returns (address contractAddress) {
-    contractAddress = address(myMultiSig);
+    contractAddress = address(myMultiSig_);
 
-    _multiSigs[_multiSigCount] = myMultiSig;
+    _multiSigs[_multiSigCount] = myMultiSig_;
     _multiSigIndex[contractAddress] = _multiSigCount;
     _multiSigIndexByCreator[msg.sender][_multiSigCreatorCount[msg.sender]] = _multiSigCount;
     _multiSigCreatorCount[msg.sender]++;
-    _multiSigCreationType[_multiSigCount] = creationType;
+    _multiSigCreationType[_multiSigCount] = creationType_;
     _multiSigCount++;
 
-    emit MyMultiSigCreated(msg.sender, contractAddress, _multiSigCount, contractName, owners);
+    emit MyMultiSigCreated(msg.sender, contractAddress, _multiSigCount, contractName_, owners_, threshold_);
   }
 }
