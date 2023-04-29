@@ -2517,9 +2517,9 @@ cli-cursor@^3.1.0:
     restore-cursor "^3.1.0"
 
 cli-spinners@^2.5.0:
-  version "2.7.0"
-  resolved "https://registry.yarnpkg.com/cli-spinners/-/cli-spinners-2.7.0.tgz#f815fd30b5f9eaac02db604c7a231ed7cb2f797a"
-  integrity sha512-qu3pN8Y3qHNgE2AFweciB1IfMnmZ/fsNTEE+NOFjmGB2F/7rLhnhzppvpCnN4FovtP26k8lHyy9ptEbNwWFLzw==
+  version "2.8.0"
+  resolved "https://registry.yarnpkg.com/cli-spinners/-/cli-spinners-2.8.0.tgz#e97a3e2bd00e6d85aa0c13d7f9e3ce236f7787fc"
+  integrity sha512-/eG5sJcvEIwxcdYM86k5tPwn0MUzkX5YY3eImTGpJOZgVe4SdTMY14vQpcxgBzJ0wXwAYrS8E+c3uHeK4JNyzQ==
 
 cli-table3@^0.5.0:
   version "0.5.1"
@@ -2952,9 +2952,9 @@ depd@2.0.0, depd@~2.0.0:
   integrity sha512-g7nH6P6dyDioJogAAGprGpCtVImJhpPk/roCzdb3fIh61/s/nPsfR6onyMwkCAR/OlC3yBC0lESvUoQEAssIrw==
 
 deployment-tool@^0.1.5:
-  version "0.1.5"
-  resolved "https://registry.yarnpkg.com/deployment-tool/-/deployment-tool-0.1.5.tgz#e3cf3da95c4b513d0e5ce8b776a72a7b7cd9f9e4"
-  integrity sha512-rf38K5lQqgjcezr/ksykXPd3HHSeOgOothy0aXQwab1Lo8bQOdAcKQlE7vk89DByStoitaFX/z4fcc/rNt9cNg==
+  version "0.1.6"
+  resolved "https://registry.yarnpkg.com/deployment-tool/-/deployment-tool-0.1.6.tgz#4a54b18407a1d603731d8a52066f52846c79c2df"
+  integrity sha512-yiplor9QspgoZBZ/pep3QC/UywaCrEiHS8ZSgBJig3MsXHzSq0oQH0zk6LUFRoGTJB+83p9iuz6Gxl2skczbpg==
   dependencies:
     fs "^0.0.1-security"
     hardhat-awesome-cli "^0.1.4"
@@ -6765,9 +6765,9 @@ rxjs@^6.4.0:
     tslib "^1.9.0"
 
 rxjs@^7.5.5:
-  version "7.8.0"
-  resolved "https://registry.yarnpkg.com/rxjs/-/rxjs-7.8.0.tgz#90a938862a82888ff4c7359811a595e14e1e09a4"
-  integrity sha512-F2+gxDshqmIub1KdvZkaEfGDwLNpPvk9Fs6LD/MyQxNgMds/WH9OdDDXOmxUZpME+iSK3rQCctkL0DYyytUqMg==
+  version "7.8.1"
+  resolved "https://registry.yarnpkg.com/rxjs/-/rxjs-7.8.1.tgz#6f6f3d99ea8044291efd92e7c7fcf562c4057543"
+  integrity sha512-AA3TVj+0A2iuIoQkWEK/tqFjBq2j+6PO6Y0zJcvzLAFhEFIO3HL0vls9hWLncZbAAbK0mar7oZ4V079I/qPMxg==
   dependencies:
     tslib "^2.1.0"
 
