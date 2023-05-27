@@ -154,23 +154,23 @@
     "@chainsafe/as-sha256" "^0.4.1"
     "@chainsafe/persistent-merkle-tree" "^0.6.1"
 
-"@chugsplash/contracts@^0.7.0":
-  version "0.7.2"
-  resolved "https://registry.yarnpkg.com/@chugsplash/contracts/-/contracts-0.7.2.tgz#a30dd6afb82ac34d1fe88e1cbdbc17094da54819"
-  integrity sha512-Tday9CDoIEJISruaMeMplzJBPehqUpdZBE2QPtRSN9o9z6yp08bIdKOd47Z7xTxYvRKXodCJ+B6h5pbk16IcJw==
+"@chugsplash/contracts@^0.7.3":
+  version "0.7.3"
+  resolved "https://registry.yarnpkg.com/@chugsplash/contracts/-/contracts-0.7.3.tgz#8c62fd427109030d5be91ffca07b3105bb7e2aee"
+  integrity sha512-abTKQ/XnF72w4HHqfmF02Yu2MycSIH1liRrXg15YwpEylNTlS5PLjbABY+uLsCooF5kbFLXJ3GziJzxfC1Eiqw==
   dependencies:
     "@eth-optimism/contracts" "^0.5.40"
-    "@eth-optimism/contracts-bedrock" "^0.13.2"
+    "@eth-optimism/contracts-bedrock" "^0.0.0-20230522161230"
 
-"@chugsplash/core@^0.9.0":
-  version "0.9.0"
-  resolved "https://registry.yarnpkg.com/@chugsplash/core/-/core-0.9.0.tgz#90543c07465fbf78b6feae289a1d7ce57666ac69"
-  integrity sha512-XSTjzFGRxKjNtLGPlMN4aOAFpcbV87GuC5DQ8R1ECFM5N77uuE8FPu9+vhy+/n8J0MGE4scI+ZagOZrXGeCJJw==
+"@chugsplash/core@^0.10.1":
+  version "0.10.1"
+  resolved "https://registry.yarnpkg.com/@chugsplash/core/-/core-0.10.1.tgz#a6981681dbe98596e2990ee1f5b2793c7b1cca7b"
+  integrity sha512-zK5NQFbUfQGfambk4JalvxHWkWWPV1tNlh1Zpq9z0K3y5UJ+a4qQtKriDmFgUOYnapQx2nUrfkYpL82P8kbuZA==
   dependencies:
     "@amplitude/node" "^1.10.2"
-    "@chugsplash/contracts" "^0.7.0"
+    "@chugsplash/contracts" "^0.7.3"
     "@eth-optimism/common-ts" "^0.7.1"
-    "@eth-optimism/contracts-bedrock" "^0.8.0"
+    "@eth-optimism/contracts-bedrock" "^0.0.0-20230522161230"
     "@eth-optimism/core-utils" "^0.9.1"
     "@ethersproject/abstract-provider" "^5.7.0"
     "@metamask/eth-sig-util" "^5.1.0"
@@ -196,13 +196,13 @@
     undici "^5.21.1"
     yesno "^0.4.0"
 
-"@chugsplash/plugins@^0.14.0":
-  version "0.14.0"
-  resolved "https://registry.yarnpkg.com/@chugsplash/plugins/-/plugins-0.14.0.tgz#9be0acca3ad44e22ae315ae2381b9c62087a5358"
-  integrity sha512-axMIqBRW26x+bknSeujw/2QLCiV2qXIfn/pWyti3aVNxMaHibdUOYdUnrbiJ2Lw/3vNM0p3mn6XwHDrtsSKTeA==
+"@chugsplash/plugins@^0.15.0":
+  version "0.15.1"
+  resolved "https://registry.yarnpkg.com/@chugsplash/plugins/-/plugins-0.15.1.tgz#154f553ab2b8ed542e44c908c0fac8c525963578"
+  integrity sha512-xncTiOVA4Fd6dzi2QTZVORNQtlJdaX9WFp2BLzrv/0CrzHfNztFO4QX7AaMduwAruGTgCHSAnXycQPDD+TAgIg==
   dependencies:
-    "@chugsplash/contracts" "^0.7.0"
-    "@chugsplash/core" "^0.9.0"
+    "@chugsplash/contracts" "^0.7.3"
+    "@chugsplash/core" "^0.10.1"
     "@eth-optimism/contracts" "^0.5.40"
     "@eth-optimism/core-utils" "^0.9.1"
     "@ethereumjs/common" "^3.0.1"
@@ -410,27 +410,15 @@
     prom-client "^13.1.0"
     qs "^6.10.5"
 
-"@eth-optimism/contracts-bedrock@^0.13.2":
-  version "0.13.2"
-  resolved "https://registry.yarnpkg.com/@eth-optimism/contracts-bedrock/-/contracts-bedrock-0.13.2.tgz#4cdd4bfe7d905fa237719efdadab6bc228f49b0f"
-  integrity sha512-LMJzK0psPYEGDvvb+Qix8e1cK4+9J8tD9yXFqCt+On87warrTj8DZmLNh3G56DTLBrpz5/U6g62peEEsYha/4w==
+"@eth-optimism/contracts-bedrock@^0.0.0-20230522161230":
+  version "0.0.0-20230523183011"
+  resolved "https://registry.yarnpkg.com/@eth-optimism/contracts-bedrock/-/contracts-bedrock-0.0.0-20230523183011.tgz#f31894b98c0dc416335c594820511b564c8f1eba"
+  integrity sha512-Xr/nBmI5Myb6D44TbXtpQNp3bDvPfSkG8xbgc5UrQd96M30o9a9v04JmlGvQSCid/zTTxGAtRG7PPmqdWgkNMw==
   dependencies:
     "@eth-optimism/core-utils" "^0.12.0"
     "@openzeppelin/contracts" "4.7.3"
     "@openzeppelin/contracts-upgradeable" "4.7.3"
     ethers "^5.7.0"
-    hardhat "^2.9.6"
-
-"@eth-optimism/contracts-bedrock@^0.8.0":
-  version "0.8.3"
-  resolved "https://registry.yarnpkg.com/@eth-optimism/contracts-bedrock/-/contracts-bedrock-0.8.3.tgz#a73302b57a61d9516abf80c136bf8298327178d5"
-  integrity sha512-GGe09aHb0ucyh9u1+xMxVs9HUPyAa4ojVARjXztAdGmliash4Kmn8o95qmCM7eQeaMMdVYKKdVk21lqekIhZ2w==
-  dependencies:
-    "@eth-optimism/core-utils" "^0.10.1"
-    "@openzeppelin/contracts" "4.7.3"
-    "@openzeppelin/contracts-upgradeable" "4.7.3"
-    ethers "^5.7.0"
-    hardhat "^2.9.6"
 
 "@eth-optimism/contracts@^0.5.40":
   version "0.5.40"
@@ -445,28 +433,6 @@
   version "0.12.0"
   resolved "https://registry.yarnpkg.com/@eth-optimism/core-utils/-/core-utils-0.12.0.tgz#6337e4599a34de23f8eceb20378de2a2de82b0ea"
   integrity sha512-qW+7LZYCz7i8dRa7SRlUKIo1VBU8lvN0HeXCxJR+z+xtMzMQpPds20XJNCMclszxYQHkXY00fOT6GvFw9ZL6nw==
-  dependencies:
-    "@ethersproject/abi" "^5.7.0"
-    "@ethersproject/abstract-provider" "^5.7.0"
-    "@ethersproject/address" "^5.7.0"
-    "@ethersproject/bignumber" "^5.7.0"
-    "@ethersproject/bytes" "^5.7.0"
-    "@ethersproject/constants" "^5.7.0"
-    "@ethersproject/contracts" "^5.7.0"
-    "@ethersproject/hash" "^5.7.0"
-    "@ethersproject/keccak256" "^5.7.0"
-    "@ethersproject/properties" "^5.7.0"
-    "@ethersproject/providers" "^5.7.0"
-    "@ethersproject/rlp" "^5.7.0"
-    "@ethersproject/transactions" "^5.7.0"
-    "@ethersproject/web" "^5.7.0"
-    bufio "^1.0.7"
-    chai "^4.3.4"
-
-"@eth-optimism/core-utils@^0.10.1":
-  version "0.10.1"
-  resolved "https://registry.yarnpkg.com/@eth-optimism/core-utils/-/core-utils-0.10.1.tgz#44515fbca627532a24c6fd433395f00be8525832"
-  integrity sha512-IJvG5UtYvyz6An9QdohlCLoeB3NBFxx2lRJKlPzvYYlfugUNNCHsajRIWIwJTcPRRma0WPd46JUsKACLJDdNrA==
   dependencies:
     "@ethersproject/abi" "^5.7.0"
     "@ethersproject/abstract-provider" "^5.7.0"
@@ -4331,7 +4297,7 @@ hardhat-gas-reporter@^1.0.9:
     eth-gas-reporter "^0.2.25"
     sha1 "^1.1.1"
 
-hardhat@^2.10.0, hardhat@^2.12.6, hardhat@^2.9.6:
+hardhat@^2.10.0, hardhat@^2.12.6:
   version "2.14.0"
   resolved "https://registry.yarnpkg.com/hardhat/-/hardhat-2.14.0.tgz#b60c74861494aeb1b50803cf04cc47865a42b87a"
   integrity sha512-73jsInY4zZahMSVFurSK+5TNCJTXMv+vemvGia0Ac34Mm19fYp6vEPVGF3sucbumszsYxiTT2TbS8Ii2dsDSoQ==
