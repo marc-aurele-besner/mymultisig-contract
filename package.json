@@ -73,7 +73,7 @@
     "chai": "^4.3.7",
     "deployment-tool": "^0.1.5",
     "dotenv": "^16.0.3",
-    "ethers": "5.7.2",
+    "ethers": "6.4.0",
     "ethersV6": "npm:ethers",
     "foundry-test-utility": "^0.1.1",
     "fs": "^0.0.1-security",
