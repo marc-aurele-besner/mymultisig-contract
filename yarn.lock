@@ -99,6 +99,16 @@
     chalk "^2.4.2"
     js-tokens "^4.0.0"
 
+"@chainlink/contracts@^0.6.1":
+  version "0.6.1"
+  resolved "https://registry.yarnpkg.com/@chainlink/contracts/-/contracts-0.6.1.tgz#8842b57e755793cbdbcbc45277fb5d179c993e19"
+  integrity sha512-EuwijGexttw0UjfrW+HygwhQIrGAbqpf1ue28R55HhWMHBzphEH0PhWm8DQmFfj5OZNy8Io66N4L0nStkZ3QKQ==
+  dependencies:
+    "@eth-optimism/contracts" "^0.5.21"
+    "@openzeppelin/contracts" "~4.3.3"
+    "@openzeppelin/contracts-upgradeable" "^4.7.3"
+    "@openzeppelin/contracts-v0.7" "npm:@openzeppelin/contracts@v3.4.2"
+
 "@chainsafe/as-sha256@^0.3.1":
   version "0.3.1"
   resolved "https://registry.yarnpkg.com/@chainsafe/as-sha256/-/as-sha256-0.3.1.tgz#3639df0e1435cab03f4d9870cc3ac079e57a6fc9"
@@ -156,21 +166,21 @@
     "@chainsafe/persistent-merkle-tree" "^0.4.2"
     case "^1.6.3"
 
-"@chugsplash/contracts@^0.7.3":
-  version "0.7.3"
-  resolved "https://registry.yarnpkg.com/@chugsplash/contracts/-/contracts-0.7.3.tgz#8c62fd427109030d5be91ffca07b3105bb7e2aee"
-  integrity sha512-abTKQ/XnF72w4HHqfmF02Yu2MycSIH1liRrXg15YwpEylNTlS5PLjbABY+uLsCooF5kbFLXJ3GziJzxfC1Eiqw==
+"@chugsplash/contracts@^0.8.0", "@chugsplash/contracts@^0.8.2":
+  version "0.8.2"
+  resolved "https://registry.yarnpkg.com/@chugsplash/contracts/-/contracts-0.8.2.tgz#d1e5e71bd559e11244f92e806d83adc41f5ee8d0"
+  integrity sha512-8DbByx9ycU66PPCYuERAsDCTIiL4zRw4y3eSpzEWSN2OwlTS7bfqRAvxIlV26q+zpG19wN5PZxbMbzxVsosIAg==
   dependencies:
     "@eth-optimism/contracts" "^0.5.40"
     "@eth-optimism/contracts-bedrock" "^0.0.0-20230522161230"
 
-"@chugsplash/core@^0.10.1":
-  version "0.10.1"
-  resolved "https://registry.yarnpkg.com/@chugsplash/core/-/core-0.10.1.tgz#a6981681dbe98596e2990ee1f5b2793c7b1cca7b"
-  integrity sha512-zK5NQFbUfQGfambk4JalvxHWkWWPV1tNlh1Zpq9z0K3y5UJ+a4qQtKriDmFgUOYnapQx2nUrfkYpL82P8kbuZA==
+"@chugsplash/core@^0.11.0":
+  version "0.11.0"
+  resolved "https://registry.yarnpkg.com/@chugsplash/core/-/core-0.11.0.tgz#8c819e206ae8c919066db5848bdede3eaa11baad"
+  integrity sha512-GSuvDk/sVGGJ6YqO/QsA5n3E3SZs0jQEgocKe+bH/K7gmxgXxMAoXNiEweJf3eQ+dfMaKAwZXKtKbQT8Zs9z9w==
   dependencies:
     "@amplitude/node" "^1.10.2"
-    "@chugsplash/contracts" "^0.7.3"
+    "@chugsplash/contracts" "^0.8.0"
     "@eth-optimism/common-ts" "^0.7.1"
     "@eth-optimism/contracts-bedrock" "^0.0.0-20230522161230"
     "@eth-optimism/core-utils" "^0.9.1"
@@ -198,13 +208,13 @@
     undici "^5.21.1"
     yesno "^0.4.0"
 
-"@chugsplash/plugins@^0.15.0":
-  version "0.15.1"
-  resolved "https://registry.yarnpkg.com/@chugsplash/plugins/-/plugins-0.15.1.tgz#154f553ab2b8ed542e44c908c0fac8c525963578"
-  integrity sha512-xncTiOVA4Fd6dzi2QTZVORNQtlJdaX9WFp2BLzrv/0CrzHfNztFO4QX7AaMduwAruGTgCHSAnXycQPDD+TAgIg==
+"@chugsplash/plugins@^0.16.0":
+  version "0.16.5"
+  resolved "https://registry.yarnpkg.com/@chugsplash/plugins/-/plugins-0.16.5.tgz#b519181a44b32d8f3884c7d5b54d590966cea7a6"
+  integrity sha512-w7GtQf44yG9d/qGDgo2lZ9KmJV6/4y4mmnkdiv9u2z8FroRL16LHok9KIiQqaH3LnDzsIMs1rmeX95oKyclKeA==
   dependencies:
-    "@chugsplash/contracts" "^0.7.3"
-    "@chugsplash/core" "^0.10.1"
+    "@chugsplash/contracts" "^0.8.2"
+    "@chugsplash/core" "^0.11.0"
     "@eth-optimism/contracts" "^0.5.40"
     "@eth-optimism/core-utils" "^0.9.1"
     "@ethereumjs/common" "^3.0.1"
@@ -212,6 +222,9 @@
     "@nomiclabs/hardhat-ethers" "^2.2.1"
     "@openzeppelin/hardhat-upgrades" "^1.22.1"
     "@openzeppelin/upgrades-core" "^1.24.0"
+    "@prb/math" "^4.0.0"
+    "@swc/core" "^1.3.62"
+    "@thirdweb-dev/contracts" "^3.5.1"
     dotenv "^16.0.3"
     ethers "^5.6.9"
     ipfs-http-client "56.0.3"
@@ -219,6 +232,10 @@
     node-fetch "^2.6.7"
     ora "^5.4.1"
     semver "^7.3.7"
+    solmate "^6.7.0"
+    ts-node "^10.9.1"
+    typescript "^5.1.3"
+    yargs "^17.7.2"
     yesno "^0.4.0"
 
 "@commitlint/cli@^17.4.4":
@@ -422,7 +439,7 @@
     "@openzeppelin/contracts-upgradeable" "4.7.3"
     ethers "^5.7.0"
 
-"@eth-optimism/contracts@^0.5.40":
+"@eth-optimism/contracts@^0.5.21", "@eth-optimism/contracts@^0.5.40":
   version "0.5.40"
   resolved "https://registry.yarnpkg.com/@eth-optimism/contracts/-/contracts-0.5.40.tgz#d13a04a15ea947a69055e6fc74d87e215d4c936a"
   integrity sha512-MrzV0nvsymfO/fursTB7m/KunkPsCndltVgfdHaT1Aj5Vi6R/doKIGGkOofHX+8B6VMZpuZosKCMQ5lQuqjt8w==
@@ -1342,10 +1359,20 @@
   resolved "https://registry.yarnpkg.com/@openzeppelin/contracts-upgradeable/-/contracts-upgradeable-4.7.3.tgz#f1d606e2827d409053f3e908ba4eb8adb1dd6995"
   integrity sha512-+wuegAMaLcZnLCJIvrVUDzA9z/Wp93f0Dla/4jJvIhijRrPabjQbZe6fWiECLaJyfn5ci9fqf9vTw3xpQOad2A==
 
+"@openzeppelin/contracts-upgradeable@^4.4.2", "@openzeppelin/contracts-upgradeable@^4.7.3":
+  version "4.9.3"
+  resolved "https://registry.yarnpkg.com/@openzeppelin/contracts-upgradeable/-/contracts-upgradeable-4.9.3.tgz#ff17a80fb945f5102571f8efecb5ce5915cc4811"
+  integrity sha512-jjaHAVRMrE4UuZNfDwjlLGDxTHWIOwTJS2ldnc278a0gevfXfPr8hxKEVBGFBE96kl2G3VHDZhUimw/+G3TG2A==
+
 "@openzeppelin/contracts-upgradeable@^4.8.3":
   version "4.9.1"
   resolved "https://registry.yarnpkg.com/@openzeppelin/contracts-upgradeable/-/contracts-upgradeable-4.9.1.tgz#03e33b8059ce43884995e69e4479f5a7f084b404"
   integrity sha512-UZf5/VdaBA/0kxF7/gg+2UrC8k+fbgiUM0Qw1apAhwpBWBxULbsHw0ZRMgT53nd6N8hr53XFjhcWNeTRGIiCVw==
+
+"@openzeppelin/contracts-v0.7@npm:@openzeppelin/contracts@v3.4.2":
+  version "3.4.2"
+  resolved "https://registry.yarnpkg.com/@openzeppelin/contracts/-/contracts-3.4.2.tgz#d81f786fda2871d1eb8a8c5a73e455753ba53527"
+  integrity sha512-z0zMCjyhhp4y7XKAcDAi3Vgms4T2PstwBdahiO0+9NaGICQKjynK3wduSRplTgk4LXmoO1yfDGO5RbjKYxtuxA==
 
 "@openzeppelin/contracts@4.7.3":
   version "4.7.3"
@@ -1356,6 +1383,11 @@
   version "4.9.1"
   resolved "https://registry.yarnpkg.com/@openzeppelin/contracts/-/contracts-4.9.1.tgz#afa804d2c68398704b0175acc94d91a54f203645"
   integrity sha512-aLDTLu/If1qYIFW5g4ZibuQaUsFGWQPBq1mZKp/txaebUnGHDmmiBhRLY1tDNedN0m+fJtKZ1zAODS9Yk+V6uA==
+
+"@openzeppelin/contracts@~4.3.3":
+  version "4.3.3"
+  resolved "https://registry.yarnpkg.com/@openzeppelin/contracts/-/contracts-4.3.3.tgz#ff6ee919fc2a1abaf72b22814bfb72ed129ec137"
+  integrity sha512-tDBopO1c98Yk7Cv/PZlHqrvtVjlgK5R4J6jxLwoO7qxK4xqOiZG+zSkIvGFpPZ0ikc3QOED3plgdqjgNTnBc7g==
 
 "@openzeppelin/defender-base-client@^1.46.0":
   version "1.48.0"
@@ -1417,6 +1449,11 @@
     minimist "^1.2.7"
     proper-lockfile "^4.1.1"
     solidity-ast "^0.4.26"
+
+"@prb/math@^4.0.0":
+  version "4.0.1"
+  resolved "https://registry.yarnpkg.com/@prb/math/-/math-4.0.1.tgz#bc90277f4f1c085c973f502455bf12c2b3b67666"
+  integrity sha512-ANTz2KMV+dMdZ57mWgDTR6jZo5uQzUczQEHCxd7CvJZZ9yafnfPhUUILHvvigIOZ85fZbTPVkC8YoRG1z5Qf7g==
 
 "@protobufjs/aspromise@^1.1.1", "@protobufjs/aspromise@^1.1.2":
   version "1.1.2"
@@ -1671,6 +1708,95 @@
   integrity sha512-PdhRFNhbTtu3x8Axm0uYpqOy/lODYQK+MlYSgqIsq2L8SFYEHJPHNUiOTAJbDGzNjjr1/n9AcIayxafR/fWmYw==
   dependencies:
     antlr4ts "^0.5.0-alpha.4"
+
+"@swc/core-darwin-arm64@1.3.87":
+  version "1.3.87"
+  resolved "https://registry.yarnpkg.com/@swc/core-darwin-arm64/-/core-darwin-arm64-1.3.87.tgz#0547ec3297424ff89de503a07509646f48519e2a"
+  integrity sha512-/LxLjPat1LA9CXS7Cn2M4MIqwNOoDF4KjcikPkO08H54rd6WubhaJnr0sLDjms3adRr+pmcCL0yfsUBTX//85A==
+
+"@swc/core-darwin-x64@1.3.87":
+  version "1.3.87"
+  resolved "https://registry.yarnpkg.com/@swc/core-darwin-x64/-/core-darwin-x64-1.3.87.tgz#cbbe47ce93d7893db1649d6b16b0be187d12438b"
+  integrity sha512-hjSQNcW9BN8gEz3UQZ7Ye80ymbkFHLkUDeEek4lorRyq6S+uxvbL1f1mJAZnFPBpove7AXusykIalWMPvyOR2A==
+
+"@swc/core-linux-arm-gnueabihf@1.3.87":
+  version "1.3.87"
+  resolved "https://registry.yarnpkg.com/@swc/core-linux-arm-gnueabihf/-/core-linux-arm-gnueabihf-1.3.87.tgz#b1c066f49232caacde9300dd12c2a4d13b495d30"
+  integrity sha512-JVyNIO3tGLPSQ59rJXeKaykTpPhRNozB+7PtYMvMcxpUbYGpEzWxTPkFAX2KKPvl0ejBdA0GW5OXeuPMvTwE0w==
+
+"@swc/core-linux-arm64-gnu@1.3.87":
+  version "1.3.87"
+  resolved "https://registry.yarnpkg.com/@swc/core-linux-arm64-gnu/-/core-linux-arm64-gnu-1.3.87.tgz#36c2c7ea1ec0622858e16fa16a706922c12cb4ac"
+  integrity sha512-gLdZKIoql5vjrNjrwwsiS7d3vOAIzYUWqN97iGCSscQOg0MgYbfUnSTO4UEvH4BYlwRNlHepfTZ7ALoG8areUQ==
+
+"@swc/core-linux-arm64-musl@1.3.87":
+  version "1.3.87"
+  resolved "https://registry.yarnpkg.com/@swc/core-linux-arm64-musl/-/core-linux-arm64-musl-1.3.87.tgz#b7f34b2dd352a2f71aecd1c093452cfa9d5f8983"
+  integrity sha512-WQ5tirVBiU8lUODQ25dt8JRCZHyRDInBe4fkGuxzImMa017zYPWa2WxrKK8LdDF7DzrAITlGl9VeoeE/l0WJbw==
+
+"@swc/core-linux-x64-gnu@1.3.87":
+  version "1.3.87"
+  resolved "https://registry.yarnpkg.com/@swc/core-linux-x64-gnu/-/core-linux-x64-gnu-1.3.87.tgz#42a9fff0212893b0868e048686443dac148f4e9f"
+  integrity sha512-/vQSH7ZKOuT1It9GzpJ9UFnsOP/dQr1VLUrKQFBlHp9owIWNb2oUrZdNla+KhljCIIahh0JfQ08sycKeycCNzQ==
+
+"@swc/core-linux-x64-musl@1.3.87":
+  version "1.3.87"
+  resolved "https://registry.yarnpkg.com/@swc/core-linux-x64-musl/-/core-linux-x64-musl-1.3.87.tgz#b21a089d785895eb71fbcfe695ccfc454b70017f"
+  integrity sha512-C1NUeISJDyMlIk4919bjcpHvjyjzbkjW7v53gUdN41Y4BPlEk7UKcLez7UHMjdMGA/o9721SLqYVp4/NrQErUw==
+
+"@swc/core-win32-arm64-msvc@1.3.87":
+  version "1.3.87"
+  resolved "https://registry.yarnpkg.com/@swc/core-win32-arm64-msvc/-/core-win32-arm64-msvc-1.3.87.tgz#c32366a5782cb1fd2a7484c34fd879cefbb883e4"
+  integrity sha512-AE7JKDJ0OsV9LsYGFfYKMTkGNfsy1au4RT5jT1rxr5MTOsmMD7P2mgiRF8drgc1WX3uOJbTHQfgdVTYroAGfdA==
+
+"@swc/core-win32-ia32-msvc@1.3.87":
+  version "1.3.87"
+  resolved "https://registry.yarnpkg.com/@swc/core-win32-ia32-msvc/-/core-win32-ia32-msvc-1.3.87.tgz#c2e0de986c733c6fbeecdf99330c5b6260560974"
+  integrity sha512-2V+5uvisaTPXd5lvTujNLNlEC2LPo07gEUQVGdKGsbhtLAYAggVXBnHjxU1TkuyA6NlciMS59tPKW+L2u2KpTw==
+
+"@swc/core-win32-x64-msvc@1.3.87":
+  version "1.3.87"
+  resolved "https://registry.yarnpkg.com/@swc/core-win32-x64-msvc/-/core-win32-x64-msvc-1.3.87.tgz#24b5b50814062fb3cee0945ee5c09da2313b7f0c"
+  integrity sha512-2Xak7TidlRuNQamLZC3fEOdUCmMiBzD2BW8+Dnn29f4odzamgAFfeYJ/PnqN7jdTWOINLn95tex4JBm3Pm11HQ==
+
+"@swc/core@^1.3.62":
+  version "1.3.87"
+  resolved "https://registry.yarnpkg.com/@swc/core/-/core-1.3.87.tgz#b84cffd0d03f49e04b165088bc733a43ac59281e"
+  integrity sha512-u33Mi/EBvb+g/xpYKyxODB5XvKYqISmy81J+lhFS/Oahja0PbJWZdKEGwSQEFvBecp6E+PfaTOLPOoF1EWcRrw==
+  dependencies:
+    "@swc/types" "^0.1.4"
+  optionalDependencies:
+    "@swc/core-darwin-arm64" "1.3.87"
+    "@swc/core-darwin-x64" "1.3.87"
+    "@swc/core-linux-arm-gnueabihf" "1.3.87"
+    "@swc/core-linux-arm64-gnu" "1.3.87"
+    "@swc/core-linux-arm64-musl" "1.3.87"
+    "@swc/core-linux-x64-gnu" "1.3.87"
+    "@swc/core-linux-x64-musl" "1.3.87"
+    "@swc/core-win32-arm64-msvc" "1.3.87"
+    "@swc/core-win32-ia32-msvc" "1.3.87"
+    "@swc/core-win32-x64-msvc" "1.3.87"
+
+"@swc/types@^0.1.4":
+  version "0.1.5"
+  resolved "https://registry.yarnpkg.com/@swc/types/-/types-0.1.5.tgz#043b731d4f56a79b4897a3de1af35e75d56bc63a"
+  integrity sha512-myfUej5naTBWnqOCc/MdVOLVjXUXtIA+NpDrDBKJtLLg2shUjBu3cZmB/85RyitKc55+lUUyl7oRfLOvkr2hsw==
+
+"@thirdweb-dev/contracts@^3.5.1":
+  version "3.10.0"
+  resolved "https://registry.yarnpkg.com/@thirdweb-dev/contracts/-/contracts-3.10.0.tgz#162d3b090ee576a18f530a3997f820600aab5f73"
+  integrity sha512-IGnFev/ooS4y/oh+wURuv0E32ztYDeZk7RdWO0si1YY5vDMSbVu/TBhlhmLPcfIZWs0IjCAoA6H/Zy5QV5mkhw==
+  dependencies:
+    "@chainlink/contracts" "^0.6.1"
+    "@openzeppelin/contracts" "4.7.3"
+    "@openzeppelin/contracts-upgradeable" "4.7.3"
+    "@thirdweb-dev/dynamic-contracts" "^1.1.2"
+    erc721a-upgradeable "^3.3.0"
+
+"@thirdweb-dev/dynamic-contracts@^1.1.2":
+  version "1.2.2"
+  resolved "https://registry.yarnpkg.com/@thirdweb-dev/dynamic-contracts/-/dynamic-contracts-1.2.2.tgz#a86377108c0b160bcd344063a2ac910348167e31"
+  integrity sha512-0YqcaQ0NLlHNo+/tJf5xQXxor3+0C8nLokVfPT3OFe9OcPmLfSGs7xS7dZdQVwor75CqmNRse29UReU+hd4atw==
 
 "@tsconfig/node10@^1.0.7":
   version "1.0.9"
@@ -3366,6 +3492,13 @@ envalid@^7.2.2:
   integrity sha512-KL1YRwn8WcoF/Ty7t+yLLtZol01xr9ZJMTjzoGRM8NaSU+nQQjSWOQKKJhJP2P57bpdakJ9jbxqQX4fGTOicZg==
   dependencies:
     tslib "2.3.1"
+
+erc721a-upgradeable@^3.3.0:
+  version "3.3.0"
+  resolved "https://registry.yarnpkg.com/erc721a-upgradeable/-/erc721a-upgradeable-3.3.0.tgz#c7b481668694756120868261fe98ab3a245a06b4"
+  integrity sha512-ILE0SjKuvhx+PABG0A/41QUp0MFiYmzrgo71htQ0Ov6JfDOmgUzGxDW8gZuYfKrdlYjNwSAqMpUFWBbyW3sWBA==
+  dependencies:
+    "@openzeppelin/contracts-upgradeable" "^4.4.2"
 
 err-code@^3.0.0, err-code@^3.0.1:
   version "3.0.1"
@@ -7409,6 +7542,11 @@ solidity-coverage@^0.8.2:
     shelljs "^0.8.3"
     web3-utils "^1.3.6"
 
+solmate@^6.7.0:
+  version "6.7.0"
+  resolved "https://registry.yarnpkg.com/solmate/-/solmate-6.7.0.tgz#5e07b62498babec273aceb322a3e45d0e058e042"
+  integrity sha512-iMPr+gKbKjXBB12a+Iz5Tua5r7T4yugHaGXDWSJbBZB4Gr3vLeUUvKeLyMxCWWqk1xlLhFDFFuAmOzeyVBuyvQ==
+
 sonic-boom@^1.0.2:
   version "1.4.1"
   resolved "https://registry.yarnpkg.com/sonic-boom/-/sonic-boom-1.4.1.tgz#d35d6a74076624f12e6f917ade7b9d75e918f53e"
@@ -8059,7 +8197,7 @@ typedarray@^0.0.6:
   resolved "https://registry.yarnpkg.com/typedarray/-/typedarray-0.0.6.tgz#867ac74e3864187b1d3d47d996a78ec5c8830777"
   integrity sha512-/aCDEGatGvZ2BIk+HmLf4ifCJFwvKFNb9/JeZPMulfgFracn9QFcAf5GO8B/mweUjSoblS5In0cWhqpfs/5PQA==
 
-"typescript@^4.6.4 || ^5.0.0":
+"typescript@^4.6.4 || ^5.0.0", typescript@^5.1.3:
   version "5.2.2"
   resolved "https://registry.yarnpkg.com/typescript/-/typescript-5.2.2.tgz#5ebb5e5a5b75f085f22bc3f8460fba308310fa78"
   integrity sha512-mI4WrpHsbCIcwT9cF4FZvr80QUeKvsUsUvKDoR+X/7XHQH98xYD8YHZg7ANtz2GtZt/CBq2QJ0thkGJMHfqc1w==
@@ -8498,7 +8636,7 @@ yargs@16.2.0:
     y18n "^5.0.5"
     yargs-parser "^20.2.2"
 
-yargs@^17.0.0:
+yargs@^17.0.0, yargs@^17.7.2:
   version "17.7.2"
   resolved "https://registry.yarnpkg.com/yargs/-/yargs-17.7.2.tgz#991df39aca675a192b816e1e0363f9d75d2aa269"
   integrity sha512-7dSzzRQ++CKnNI/krKnYRV7JKKPUXMEh61soaHKg9mrWEhzFWhFnxPxGl+69cD1Ou63C13NUPCnmIcrvqCuM6w==
