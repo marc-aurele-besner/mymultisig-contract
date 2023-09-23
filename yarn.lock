@@ -1389,7 +1389,18 @@
   resolved "https://registry.yarnpkg.com/@openzeppelin/contracts/-/contracts-4.3.3.tgz#ff6ee919fc2a1abaf72b22814bfb72ed129ec137"
   integrity sha512-tDBopO1c98Yk7Cv/PZlHqrvtVjlgK5R4J6jxLwoO7qxK4xqOiZG+zSkIvGFpPZ0ikc3QOED3plgdqjgNTnBc7g==
 
-"@openzeppelin/defender-base-client@^1.46.0":
+"@openzeppelin/defender-admin-client@^1.48.0":
+  version "1.48.0"
+  resolved "https://registry.yarnpkg.com/@openzeppelin/defender-admin-client/-/defender-admin-client-1.48.0.tgz#acb8d6677a0b1bca463f9017aefaf4b6720123e1"
+  integrity sha512-MN29JD6jA3PgOxF2tG0aZbMIwOCieYWkK9UbHCq1UzGPrMgGV9NVMUyVdqpv7Ynplwsjp5ZTBDOyttwvTlchHg==
+  dependencies:
+    "@openzeppelin/defender-base-client" "1.48.0"
+    axios "^1.4.0"
+    ethers "^5.7.2"
+    lodash "^4.17.19"
+    node-fetch "^2.6.0"
+
+"@openzeppelin/defender-base-client@1.48.0", "@openzeppelin/defender-base-client@^1.46.0", "@openzeppelin/defender-base-client@^1.48.0", "@openzeppelin/defender-base-client@^1.48.0-rc.1":
   version "1.48.0"
   resolved "https://registry.yarnpkg.com/@openzeppelin/defender-base-client/-/defender-base-client-1.48.0.tgz#9103b1b036db0451b52d7899a277bf24db4c4b06"
   integrity sha512-HFO87s010hRrMjyh2xYOCEAkLe21BfIbho7n5/kikA6A1ZgXi7MsEiqnQv1zP4bxMJgxGZ5b3t4tt6fWrakbag==
@@ -1411,6 +1422,32 @@
     chalk "^4.1.0"
     debug "^4.1.1"
     proper-lockfile "^4.1.1"
+
+"@openzeppelin/hardhat-upgrades@^2.0.0":
+  version "2.2.1"
+  resolved "https://registry.yarnpkg.com/@openzeppelin/hardhat-upgrades/-/hardhat-upgrades-2.2.1.tgz#75452c1fb507144b189da80e7d7e5654488705a4"
+  integrity sha512-Amlk2nhNpCfTCEovbqyarwBv4ZWmuiHHIcYfGy+FCSkkuSvQNVEJHoSl83Vgag+QhMtubdoggkYPqayxU46w1Q==
+  dependencies:
+    "@openzeppelin/defender-admin-client" "^1.48.0"
+    "@openzeppelin/defender-base-client" "^1.48.0"
+    "@openzeppelin/platform-deploy-client" "^0.10.0"
+    "@openzeppelin/upgrades-core" "^1.27.0"
+    chalk "^4.1.0"
+    debug "^4.1.1"
+    ethereumjs-util "^7.1.5"
+    proper-lockfile "^4.1.1"
+    undici "^5.14.0"
+
+"@openzeppelin/platform-deploy-client@^0.10.0":
+  version "0.10.0"
+  resolved "https://registry.yarnpkg.com/@openzeppelin/platform-deploy-client/-/platform-deploy-client-0.10.0.tgz#017599612ed3b898f94f281b378ac50626365617"
+  integrity sha512-jayQPeXqw4LnWIrNhNqgikJSre+n2NRrnEu76niSdVXc/faQkG3PmaHtRPJMFgsYxjjAiAfcMYyV95YBDuLexA==
+  dependencies:
+    "@ethersproject/abi" "^5.6.3"
+    "@openzeppelin/defender-base-client" "^1.48.0-rc.1"
+    axios "^1.4.0"
+    lodash "^4.17.19"
+    node-fetch "^2.6.0"
 
 "@openzeppelin/platform-deploy-client@^0.8.0":
   version "0.8.0"
@@ -3784,7 +3821,7 @@ ethereumjs-util@^6.0.0, ethereumjs-util@^6.2.1:
     ethjs-util "0.1.6"
     rlp "^2.2.3"
 
-ethereumjs-util@^7.0.3, ethereumjs-util@^7.1.0, ethereumjs-util@^7.1.4:
+ethereumjs-util@^7.0.3, ethereumjs-util@^7.1.0, ethereumjs-util@^7.1.4, ethereumjs-util@^7.1.5:
   version "7.1.5"
   resolved "https://registry.yarnpkg.com/ethereumjs-util/-/ethereumjs-util-7.1.5.tgz#9ecf04861e4fbbeed7465ece5f23317ad1129181"
   integrity sha512-SDl5kKrQAudFBUe5OJM9Ac6WmMyYmXX/6sTmLZ3ffG2eY6ZIGBes3pEDxNN6V72WyOw4CPD5RomKdsa8DAAwLg==
@@ -3795,7 +3832,7 @@ ethereumjs-util@^7.0.3, ethereumjs-util@^7.1.0, ethereumjs-util@^7.1.4:
     ethereum-cryptography "^0.1.3"
     rlp "^2.2.4"
 
-ethers@5.7.2, ethers@^5.5.3, ethers@^5.6.8, ethers@^5.6.9, ethers@^5.7.0, ethers@^5.7.1:
+ethers@5.7.2, ethers@^5.5.3, ethers@^5.6.8, ethers@^5.6.9, ethers@^5.7.0, ethers@^5.7.1, ethers@^5.7.2:
   version "5.7.2"
   resolved "https://registry.yarnpkg.com/ethers/-/ethers-5.7.2.tgz#3a7deeabbb8c030d4126b24f84e525466145872e"
   integrity sha512-wswUsmWo1aOK8rR7DIKiWSw9DbLWe6x98Jrn8wcTflTVvaXhAMaB5zGAXy0GYQEQp9iO1iSHWVyARQm11zUtyg==
