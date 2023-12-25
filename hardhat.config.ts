@@ -4,7 +4,6 @@ import '@nomicfoundation/hardhat-toolbox'
 import 'deployment-tool'
 import 'hardhat-contract-clarity'
 import '@openzeppelin/hardhat-upgrades'
-import '@chugsplash/plugins'
 
 dotenv.config()
 
@@ -40,7 +39,7 @@ const {
 const listPrivateKeysOrProvideDummyPk = (
   privateKey01: string | undefined,
   privateKey02: string | undefined,
-  privateKey03: string | undefined
+  privateKey03: string | undefined,
 ) => {
   if (privateKey01 && privateKey02 && privateKey03) return [privateKey01, privateKey02, privateKey03]
   else return ['0x0000000000000000000000000000000000000000000000000000000000000000']
@@ -50,7 +49,9 @@ const config: HardhatUserConfig = {
   defaultNetwork: 'hardhat',
   networks: {
     hardhat: {
-      blockGasLimit: 1200000000,
+      // blockGasLimit: 1200000000,
+      gas: 2100000,
+      gasPrice: 8000000000,
     },
     localhost: {
       accounts: {
@@ -117,7 +118,7 @@ const config: HardhatUserConfig = {
       accounts: listPrivateKeysOrProvideDummyPk(
         PRIVATE_KEY_BNB_TESTNET_01,
         PRIVATE_KEY_BNB_TESTNET_02,
-        PRIVATE_KEY_BNB_TESTNET_03
+        PRIVATE_KEY_BNB_TESTNET_03,
       ),
     },
     bnbTestnetFork: {
@@ -126,7 +127,7 @@ const config: HardhatUserConfig = {
       accounts: listPrivateKeysOrProvideDummyPk(
         PRIVATE_KEY_BNB_TESTNET_01,
         PRIVATE_KEY_BNB_TESTNET_02,
-        PRIVATE_KEY_BNB_TESTNET_03
+        PRIVATE_KEY_BNB_TESTNET_03,
       ),
       forking: {
         url: `${RPC_BNB_TESTNET}`,
@@ -174,11 +175,6 @@ const config: HardhatUserConfig = {
             enabled: true,
             runs: 200,
           },
-          outputSelection: {
-            '*': {
-              '*': ['storageLayout'],
-            },
-          },
         },
       },
       {
@@ -187,11 +183,6 @@ const config: HardhatUserConfig = {
           optimizer: {
             enabled: true,
             runs: 200,
-          },
-          outputSelection: {
-            '*': {
-              '*': ['storageLayout'],
-            },
           },
         },
       },

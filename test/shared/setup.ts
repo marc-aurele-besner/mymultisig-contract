@@ -1,4 +1,4 @@
-import { ethers, network, upgrades, chugsplash, addressBook } from 'hardhat'
+import { ethers, network, upgrades, addressBook } from 'hardhat'
 import {
   NetworkConfig,
   HardhatNetworkConfig,
@@ -17,7 +17,7 @@ console.log(
   'Connected to network: ',
   '\x1b[33m',
   network.name,
-  '\x1b[0m'
+  '\x1b[0m',
 )
 
 export interface SetupContractReturn {
@@ -33,7 +33,7 @@ const setupContract = async (
   ownersAddresses = [] as string[],
   threshold = constants.DEFAULT_THRESHOLD as number,
   deployFactory = false,
-  deployExtended = false
+  deployExtended = false,
 ): Promise<SetupContractReturn> => {
   let ContractFactory
   let contract
@@ -51,7 +51,7 @@ const setupContract = async (
         contractName,
         ownersAddresses,
         threshold,
-        constants.DEFAULT_ALLOW_ONLY_OWNER
+        constants.DEFAULT_ALLOW_ONLY_OWNER,
       )
     }
   }
@@ -80,58 +80,7 @@ const setupContract = async (
       ...deploymentDetail,
       owners: ownersAddresses,
       threshold,
-    }
-  )
-  if ((await addressBook.retrieveContract(contractName, network.name)) === undefined)
-    throw new Error('Error saving and retrieving contract from address book.')
-
-  return { contract, contractName, contractAddress: contract.address, ownersAddresses, threshold }
-}
-
-const setupContractWithChugSplash = async (
-  contractName = constants.CONTRACT_NAME as string,
-  ownersAddresses = [] as string[],
-  threshold = constants.DEFAULT_THRESHOLD as number,
-  deployFactory = false
-): Promise<SetupContractReturn> => {
-  let ContractFactory
-  let contract
-  // Get contract artifacts and deploy contract
-  if (deployFactory) {
-    await chugsplash.reset()
-    contract = await chugsplash.getContract(contractName, contractName)
-  } else {
-    ContractFactory = await ethers.getContractFactory(contractName)
-    contract = await ContractFactory.deploy(contractName, ownersAddresses, threshold)
-    // Wait for contract to be deployed
-    await contract.deployed()
-  }
-  const factoryDetail =
-    contractName === constants.CONTRACT_FACTORY_NAME
-      ? {
-          factoryName: constants.CONTRACT_FACTORY_NAME,
-          factoryVersion: constants.CONTRACT_FACTORY_VERSION,
-        }
-      : {}
-
-  await addressBook.saveContract(
-    contractName,
-    contract.address,
-    network.name,
-    contract.deployTransaction ? contract.deployTransaction.from : (await ethers.getSigners())[0].address,
-    network.config.chainId,
-    contract.deployTransaction ? contract.deployTransaction.blockHash : (await ethers.provider.getBlock('latest')).hash,
-    contract.deployTransaction
-      ? contract.deployTransaction.blockNumber
-      : (
-          await ethers.provider.getBlock('latest')
-        ).number,
-    undefined,
-    {
-      ...factoryDetail,
-      owners: ownersAddresses,
-      threshold,
-    }
+    },
   )
   if ((await addressBook.retrieveContract(contractName, network.name)) === undefined)
     throw new Error('Error saving and retrieving contract from address book.')
@@ -144,13 +93,13 @@ const isHttpNetworkConfig = (networkConfig: NetworkConfig): networkConfig is Htt
 }
 
 const isHardhatNetworkHDAccountsConfig = (
-  account: HardhatNetworkAccountsConfig | HttpNetworkAccountsConfig
+  account: HardhatNetworkAccountsConfig | HttpNetworkAccountsConfig,
 ): account is HardhatNetworkHDAccountsConfig => {
   return (account as HardhatNetworkHDAccountsConfig).mnemonic !== undefined
 }
 
 const isHttpNetworkAccountsConfig = (
-  account: HardhatNetworkAccountsConfig | HttpNetworkAccountsConfig
+  account: HardhatNetworkAccountsConfig | HttpNetworkAccountsConfig,
 ): account is HttpNetworkAccountsConfig => {
   return typeof (account as HttpNetworkAccountsConfig) === 'string'
 }
@@ -164,7 +113,7 @@ const setupProviderAndAccount = async () => {
   if (isHardhatNetworkHDAccountsConfig(network.config.accounts))
     owner01 = new ethers.Wallet(
       ethers.Wallet.fromMnemonic(network.config.accounts.mnemonic, `m/44'/60'/0'/0/0`).privateKey,
-      provider
+      provider,
     )
   else if (
     !isHttpNetworkAccountsConfig(network.config.accounts) &&
@@ -176,7 +125,7 @@ const setupProviderAndAccount = async () => {
   if (isHardhatNetworkHDAccountsConfig(network.config.accounts))
     owner02 = new ethers.Wallet(
       ethers.Wallet.fromMnemonic(network.config.accounts.mnemonic, `m/44'/60'/0'/0/1`).privateKey,
-      provider
+      provider,
     )
   else if (
     !isHttpNetworkAccountsConfig(network.config.accounts) &&
@@ -188,7 +137,7 @@ const setupProviderAndAccount = async () => {
   if (isHardhatNetworkHDAccountsConfig(network.config.accounts))
     owner03 = new ethers.Wallet(
       ethers.Wallet.fromMnemonic(network.config.accounts.mnemonic, `m/44'/60'/0'/0/2`).privateKey,
-      provider
+      provider,
     )
   else if (
     !isHttpNetworkAccountsConfig(network.config.accounts) &&
@@ -204,7 +153,7 @@ const setupProviderAndAccount = async () => {
   if (isHardhatNetworkHDAccountsConfig(network.config.accounts))
     user01 = new ethers.Wallet(
       ethers.Wallet.fromMnemonic(network.config.accounts.mnemonic, `m/44'/60'/0'/0/3`).privateKey,
-      provider
+      provider,
     )
   else if (
     !isHttpNetworkAccountsConfig(network.config.accounts) &&
@@ -217,7 +166,7 @@ const setupProviderAndAccount = async () => {
   if (isHardhatNetworkHDAccountsConfig(network.config.accounts))
     user02 = new ethers.Wallet(
       ethers.Wallet.fromMnemonic(network.config.accounts.mnemonic, `m/44'/60'/0'/0/4`).privateKey,
-      provider
+      provider,
     )
   else if (
     !isHttpNetworkAccountsConfig(network.config.accounts) &&
@@ -230,7 +179,7 @@ const setupProviderAndAccount = async () => {
   if (isHardhatNetworkHDAccountsConfig(network.config.accounts))
     user03 = new ethers.Wallet(
       ethers.Wallet.fromMnemonic(network.config.accounts.mnemonic, `m/44'/60'/0'/0/5`).privateKey,
-      provider
+      provider,
     )
   else if (
     !isHttpNetworkAccountsConfig(network.config.accounts) &&
@@ -287,6 +236,5 @@ const setupProviderAndAccount = async () => {
 
 export default {
   setupContract,
-  setupContractWithChugSplash,
   setupProviderAndAccount,
 }

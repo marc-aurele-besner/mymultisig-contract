@@ -7,7 +7,6 @@ import Helper from './index'
 export enum DeploymentType {
   SimpleMultiSig,
   WithFactory,
-  WithChugSplash,
 }
 
 export async function MyMultiSigStandardTests(deploymentType = DeploymentType.SimpleMultiSig) {
@@ -35,7 +34,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
           deployment = await Helper.setupContract(
             Helper.CONTRACT_NAME,
             [owner01.address, owner02.address, owner03.address],
-            2
+            2,
           )
           contract = deployment.contract
           break
@@ -45,31 +44,12 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
             Helper.CONTRACT_FACTORY_NAME,
             [owner01.address, owner02.address, owner03.address],
             2,
-            true
+            true,
           )
           const tx = await deployment.contract.createMultiSig(
             Helper.CONTRACT_NAME,
-            [owner01.address, owner02.address, owner03.address],
-            2
-          )
-          await tx.wait()
-          const contractAddress = await deployment.contract.multiSig(0)
-
-          const Contract = await ethers.getContractFactory(Helper.CONTRACT_NAME)
-          contract = new ethers.Contract(contractAddress, Contract.interface, provider)
-          break
-        }
-        case DeploymentType.WithChugSplash: {
-          deployment = await Helper.setupContractWithChugSplash(
-            Helper.CONTRACT_FACTORY_NAME + 'WithChugSplash',
             [owner01.address, owner02.address, owner03.address],
             2,
-            true
-          )
-          const tx = await deployment.contract.createMultiSig(
-            Helper.CONTRACT_NAME,
-            [owner01.address, owner02.address, owner03.address],
-            2
           )
           await tx.wait()
           const contractAddress = await deployment.contract.multiSig(0)
@@ -125,8 +105,8 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
           contract.address,
           Helper.ZERO,
           contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
-          Helper.DEFAULT_GAS
-        )
+          Helper.DEFAULT_GAS,
+        ),
       ).to.be.false
     })
 
@@ -139,8 +119,8 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
           contract.address,
           Helper.ZERO,
           contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
-          Helper.DEFAULT_GAS
-        )
+          Helper.DEFAULT_GAS,
+        ),
       ).to.be.true
     })
 
@@ -153,8 +133,8 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
           contract.address,
           Helper.ZERO,
           contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
-          Helper.DEFAULT_GAS
-        )
+          Helper.DEFAULT_GAS,
+        ),
       ).to.be.true
     })
 
@@ -167,8 +147,8 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
           contract.address,
           Helper.ZERO,
           contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
-          Helper.DEFAULT_GAS
-        )
+          Helper.DEFAULT_GAS,
+        ),
       ).to.be.false
     })
 
@@ -181,8 +161,8 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
           contract.address,
           Helper.ZERO,
           contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
-          Helper.DEFAULT_GAS
-        )
+          Helper.DEFAULT_GAS,
+        ),
       ).to.be.false
     })
 
@@ -199,7 +179,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         [owner01, owner02, owner03],
         user01.address,
         10000,
-        Helper.errors.NOT_ENOUGH_GAS
+        Helper.errors.NOT_ENOUGH_GAS,
       )
     })
 
@@ -210,7 +190,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         [owner01, owner01, owner01],
         user01.address,
         Helper.DEFAULT_GAS,
-        Helper.errors.OWNER_ALREADY_SIGNED
+        Helper.errors.OWNER_ALREADY_SIGNED,
       )
     })
 
@@ -226,7 +206,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         owner01.address,
         undefined,
         undefined,
-        ['OwnerRemoved', 'OwnerAdded']
+        ['OwnerRemoved', 'OwnerAdded'],
       )
     })
 
@@ -259,7 +239,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         owner03.address,
         undefined,
         Helper.errors.CANNOT_REMOVE_OWNERS_BELOW_THRESHOLD,
-        ['TransactionFailed']
+        ['TransactionFailed'],
       )
       await Helper.removeOwner(
         contract,
@@ -268,7 +248,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         owner02.address,
         undefined,
         Helper.errors.CANNOT_REMOVE_OWNERS_BELOW_THRESHOLD,
-        ['TransactionFailed']
+        ['TransactionFailed'],
       )
     })
 
@@ -281,7 +261,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         },
         owner01,
         ethers,
-        provider
+        provider,
       )
       await Helper.execTransaction(
         contract,
@@ -290,7 +270,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         owner01.address,
         ethers.utils.parseEther('1'),
         '0x',
-        Helper.DEFAULT_GAS
+        Helper.DEFAULT_GAS,
       )
     })
 
@@ -303,7 +283,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         },
         owner01,
         ethers,
-        provider
+        provider,
       )
       await Helper.execTransaction(
         contract,
@@ -312,7 +292,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         owner01.address,
         ethers.utils.parseEther('1'),
         '0x',
-        Helper.DEFAULT_GAS
+        Helper.DEFAULT_GAS,
       )
       await Helper.execTransaction(
         contract,
@@ -321,7 +301,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         owner01.address,
         ethers.utils.parseEther('1'),
         '0x',
-        Helper.DEFAULT_GAS
+        Helper.DEFAULT_GAS,
       )
     })
 
@@ -340,7 +320,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         mockERC20.address as `0x${string}`,
         Helper.ZERO,
         data,
-        Helper.DEFAULT_GAS * 2
+        Helper.DEFAULT_GAS * 2,
       )
       expect(await mockERC20.balanceOf(contract.address)).to.be.equal(10)
     })
@@ -360,7 +340,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         mockERC20.address as `0x${string}`,
         Helper.ZERO,
         data,
-        Helper.DEFAULT_GAS * 2
+        Helper.DEFAULT_GAS * 2,
       )
       expect(await mockERC20.balanceOf(contract.address)).to.be.equal(10)
       const data2 = MockERC20.interface.encodeFunctionData('transfer(address,uint256)', [
@@ -374,7 +354,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         mockERC20.address as `0x${string}`,
         Helper.ZERO,
         data2,
-        Helper.DEFAULT_GAS * 2
+        Helper.DEFAULT_GAS * 2,
       )
       expect(await mockERC20.balanceOf(contract.address)).to.be.equal(0)
       expect(await mockERC20.balanceOf(owner01.address)).to.be.equal(10)
@@ -396,7 +376,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         data as `0x${string}`,
         Helper.DEFAULT_GAS,
         undefined,
-        ['TransactionFailed']
+        ['TransactionFailed'],
       )
     })
 
@@ -415,7 +395,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         mockERC721.address as `0x${string}`,
         Helper.ZERO,
         data,
-        Helper.DEFAULT_GAS * 2
+        Helper.DEFAULT_GAS * 2,
       )
       expect(await mockERC721.balanceOf(contract.address)).to.be.equal(1)
       expect(await mockERC721.ownerOf(10)).to.be.equal(contract.address)
@@ -436,7 +416,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         mockERC721.address as `0x${string}`,
         Helper.ZERO,
         data,
-        Helper.DEFAULT_GAS * 2
+        Helper.DEFAULT_GAS * 2,
       )
       expect(await mockERC721.balanceOf(contract.address)).to.be.equal(1)
       expect(await mockERC721.ownerOf(10)).to.be.equal(contract.address)
@@ -452,7 +432,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         mockERC721.address as `0x${string}`,
         Helper.ZERO,
         data2,
-        Helper.DEFAULT_GAS * 2
+        Helper.DEFAULT_GAS * 2,
       )
       expect(await mockERC721.balanceOf(contract.address)).to.be.equal(0)
       expect(await mockERC721.balanceOf(owner01.address)).to.be.equal(1)
@@ -475,7 +455,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         mockERC1155.address as `0x${string}`,
         Helper.ZERO,
         data,
-        Helper.DEFAULT_GAS * 2
+        Helper.DEFAULT_GAS * 2,
       )
       expect(await mockERC1155.balanceOf(contract.address, 10)).to.be.equal(5)
     })
@@ -496,12 +476,12 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         mockERC1155.address as `0x${string}`,
         Helper.ZERO,
         data,
-        Helper.DEFAULT_GAS * 2
+        Helper.DEFAULT_GAS * 2,
       )
       expect(await mockERC1155.balanceOf(contract.address, 10)).to.be.equal(5)
       const data2 = mockERC1155.interface.encodeFunctionData(
         'safeTransferFrom(address,address,uint256,uint256,bytes)',
-        [contract.address, owner01.address, 10, 2, '0x']
+        [contract.address, owner01.address, 10, 2, '0x'],
       ) as `0x${string}`
       await Helper.execTransaction(
         contract,
@@ -510,7 +490,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         mockERC1155.address as `0x${string}`,
         Helper.ZERO,
         data2,
-        Helper.DEFAULT_GAS * 2
+        Helper.DEFAULT_GAS * 2,
       )
       expect(await mockERC1155.balanceOf(contract.address, 10)).to.be.equal(3)
       expect(await mockERC1155.balanceOf(owner01.address, 10)).to.be.equal(2)
@@ -523,7 +503,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         [owner01, owner02],
         contract.address,
         Helper.ZERO,
-        data
+        data,
       )
       await Helper.execTransaction(
         contract,
@@ -535,7 +515,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         Helper.DEFAULT_GAS,
         undefined,
         ['OwnerAdded'],
-        signatures
+        signatures,
       )
       await Helper.execTransaction(
         contract,
@@ -547,7 +527,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         Helper.DEFAULT_GAS,
         Helper.errors.INVALID_OWNER,
         undefined,
-        signatures
+        signatures,
       )
     })
 
@@ -565,7 +545,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         ],
         [Helper.DEFAULT_GAS, Helper.DEFAULT_GAS, Helper.DEFAULT_GAS],
         undefined,
-        ['OwnerAdded', 'OwnerAdded']
+        ['OwnerAdded', 'OwnerAdded'],
       )
       expect(await contract.isOwner(user01.address)).to.be.true
       expect(await contract.isOwner(user02.address)).to.be.true
@@ -586,7 +566,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
           MockERC20.interface.encodeFunctionData('mint(address,uint256)', [contract.address, 10]),
           MockERC20.interface.encodeFunctionData('transfer(address,uint256)', [owner01.address, 10]),
         ],
-        [Helper.DEFAULT_GAS * 2, Helper.DEFAULT_GAS * 2]
+        [Helper.DEFAULT_GAS * 2, Helper.DEFAULT_GAS * 2],
       )
       expect(await mockERC20.balanceOf(contract.address)).to.be.equal(0)
       expect(await mockERC20.balanceOf(owner01.address)).to.be.equal(10)
@@ -604,7 +584,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
           `0x${string}`,
           `0x${string}`,
           `0x${string}`,
-          `0x${string}`
+          `0x${string}`,
         ],
         [Helper.ZERO, Helper.ZERO, Helper.ZERO, Helper.ZERO],
         [
@@ -613,7 +593,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
           MockERC20.interface.encodeFunctionData('transfer(address,uint256)', [owner02.address, 50]),
           MockERC20.interface.encodeFunctionData('transfer(address,uint256)', [owner03.address, 50]),
         ],
-        [Helper.DEFAULT_GAS * 2, Helper.DEFAULT_GAS * 2, Helper.DEFAULT_GAS * 2, Helper.DEFAULT_GAS * 2]
+        [Helper.DEFAULT_GAS * 2, Helper.DEFAULT_GAS * 2, Helper.DEFAULT_GAS * 2, Helper.DEFAULT_GAS * 2],
       )
       expect(await mockERC20.balanceOf(contract.address)).to.be.equal(0)
       expect(await mockERC20.balanceOf(owner01.address)).to.be.equal(50)
@@ -650,7 +630,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
             [owner01.address, owner02.address, owner03.address],
             2,
             false,
-            true
+            true,
           )
           contract = deployment.contract
           break
@@ -660,33 +640,13 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
             Helper.CONTRACT_FACTORY_NAME,
             [owner01.address, owner02.address, owner03.address],
             2,
-            true
+            true,
           )
           const tx = await deployment.contract.createMyMultiSigExtended(
             Helper.CONTRACT_NAME,
             [owner01.address, owner02.address, owner03.address],
             2,
-            Helper.DEFAULT_ALLOW_ONLY_OWNER
-          )
-          await tx.wait()
-          const contractAddress = await deployment.contract.multiSig(0)
-
-          const Contract = await ethers.getContractFactory(Helper.CONTRACT_NAME_EXTENDED)
-          contract = new ethers.Contract(contractAddress, Contract.interface, provider)
-          break
-        }
-        case DeploymentType.WithChugSplash: {
-          deployment = await Helper.setupContractWithChugSplash(
-            Helper.CONTRACT_FACTORY_NAME + 'WithChugSplash',
-            [owner01.address, owner02.address, owner03.address],
-            2,
-            true
-          )
-          const tx = await deployment.contract.createMyMultiSigExtended(
-            Helper.CONTRACT_NAME,
-            [owner01.address, owner02.address, owner03.address],
-            2,
-            Helper.DEFAULT_ALLOW_ONLY_OWNER
+            Helper.DEFAULT_ALLOW_ONLY_OWNER,
           )
           await tx.wait()
           const contractAddress = await deployment.contract.multiSig(0)
@@ -746,8 +706,8 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
           contract.address,
           Helper.ZERO,
           contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
-          Helper.DEFAULT_GAS
-        )
+          Helper.DEFAULT_GAS,
+        ),
       ).to.be.false
     })
 
@@ -760,8 +720,8 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
           contract.address,
           Helper.ZERO,
           contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
-          Helper.DEFAULT_GAS
-        )
+          Helper.DEFAULT_GAS,
+        ),
       ).to.be.true
     })
 
@@ -774,8 +734,8 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
           contract.address,
           Helper.ZERO,
           contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
-          Helper.DEFAULT_GAS
-        )
+          Helper.DEFAULT_GAS,
+        ),
       ).to.be.true
     })
 
@@ -788,8 +748,8 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
           contract.address,
           Helper.ZERO,
           contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
-          Helper.DEFAULT_GAS
-        )
+          Helper.DEFAULT_GAS,
+        ),
       ).to.be.false
     })
 
@@ -802,8 +762,8 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
           contract.address,
           Helper.ZERO,
           contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
-          Helper.DEFAULT_GAS
-        )
+          Helper.DEFAULT_GAS,
+        ),
       ).to.be.false
     })
 
@@ -820,7 +780,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         [owner01, owner02, owner03],
         user01.address,
         10000,
-        Helper.errors.NOT_ENOUGH_GAS
+        Helper.errors.NOT_ENOUGH_GAS,
       )
     })
 
@@ -831,7 +791,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         [owner01, owner01, owner01],
         user01.address,
         Helper.DEFAULT_GAS,
-        Helper.errors.OWNER_ALREADY_SIGNED
+        Helper.errors.OWNER_ALREADY_SIGNED,
       )
     })
 
@@ -847,7 +807,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         owner01.address,
         undefined,
         undefined,
-        ['OwnerRemoved', 'OwnerAdded']
+        ['OwnerRemoved', 'OwnerAdded'],
       )
     })
 
@@ -880,7 +840,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         owner03.address,
         undefined,
         Helper.errors.CANNOT_REMOVE_OWNERS_BELOW_THRESHOLD,
-        ['TransactionFailed']
+        ['TransactionFailed'],
       )
       await Helper.removeOwner(
         contract,
@@ -889,7 +849,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         owner02.address,
         undefined,
         Helper.errors.CANNOT_REMOVE_OWNERS_BELOW_THRESHOLD,
-        ['TransactionFailed']
+        ['TransactionFailed'],
       )
     })
 
@@ -909,7 +869,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         ethers.BigNumber.from(60).mul(60).mul(24),
         Helper.DEFAULT_GAS,
         undefined,
-        ['TransactionFailed']
+        ['TransactionFailed'],
       )
     })
 
@@ -918,7 +878,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         contract,
         owner01,
         [owner01, owner02, owner03],
-        ethers.BigNumber.from(60).mul(60).mul(24).mul(7)
+        ethers.BigNumber.from(60).mul(60).mul(24).mul(7),
       )
     })
 
@@ -927,7 +887,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         contract,
         owner01,
         [owner01, owner02, owner03],
-        ethers.BigNumber.from(60).mul(60).mul(24).mul(31)
+        ethers.BigNumber.from(60).mul(60).mul(24).mul(31),
       )
     })
 
@@ -936,7 +896,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         contract,
         owner01,
         ethers.BigNumber.from(60).mul(60).mul(24).mul(14),
-        user02.address
+        user02.address,
       )
     })
 
@@ -945,7 +905,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         contract,
         owner01,
         ethers.BigNumber.from(60).mul(60).mul(24).mul(31),
-        user03.address
+        user03.address,
       )
     })
 
@@ -954,7 +914,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         contract,
         owner01,
         [owner01, owner02, owner03],
-        ethers.BigNumber.from(60).mul(60).mul(24).mul(7)
+        ethers.BigNumber.from(60).mul(60).mul(24).mul(7),
       )
       await Helper.setOwnerSettings(
         contract,
@@ -962,7 +922,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         ethers.BigNumber.from(60).mul(60).mul(24).mul(5),
         user03.address,
         undefined,
-        Helper.errors.OWNER_SETTINGS_MUST_BE_GREATER_THAN_MINIMUM
+        Helper.errors.OWNER_SETTINGS_MUST_BE_GREATER_THAN_MINIMUM,
       )
     })
 
@@ -973,7 +933,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         ethers.BigNumber.from(60).mul(60).mul(24).mul(31),
         owner02.address,
         undefined,
-        Helper.errors.OWNER_SETTINGS_DELEGATEE_MUST_NOT_BE_OWNER
+        Helper.errors.OWNER_SETTINGS_DELEGATEE_MUST_NOT_BE_OWNER,
       )
     })
 
@@ -982,7 +942,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         contract,
         owner01,
         [owner01, owner02, owner03],
-        ethers.BigNumber.from(60).mul(60).mul(24).mul(7)
+        ethers.BigNumber.from(60).mul(60).mul(24).mul(7),
       )
       await Helper.setOwnerSettings(
         contract,
@@ -990,7 +950,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         ethers.BigNumber.from(60).mul(60).mul(24).mul(5),
         owner03.address,
         undefined,
-        Helper.errors.OWNER_SETTINGS_MUST_BE_GREATER_THAN_MINIMUM
+        Helper.errors.OWNER_SETTINGS_MUST_BE_GREATER_THAN_MINIMUM,
       )
     })
 
@@ -999,7 +959,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         contract,
         owner01,
         [owner01, owner02, owner03],
-        ethers.BigNumber.from(60).mul(60).mul(24).mul(7)
+        ethers.BigNumber.from(60).mul(60).mul(24).mul(7),
       )
       await Helper.setOwnerSettings(contract, owner01, ethers.BigNumber.from(60).mul(60).mul(24).mul(8), user03.address)
       await time.increase(60 * 60 * 24 * 9)
@@ -1011,7 +971,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         contract,
         owner01,
         [owner01, owner02, owner03],
-        ethers.BigNumber.from(60).mul(60).mul(24).mul(7)
+        ethers.BigNumber.from(60).mul(60).mul(24).mul(7),
       )
       await Helper.setOwnerSettings(contract, owner01, ethers.BigNumber.from(60).mul(60).mul(24).mul(8), user03.address)
       await time.increase(60 * 60 * 24 * 5)
@@ -1023,7 +983,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         contract,
         owner01,
         [owner01, owner02, owner03],
-        ethers.BigNumber.from(60).mul(60).mul(24).mul(7)
+        ethers.BigNumber.from(60).mul(60).mul(24).mul(7),
       )
       await Helper.setOwnerSettings(contract, owner01, ethers.BigNumber.from(60).mul(60).mul(24).mul(8), user03.address)
       await time.increase(60 * 60 * 24 * 9)
@@ -1039,7 +999,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         },
         owner01,
         ethers,
-        provider
+        provider,
       )
       await Helper.execTransaction(
         contract,
@@ -1048,7 +1008,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         owner01.address,
         ethers.utils.parseEther('1'),
         '0x',
-        Helper.DEFAULT_GAS
+        Helper.DEFAULT_GAS,
       )
     })
 
@@ -1061,7 +1021,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         },
         owner01,
         ethers,
-        provider
+        provider,
       )
       await Helper.execTransaction(
         contract,
@@ -1070,7 +1030,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         owner01.address,
         ethers.utils.parseEther('1'),
         '0x',
-        Helper.DEFAULT_GAS
+        Helper.DEFAULT_GAS,
       )
       await Helper.execTransaction(
         contract,
@@ -1079,7 +1039,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         owner01.address,
         ethers.utils.parseEther('1'),
         '0x',
-        Helper.DEFAULT_GAS
+        Helper.DEFAULT_GAS,
       )
     })
 
@@ -1098,7 +1058,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         mockERC20.address as `0x${string}`,
         Helper.ZERO,
         data,
-        Helper.DEFAULT_GAS * 2
+        Helper.DEFAULT_GAS * 2,
       )
       expect(await mockERC20.balanceOf(contract.address)).to.be.equal(10)
     })
@@ -1118,7 +1078,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         mockERC20.address as `0x${string}`,
         Helper.ZERO,
         data,
-        Helper.DEFAULT_GAS * 2
+        Helper.DEFAULT_GAS * 2,
       )
       expect(await mockERC20.balanceOf(contract.address)).to.be.equal(10)
       const data2 = MockERC20.interface.encodeFunctionData('transfer(address,uint256)', [
@@ -1132,7 +1092,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         mockERC20.address as `0x${string}`,
         Helper.ZERO,
         data2,
-        Helper.DEFAULT_GAS * 2
+        Helper.DEFAULT_GAS * 2,
       )
       expect(await mockERC20.balanceOf(contract.address)).to.be.equal(0)
       expect(await mockERC20.balanceOf(owner01.address)).to.be.equal(10)
@@ -1154,7 +1114,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         data as `0x${string}`,
         Helper.DEFAULT_GAS,
         undefined,
-        ['TransactionFailed']
+        ['TransactionFailed'],
       )
     })
 
@@ -1165,7 +1125,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         [owner01, owner02],
         contract.address,
         Helper.ZERO,
-        data
+        data,
       )
       await Helper.execTransaction(
         contract,
@@ -1177,7 +1137,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         Helper.DEFAULT_GAS,
         undefined,
         ['OwnerAdded'],
-        signatures
+        signatures,
       )
       await Helper.execTransaction(
         contract,
@@ -1189,7 +1149,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         Helper.DEFAULT_GAS,
         Helper.errors.INVALID_OWNER,
         undefined,
-        signatures
+        signatures,
       )
     })
 
@@ -1207,7 +1167,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         ],
         [Helper.DEFAULT_GAS, Helper.DEFAULT_GAS, Helper.DEFAULT_GAS],
         undefined,
-        ['OwnerAdded', 'OwnerAdded']
+        ['OwnerAdded', 'OwnerAdded'],
       )
       expect(await contract.isOwner(user01.address)).to.be.true
       expect(await contract.isOwner(user02.address)).to.be.true
@@ -1228,7 +1188,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
           MockERC20.interface.encodeFunctionData('mint(address,uint256)', [contract.address, 10]),
           MockERC20.interface.encodeFunctionData('transfer(address,uint256)', [owner01.address, 10]),
         ],
-        [Helper.DEFAULT_GAS * 2, Helper.DEFAULT_GAS * 2]
+        [Helper.DEFAULT_GAS * 2, Helper.DEFAULT_GAS * 2],
       )
       expect(await mockERC20.balanceOf(contract.address)).to.be.equal(0)
       expect(await mockERC20.balanceOf(owner01.address)).to.be.equal(10)
@@ -1246,7 +1206,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
           `0x${string}`,
           `0x${string}`,
           `0x${string}`,
-          `0x${string}`
+          `0x${string}`,
         ],
         [Helper.ZERO, Helper.ZERO, Helper.ZERO, Helper.ZERO],
         [
@@ -1255,7 +1215,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
           MockERC20.interface.encodeFunctionData('transfer(address,uint256)', [owner02.address, 50]),
           MockERC20.interface.encodeFunctionData('transfer(address,uint256)', [owner03.address, 50]),
         ],
-        [Helper.DEFAULT_GAS * 2, Helper.DEFAULT_GAS * 2, Helper.DEFAULT_GAS * 2, Helper.DEFAULT_GAS * 2]
+        [Helper.DEFAULT_GAS * 2, Helper.DEFAULT_GAS * 2, Helper.DEFAULT_GAS * 2, Helper.DEFAULT_GAS * 2],
       )
       expect(await mockERC20.balanceOf(contract.address)).to.be.equal(0)
       expect(await mockERC20.balanceOf(owner01.address)).to.be.equal(50)
