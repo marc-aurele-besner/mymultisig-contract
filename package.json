@@ -12,6 +12,7 @@
     "README.md"
   ],
   "scripts": {
+    "postinstall": "[ -d lib/forge-std ] && (mkdir -p node_modules && ln -sfn ../lib/forge-std node_modules/forge-std) || true",
     "test": "bash ./test.sh",
     "build": "hardhat run scripts/buildAbi.ts && hardhat run scripts/buildTypes.ts",
     "compile": "hardhat compile",
