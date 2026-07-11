@@ -12,10 +12,10 @@ const {
   PRIVATE_KEY_MAINNET_01,
   PRIVATE_KEY_MAINNET_02,
   PRIVATE_KEY_MAINNET_03,
-  RPC_GOERLI,
-  PRIVATE_KEY_GOERLI_01,
-  PRIVATE_KEY_GOERLI_02,
-  PRIVATE_KEY_GOERLI_03,
+  RPC_SEPOLIA,
+  PRIVATE_KEY_SEPOLIA_01,
+  PRIVATE_KEY_SEPOLIA_02,
+  PRIVATE_KEY_SEPOLIA_03,
   RPC_BNB,
   PRIVATE_KEY_BNB_01,
   PRIVATE_KEY_BNB_02,
@@ -28,11 +28,12 @@ const {
   PRIVATE_KEY_POLYGON_01,
   PRIVATE_KEY_POLYGON_02,
   PRIVATE_KEY_POLYGON_03,
-  RPC_MUMBAI,
-  PRIVATE_KEY_MUMBAI_01,
-  PRIVATE_KEY_MUMBAI_02,
-  PRIVATE_KEY_MUMBAI_03,
+  RPC_AMOY,
+  PRIVATE_KEY_AMOY_01,
+  PRIVATE_KEY_AMOY_02,
+  PRIVATE_KEY_AMOY_03,
   ETHERSCAN_API_KEY,
+  POLYGONSCAN_API_KEY,
   OPENAI_API_KEY,
 } = process.env
 
@@ -84,17 +85,25 @@ const config: HardhatUserConfig = {
         url: `${RPC_MAINNET}`,
       },
     },
-    goerli: {
-      url: `${RPC_GOERLI}`,
-      chainId: 5,
-      accounts: listPrivateKeysOrProvideDummyPk(PRIVATE_KEY_GOERLI_01, PRIVATE_KEY_GOERLI_02, PRIVATE_KEY_GOERLI_03),
+    sepolia: {
+      url: `${RPC_SEPOLIA}`,
+      chainId: 11155111,
+      accounts: listPrivateKeysOrProvideDummyPk(
+        PRIVATE_KEY_SEPOLIA_01,
+        PRIVATE_KEY_SEPOLIA_02,
+        PRIVATE_KEY_SEPOLIA_03
+      ),
     },
-    goerliFork: {
-      url: `${RPC_GOERLI}`,
-      chainId: 5,
-      accounts: listPrivateKeysOrProvideDummyPk(PRIVATE_KEY_GOERLI_01, PRIVATE_KEY_GOERLI_02, PRIVATE_KEY_GOERLI_03),
+    sepoliaFork: {
+      url: `${RPC_SEPOLIA}`,
+      chainId: 11155111,
+      accounts: listPrivateKeysOrProvideDummyPk(
+        PRIVATE_KEY_SEPOLIA_01,
+        PRIVATE_KEY_SEPOLIA_02,
+        PRIVATE_KEY_SEPOLIA_03
+      ),
       forking: {
-        url: `${RPC_GOERLI}`,
+        url: `${RPC_SEPOLIA}`,
       },
     },
     bnb: {
@@ -144,24 +153,25 @@ const config: HardhatUserConfig = {
         url: `${RPC_POLYGON}`,
       },
     },
-    mumbai: {
-      url: `${RPC_MUMBAI}`,
-      chainId: 80001,
-      accounts: listPrivateKeysOrProvideDummyPk(PRIVATE_KEY_MUMBAI_01, PRIVATE_KEY_MUMBAI_02, PRIVATE_KEY_MUMBAI_03),
+    amoy: {
+      url: `${RPC_AMOY}`,
+      chainId: 80002,
+      accounts: listPrivateKeysOrProvideDummyPk(PRIVATE_KEY_AMOY_01, PRIVATE_KEY_AMOY_02, PRIVATE_KEY_AMOY_03),
     },
-    mumbaiFork: {
-      url: `${RPC_MUMBAI}`,
-      chainId: 80001,
-      accounts: listPrivateKeysOrProvideDummyPk(PRIVATE_KEY_MUMBAI_01, PRIVATE_KEY_MUMBAI_02, PRIVATE_KEY_MUMBAI_03),
+    amoyFork: {
+      url: `${RPC_AMOY}`,
+      chainId: 80002,
+      accounts: listPrivateKeysOrProvideDummyPk(PRIVATE_KEY_AMOY_01, PRIVATE_KEY_AMOY_02, PRIVATE_KEY_AMOY_03),
       forking: {
-        url: `${RPC_MUMBAI}`,
+        url: `${RPC_AMOY}`,
       },
     },
   },
   etherscan: {
     apiKey: {
       mainnet: `${ETHERSCAN_API_KEY}`,
-      goerli: `${ETHERSCAN_API_KEY}`,
+      sepolia: `${ETHERSCAN_API_KEY}`,
+      ...(POLYGONSCAN_API_KEY ? { polygonAmoy: `${POLYGONSCAN_API_KEY}` } : {}),
     },
   },
   solidity: {
