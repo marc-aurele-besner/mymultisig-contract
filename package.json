@@ -25,16 +25,17 @@
     "deploy-localhost": "npx hardhat run scripts/deploy.ts --network localhost",
     "deploy-ethereum": "npx hardhat run scripts/deploy.ts --network ethereum",
     "deploy-ethereumFork": "npx hardhat run scripts/deploy.ts --network ethereumFork",
-    "deploy-goerli": "npx hardhat run scripts/deploy.ts --network goerli",
-    "deploy-goerliFork": "npx hardhat run scripts/deploy.ts --network goerliFork",
+    "deploy-sepolia": "npx hardhat run scripts/deploy.ts --network sepolia",
+    "deploy-sepoliaFork": "npx hardhat run scripts/deploy.ts --network sepoliaFork",
     "deploy-bnb": "npx hardhat run scripts/deploy.ts --network bnb",
     "deploy-bnbFork": "npx hardhat run scripts/deploy.ts --network bnbFork",
     "deploy-bnbTestnet": "npx hardhat run scripts/deploy.ts --network bnbTestnet",
     "deploy-bnbTestnetFork": "npx hardhat run scripts/deploy.ts --network bnbTestnetFork",
     "deploy-polygon": "npx hardhat run scripts/deploy.ts --network polygon",
     "deploy-polygonFork": "npx hardhat run scripts/deploy.ts --network polygonFork",
-    "deploy-mumbai": "npx hardhat run scripts/deploy.ts --network mumbai",
-    "deploy-mumbaiFork": "npx hardhat run scripts/deploy.ts --network mumbaiFork"
+    "deploy-amoy": "npx hardhat run scripts/deploy.ts --network amoy",
+    "deploy-amoyFork": "npx hardhat run scripts/deploy.ts --network amoyFork",
+    "verify-chainlist": "npx hardhat run scripts/verifyChainlist.ts"
   },
   "repository": {
     "type": "git",
