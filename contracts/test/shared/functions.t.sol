@@ -9,6 +9,8 @@ import { MyMultiSigFactory } from '../../MyMultiSigFactory.sol';
 import { MyMultiSigFactoryWithChugSplash } from '../../MyMultiSigFactoryWithChugSplash.sol';
 import { MyMultiSig } from '../../MyMultiSig.sol';
 import { MyMultiSigExtended } from '../../MyMultiSigExtended.sol';
+import { MyMultiSigDeployer } from '../../MyMultiSigDeployer.sol';
+import { MyMultiSigExtendedDeployer } from '../../MyMultiSigExtendedDeployer.sol';
 
 contract Functions is Constants, Signatures {
   uint8 LOG_LEVEL;
@@ -68,14 +70,20 @@ contract Functions is Constants, Signatures {
     vm.prank(ADMIN);
 
     if (testType_ == TestType.TestWithFactory || testType_ == TestType.TestWithFactory_extended) {
-      myMultiSigFactory = new MyMultiSigFactory();
+      myMultiSigFactory = new MyMultiSigFactory(
+        address(new MyMultiSigDeployer()),
+        address(new MyMultiSigExtendedDeployer())
+      );
       if (testType_ == TestType.TestWithFactory)
         (, myMultiSig) = help_createMultiSig(ADMIN, CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD);
       // else
       //   (, myMultiSig) = createMyMultiSigExtended(ADMIN, CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD, ONLY_OWNERS_REQUEST);
     } else if (testType_ == TestType.TestWithChugSplash || testType_ == TestType.TestWithChugSplash_extended) {
       // if (testType_ == TestType.TestWithChugSplash)
-      // myMultiSigFactoryWithChugSplash = new MyMultiSigFactoryWithChugSplash();
+      // myMultiSigFactoryWithChugSplash = new MyMultiSigFactoryWithChugSplash(
+      //   address(new MyMultiSigDeployer()),
+      //   address(new MyMultiSigExtendedDeployer())
+      // );
       // else
       // (, myMultiSig) = help_createMultiSig(ADMIN, CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD);
     } else if (testType_ == TestType.TestWithoutFactory_extended) {

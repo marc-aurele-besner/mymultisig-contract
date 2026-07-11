@@ -1,3 +1,4 @@
+import { ethers, network } from 'hardhat'
 import Helper from '../test/shared'
 
 let provider: any
@@ -26,7 +27,18 @@ async function main() {
   )
   contract = deployment.contract
 
+  // The factory delegates the actual `new MyMultiSig(...)` /
+  // `new MyMultiSigExtended(...)` work to two tiny helper deployer contracts
+  // so it doesn't have to embed their bytecode. Surface their addresses so
+  // the operator can verify the deployment matches the artifacts.
+  const myMultiSigDeployer = await ethers.getContractAt('MyMultiSigDeployer', await contract.myMultiSigDeployer())
+  const myMultiSigExtendedDeployer = await ethers.getContractAt(
+    'MyMultiSigExtendedDeployer',
+    await contract.myMultiSigExtendedDeployer()
+  )
   console.log(`Contract MyMultiSig Factory deployed to ${contract.address}`)
+  console.log(`  -> MyMultiSigDeployer:        ${myMultiSigDeployer.address}`)
+  console.log(`  -> MyMultiSigExtendedDeployer: ${myMultiSigExtendedDeployer.address}`)
 }
 
 main().catch((error) => {

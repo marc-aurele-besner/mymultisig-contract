@@ -84,7 +84,14 @@ const config: HardhatUserConfig = {
   networks: {
     hardhat: {
       // blockGasLimit: 1200000000,
-      gas: 2100000,
+      // Bumped from 2.1M to 6M so the factory's `MyMultiSigDeployer` and
+      // `MyMultiSigExtendedDeployer` helper contracts can be deployed under
+      // the hardhat network. Each helper embeds the full creation bytecode
+      // of `MyMultiSig` / `MyMultiSigExtended`, which pushes a single
+      // deploy transaction over 2.1M gas (~2.27M for the simple helper,
+      // ~2.65M for the extended one). Bumping to 6M leaves headroom for the
+      // OZ upgrades proxy deployment on top.
+      gas: 6000000,
       gasPrice: 8000000000,
     },
     localhost: {

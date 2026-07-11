@@ -39,8 +39,20 @@ const setupContract = async (
   let contract
   // Get contract artifacts and deploy contract
   if (deployFactory) {
+    // The factory doesn't embed MyMultiSig / MyMultiSigExtended bytecode; it
+    // delegates deployment to two tiny helper contracts whose addresses are
+    // passed in via the implementation's constructor. Deploy them first.
+    const MyMultiSigDeployer = await ethers.getContractFactory('MyMultiSigDeployer')
+    const myMultiSigDeployer = await MyMultiSigDeployer.deploy()
+    await myMultiSigDeployer.deployed()
+    const MyMultiSigExtendedDeployer = await ethers.getContractFactory('MyMultiSigExtendedDeployer')
+    const myMultiSigExtendedDeployer = await MyMultiSigExtendedDeployer.deploy()
+    await myMultiSigExtendedDeployer.deployed()
+
     ContractFactory = await ethers.getContractFactory(contractName)
-    contract = await upgrades.deployProxy(ContractFactory, [])
+    contract = await upgrades.deployProxy(ContractFactory, [], {
+      constructorArgs: [myMultiSigDeployer.address, myMultiSigExtendedDeployer.address],
+    })
   } else {
     if (!deployExtended) {
       ContractFactory = await ethers.getContractFactory(contractName)

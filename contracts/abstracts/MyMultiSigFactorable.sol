@@ -1,14 +1,29 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.18;
 
-import '../MyMultiSigExtended.sol';
+import '../interfaces/IMyMultiSigDeployer.sol';
+import '../interfaces/IMyMultiSigExtendedDeployer.sol';
 import '../libs/MyMultiSigFactorableModels.sol';
 
-contract MyMultiSigFactorable {
+/// @title MyMultiSigFactorable
+/// @notice Shared factory logic: stores bookkeeping for every MyMultiSig /
+///         MyMultiSigExtended instance created through the factory and emits
+///         the `MyMultiSigCreated` event.
+/// @dev    The actual `new MyMultiSig(...)` and `new MyMultiSigExtended(...)`
+///         calls live in two tiny external deployer contracts
+///         (`MyMultiSigDeployer`, `MyMultiSigExtendedDeployer`). Keeping the
+///         deployment bytecode out of this contract drops its size from
+///         ~23 KB to ~3 KB, well below the EIP-170 24,576-byte limit. The
+///         deployer addresses are immutable so they cost nothing at runtime.
+abstract contract MyMultiSigFactorable {
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+  address public immutable myMultiSigDeployer;
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+  address public immutable myMultiSigExtendedDeployer;
+
   uint256 private _multiSigCount;
 
-  mapping(uint256 => MyMultiSig) private _multiSigs;
-  mapping(address => uint256) private _multiSigIndex;
+  mapping(uint256 => address) private _multiSigs;
   mapping(address => uint256) private _multiSigCreatorCount;
   mapping(address => mapping(uint256 => uint256)) private _multiSigIndexByCreator;
   mapping(uint256 => MyMultiSigFactorableModels.CreationType) private _multiSigCreationType;
@@ -21,6 +36,12 @@ contract MyMultiSigFactorable {
     address[] originalOwners,
     uint16 threshold
   );
+
+  /// @custom:oz-upgrades-unsafe-allow constructor
+  constructor(address myMultiSigDeployer_, address myMultiSigExtendedDeployer_) {
+    myMultiSigDeployer = myMultiSigDeployer_;
+    myMultiSigExtendedDeployer = myMultiSigExtendedDeployer_;
+  }
 
   /// @notice Retrieves the contract name
   /// @return The name as a string memory.
@@ -44,7 +65,7 @@ contract MyMultiSigFactorable {
   /// @param index The index of the multisig
   /// @return The current amount value as a uint256.
   function multiSig(uint256 index) public view returns (address) {
-    return address(_multiSigs[index]);
+    return _multiSigs[index];
   }
 
   /// @notice Retrieves the amount of multisig contract created via this Factory contract by a specific creator
@@ -59,7 +80,7 @@ contract MyMultiSigFactorable {
   /// @param index The index of the multisig
   /// @return The current amount value as a uint256.
   function multiSigByCreator(address creator, uint256 index) public view returns (address) {
-    return address(_multiSigs[_multiSigIndexByCreator[creator][index]]);
+    return _multiSigs[_multiSigIndexByCreator[creator][index]];
   }
 
   /// @notice Retrieves the type of multisig contract created via this Factory contract
@@ -78,15 +99,19 @@ contract MyMultiSigFactorable {
     address[] memory owners,
     uint16 threshold
   ) public payable returns (address contractAddress) {
-    MyMultiSig myMultiSig = new MyMultiSig(contractName, owners, threshold);
-    return
-      _saveCreateMyMultiSig(
-        MyMultiSigFactorableModels.CreationType.SIMPLE,
-        myMultiSig,
-        contractName,
-        owners,
-        threshold
-      );
+    contractAddress = IMyMultiSigDeployer(myMultiSigDeployer).deployMyMultiSig(contractName, owners, threshold);
+
+    _multiSigs[_multiSigCount] = contractAddress;
+    _multiSigIndexByCreator[msg.sender][_multiSigCreatorCount[msg.sender]] = _multiSigCount;
+    unchecked {
+      _multiSigCreatorCount[msg.sender]++;
+    }
+    _multiSigCreationType[_multiSigCount] = MyMultiSigFactorableModels.CreationType.SIMPLE;
+    unchecked {
+      _multiSigCount++;
+    }
+
+    emit MyMultiSigCreated(msg.sender, contractAddress, _multiSigCount, contractName, owners, threshold);
   }
 
   /// @notice Creates a new multisig contract with extended features
@@ -99,39 +124,23 @@ contract MyMultiSigFactorable {
     uint16 threshold,
     bool isOnlyOwnerRequest
   ) public payable returns (address contractAddress) {
-    MyMultiSigExtended myMultiSig = new MyMultiSigExtended(contractName, owners, threshold, isOnlyOwnerRequest);
-    return
-      _saveCreateMyMultiSig(
-        MyMultiSigFactorableModels.CreationType.EXTENDED,
-        MyMultiSig(myMultiSig),
-        contractName,
-        owners,
-        threshold
-      );
-  }
+    contractAddress = IMyMultiSigExtendedDeployer(myMultiSigExtendedDeployer).deployMyMultiSigExtended(
+      contractName,
+      owners,
+      threshold,
+      isOnlyOwnerRequest
+    );
 
-  /// @notice Creates a new multisig contract (internal)
-  /// @param creationType_ The type of creation
-  /// @param myMultiSig_ Contract deployed (casted as MyMultiSig if extended)
-  /// @param contractName_ The name of your multisig contract
-  /// @param owners_ The owners list
-  /// @param threshold_ The amount of owners signature require to execute transactions
-  function _saveCreateMyMultiSig(
-    MyMultiSigFactorableModels.CreationType creationType_,
-    MyMultiSig myMultiSig_,
-    string memory contractName_,
-    address[] memory owners_,
-    uint16 threshold_
-  ) internal returns (address contractAddress) {
-    contractAddress = address(myMultiSig_);
-
-    _multiSigs[_multiSigCount] = myMultiSig_;
-    _multiSigIndex[contractAddress] = _multiSigCount;
+    _multiSigs[_multiSigCount] = contractAddress;
     _multiSigIndexByCreator[msg.sender][_multiSigCreatorCount[msg.sender]] = _multiSigCount;
-    _multiSigCreatorCount[msg.sender]++;
-    _multiSigCreationType[_multiSigCount] = creationType_;
-    _multiSigCount++;
+    unchecked {
+      _multiSigCreatorCount[msg.sender]++;
+    }
+    _multiSigCreationType[_multiSigCount] = MyMultiSigFactorableModels.CreationType.EXTENDED;
+    unchecked {
+      _multiSigCount++;
+    }
 
-    emit MyMultiSigCreated(msg.sender, contractAddress, _multiSigCount, contractName_, owners_, threshold_);
+    emit MyMultiSigCreated(msg.sender, contractAddress, _multiSigCount, contractName, owners, threshold);
   }
 }
