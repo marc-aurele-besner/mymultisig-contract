@@ -1,4 +1,8 @@
 import { HardhatUserConfig } from 'hardhat/config'
+import { TASK_COMPILE_GET_REMAPPINGS } from 'hardhat/builtin-tasks/task-names'
+import { subtask } from 'hardhat/config'
+import * as fs from 'fs'
+import * as path from 'path'
 import * as dotenv from 'dotenv'
 import '@nomicfoundation/hardhat-toolbox'
 import 'hardhat-awesome-cli'
@@ -6,6 +10,30 @@ import 'hardhat-contract-clarity'
 import '@openzeppelin/hardhat-upgrades'
 
 dotenv.config()
+
+// Mirror the remappings.txt loader from hardhat.config.ts so the coverage
+// build resolves `forge-std/...` and `@openzeppelin/...` imports the same
+// way the regular compile does. Without this, `solidity-coverage` falls
+// back to Hardhat's stock resolver (which returns `{}`) and the build
+// fails with HH404 on `forge-std/Test.sol`.
+subtask(TASK_COMPILE_GET_REMAPPINGS, async (): Promise<Record<string, string>> => {
+  const remappingsFile = path.join(__dirname, 'remappings.txt')
+  if (!fs.existsSync(remappingsFile)) return {}
+
+  const remappings: Record<string, string> = {}
+  for (const rawLine of fs.readFileSync(remappingsFile, 'utf8').split('\n')) {
+    const line = rawLine.trim()
+    if (line.length === 0 || line.startsWith('#')) continue
+    const eq = line.indexOf('=')
+    if (eq === -1) continue
+    const from = line.slice(0, eq).trim()
+    let to = line.slice(eq + 1).trim()
+    if (from.length === 0 || to.length === 0) continue
+    if (!to.endsWith('/')) to = to + '/'
+    remappings[from] = to
+  }
+  return remappings
+})
 
 const {
   RPC_MAINNET,
