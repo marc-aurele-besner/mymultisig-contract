@@ -1286,5 +1286,150 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       expect(await mockERC20.balanceOf(owner02.address)).to.be.equal(50)
       expect(await mockERC20.balanceOf(owner03.address)).to.be.equal(50)
     })
+
+    it('6-arg execTransaction honors the caller-supplied nonce (replay at N+5)', async function () {
+      // Signers pre-sign for nonce N+5 even though `_txnNonce` is still N.
+      const futureNonce = ethers.BigNumber.from(5)
+      const data = contract.interface.encodeFunctionData('addOwner(address)', [user01.address])
+      const signatures = await Helper.prepareSignatures(
+        contract,
+        [owner01, owner02],
+        contract.address,
+        Helper.ZERO,
+        data,
+        Helper.DEFAULT_GAS,
+        futureNonce,
+      )
+      // First execution at nonce N+5 succeeds and the sequential counter advances to N+1.
+      await Helper.execTransactionWithNonce(
+        contract,
+        owner01,
+        [owner01, owner02],
+        contract.address,
+        Helper.ZERO,
+        data as `0x${string}`,
+        Helper.DEFAULT_GAS,
+        futureNonce,
+        signatures,
+      )
+      expect(await contract.isOwner(user01.address)).to.be.true
+      expect(await contract.nonce()).to.be.equal(1)
+      expect(await contract.isNonceUsed(futureNonce)).to.be.false
+    })
+
+    it('6-arg execTransaction reverts when the nonce was already used by the 5-arg overload', async function () {
+      // Use the 5-arg overload first to consume nonce 0; the same signatures bound to
+      // nonce 0 must then be rejected on the 6-arg overload via the owner-signed check.
+      const nonce = ethers.BigNumber.from(0)
+      const data = contract.interface.encodeFunctionData('addOwner(address)', [user01.address])
+      const signatures = await Helper.prepareSignatures(
+        contract,
+        [owner01, owner02],
+        contract.address,
+        Helper.ZERO,
+        data,
+        Helper.DEFAULT_GAS,
+        nonce,
+      )
+      await Helper.execTransaction(
+        contract,
+        owner01,
+        [owner01, owner02],
+        contract.address,
+        Helper.ZERO,
+        data as `0x${string}`,
+        Helper.DEFAULT_GAS,
+        undefined,
+        ['OwnerAdded'],
+        signatures,
+      )
+      await Helper.execTransactionWithNonceReverted(
+        contract,
+        owner01,
+        [owner01, owner02],
+        contract.address,
+        Helper.ZERO,
+        data as `0x${string}`,
+        Helper.DEFAULT_GAS,
+        nonce,
+        signatures,
+        Helper.errors.OWNER_ALREADY_SIGNED,
+      )
+    })
+
+    it('6-arg execTransaction reverts with NONCE_ALREADY_USED once markNonceAsUsed is called', async function () {
+      const futureNonce = ethers.BigNumber.from(7)
+      const data = contract.interface.encodeFunctionData('addOwner(address)', [user01.address])
+      const signatures = await Helper.prepareSignatures(
+        contract,
+        [owner01, owner02],
+        contract.address,
+        Helper.ZERO,
+        data,
+        Helper.DEFAULT_GAS,
+        futureNonce,
+      )
+      // Pre-burn nonce 7 via markNonceAsUsed (call execTransaction directly to avoid
+      // the pre-existing assertion in Helper.markNonceAsUsed that conflicts with our setup).
+      const markData = contract.interface.encodeFunctionData('markNonceAsUsed', [futureNonce]) as `0x${string}`
+      await Helper.execTransaction(contract, owner01, [owner01, owner02], contract.address, Helper.ZERO, markData)
+      expect(await contract.isNonceUsed(futureNonce)).to.be.true
+      // The signatures are otherwise valid, but the nonce has been marked as used so
+      // the 6-arg overload must reject them.
+      await Helper.execTransactionWithNonceReverted(
+        contract,
+        owner01,
+        [owner01, owner02],
+        contract.address,
+        Helper.ZERO,
+        data as `0x${string}`,
+        Helper.DEFAULT_GAS,
+        futureNonce,
+        signatures,
+        Helper.errors.NONCE_ALREADY_USED,
+      )
+    })
+
+    it('isValidSignature now reports against the passed nonce (not _txnNonce)', async function () {
+      // Sign once for nonce 99, then ask isValidSignature about both 99 and 0 using the
+      // SAME signatures. With the bug, the view would key on `_txnNonce` for both, so
+      // asking about 0 would still return true (since 0 == `_txnNonce`). With the fix,
+      // the second call must return false because the signatures are bound to 99, not 0.
+      const data = contract.interface.encodeFunctionData('addOwner(address)', [user01.address])
+      const signatures = await Helper.prepareSignatures(
+        contract,
+        [owner01, owner02],
+        contract.address,
+        Helper.ZERO,
+        data,
+        Helper.DEFAULT_GAS,
+        ethers.BigNumber.from(99),
+      )
+      expect(
+        await contract
+          .connect(owner01)
+          .isValidSignature(
+            contract.address,
+            Helper.ZERO,
+            data,
+            Helper.DEFAULT_GAS,
+            ethers.BigNumber.from(99),
+            signatures,
+          ),
+      ).to.be.true
+      expect(
+        await contract
+          .connect(owner01)
+          .isValidSignature(
+            contract.address,
+            Helper.ZERO,
+            data,
+            Helper.DEFAULT_GAS,
+            ethers.BigNumber.from(0),
+            signatures,
+          ),
+      ).to.be.false
+    })
+
   })
 }
