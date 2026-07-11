@@ -67,7 +67,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @notice Retrieves the contract version
   /// @return The version as a string memory.
   function version() public pure virtual returns (string memory) {
-    return '0.1.2';
+    return '0.1.3';
   }
 
   /// @notice Retrieves the current threshold value
@@ -193,6 +193,10 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @param value The amount of Ether to be transferred.
   /// @param data The data to be passed along with the transaction.
   /// @param txnGas The gas limit for the transaction.
+  /// @param txnNonce The nonce bound to the transaction. The 5-arg `execTransaction`
+  ///        overload pins this to `_txnNonce`; the 6-arg overload in
+  ///        `MyMultiSigExtended` lets callers choose a custom nonce (e.g. a future
+  ///        one inside the replay window).
   /// @param signatures The signatures to be used for the transaction.
   /// @return valid True if the signature is valid, false otherwise.
   function isValidSignature(
@@ -206,12 +210,12 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     uint16 threshold_ = _threshold;
     if (signatures.length < 65 * threshold_) return false;
     address currentOwner;
-    bytes32 txHash = generateHash(to, value, data, txnGas, _txnNonce);
+    bytes32 txHash = generateHash(to, value, data, txnGas, txnNonce);
     for (uint16 i; i < threshold_; ) {
       unchecked {
         currentOwner = _getCurrentOwner(txHash, signatures, i);
         if (
-          !_owners[currentOwner] || _ownerNonceSigned[uint256(uint96(_txnNonce)) + uint256(uint160(currentOwner) << 96)]
+          !_owners[currentOwner] || _ownerNonceSigned[uint256(uint96(txnNonce)) + uint256(uint160(currentOwner) << 96)]
         ) return false;
         ++i;
       }
@@ -244,6 +248,9 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @param value The amount of Ether to be transferred.
   /// @param data The data to be passed along with the transaction.
   /// @param txnGas The gas limit for the transaction.
+  /// @param txnNonce The nonce bound to the transaction. The 5-arg `execTransaction`
+  ///        overload pins this to `_txnNonce`; the 6-arg overload in
+  ///        `MyMultiSigExtended` lets callers choose a custom nonce.
   /// @param signatures The signatures to be used for the transaction.
   /// @return valid True if the signature is valid, false otherwise.
   function _validateSignature(
@@ -256,7 +263,6 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   ) internal virtual returns (bool valid) {
     uint16 threshold_ = _threshold;
     if (signatures.length < 65 * threshold_) return (false);
-    txnNonce = _txnNonce;
     bytes32 txHash = generateHash(to, value, data, txnGas, txnNonce);
     for (uint16 i; i < threshold_; ) {
       unchecked {

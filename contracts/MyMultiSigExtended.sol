@@ -61,6 +61,12 @@ contract MyMultiSigExtended is MyMultiSig {
   /// @param value The amount of Ether to be transferred.
   /// @param data The data to be passed along with the transaction.
   /// @param txnGas The gas limit for the transaction.
+  /// @param txnNonce The nonce bound to the transaction. Lets callers pick a
+  ///        nonce inside the replay window (any value in `[0, 2^96 - 1]`),
+  ///        enabling signers to pre-sign for a future nonce (e.g. `_txnNonce + N`)
+  ///        so the tx can be replayed later by anyone holding the signatures.
+  ///        Reverts if `txnNonce` has already been marked as used via
+  ///        `markNonceAsUsed`.
   /// @param signatures The signatures to be used for the transaction.
   function execTransaction(
     address to,
@@ -88,6 +94,22 @@ contract MyMultiSigExtended is MyMultiSig {
       currentOwner = super._validateOwner(txHash, signatures, txnNonce, currentIndex);
       _ownerSettings[currentOwner].lastAction = block.timestamp;
     }
+  }
+
+  /// @notice Determines if the signature is valid (extended)
+  /// @dev Rejects signatures bound to a nonce that has already been marked as used,
+  ///      so `markNonceAsUsed` permanently invalidates any transaction whose
+  ///      EIP-712 hash is keyed on that nonce and closes the replay window.
+  function _validateSignature(
+    address to,
+    uint256 value,
+    bytes memory data,
+    uint256 txnGas,
+    uint256 txnNonce,
+    bytes memory signatures
+  ) internal virtual override returns (bool valid) {
+    require(!_noncesUsed[txnNonce], 'MyMultiSigExtended: nonce already used');
+    return super._validateSignature(to, value, data, txnGas, txnNonce, signatures);
   }
 
   /// @notice Adds an owner

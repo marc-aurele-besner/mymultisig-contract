@@ -430,3 +430,57 @@ export const takeOverOwnership = async (
     await expect(contract.connect(submitter).takeOverOwnership(originalOwner)).to.be.revertedWith(errorMsg)
   }
 }
+
+/// @notice Calls the 6-arg `execTransaction` overload with a caller-supplied nonce.
+/// Returns the raw transaction result so callers can assert success/failure directly.
+export const execTransactionWithNonce = async (
+  contract: MyMultiSig | MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
+  to: `0x${string}`,
+  value: BigNumber,
+  data: `0x${string}`,
+  gas: number,
+  nonce: BigNumber,
+  signatures: string
+) => {
+  const input = await contract
+    .connect(submitter)
+    .populateTransaction['execTransaction(address,uint256,bytes,uint256,uint256,bytes)'](
+      to,
+      value,
+      data,
+      gas,
+      nonce,
+      signatures,
+    )
+  return await sendRawTxn(input, submitter, ethers, ethers.provider)
+}
+
+/// @notice Wraps `execTransactionWithNonce` and asserts the tx reverts with `errorMsg`.
+export const execTransactionWithNonceReverted = async (
+  contract: MyMultiSig | MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
+  to: `0x${string}`,
+  value: BigNumber,
+  data: `0x${string}`,
+  gas: number,
+  nonce: BigNumber,
+  signatures: string,
+  errorMsg: string
+) => {
+  const input = await contract
+    .connect(submitter)
+    .populateTransaction['execTransaction(address,uint256,bytes,uint256,uint256,bytes)'](
+      to,
+      value,
+      data,
+      gas,
+      nonce,
+      signatures,
+    )
+  return await expect(
+    sendRawTxn(input, submitter, ethers, ethers.provider),
+  ).to.be.revertedWith(errorMsg)
+}

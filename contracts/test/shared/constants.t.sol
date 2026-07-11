@@ -8,7 +8,7 @@ contract Constants is Errors {
   string constant CONTRACT_FACTORY_NAME = 'MyMultiSigFactory';
   string constant CONTRACT_FACTORY_VERSION = '0.1.1';
   string constant CONTRACT_NAME = 'MyMultiSig';
-  string constant CONTRACT_VERSION = '0.1.1';
+  string constant CONTRACT_VERSION = '0.1.3';
 
   uint16 public DEFAULT_THRESHOLD = 2;
   bool public ONLY_OWNERS_REQUEST = true;
