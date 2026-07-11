@@ -375,24 +375,37 @@ export const markNonceAsUsed = async (
 
 export const setOwnerSettings = async (
   contract: MyMultiSigExtended,
+  ownerToConfigure: string,
   submitter: Wallet,
+  owners: Wallet[],
   transferInactiveOwnershipAfter: BigNumber,
   delegatee: `0x${string}`,
-  checkLastActive?: BigNumber,
-  errorMsg?: string
+  errorMsg?: string,
+  extraEvents?: string[]
 ) => {
-  if (!errorMsg) {
-    const tx = await contract.connect(submitter).setOwnerSettings(transferInactiveOwnershipAfter, delegatee)
-    await tx.wait()
+  const data = contract.interface.encodeFunctionData('setOwnerSettings', [
+    ownerToConfigure,
+    transferInactiveOwnershipAfter,
+    delegatee,
+  ]) as `0x${string}`
 
-    const ownerSettings = await contract.ownerSettings(submitter.address)
-    if (checkLastActive) expect(ownerSettings.lastAction).to.be.equal(checkLastActive)
+  await execTransaction(
+    contract,
+    submitter,
+    owners,
+    contract.address as `0x${string}`,
+    ZERO,
+    data,
+    constants.DEFAULT_GAS as number,
+    errorMsg,
+    extraEvents
+  )
+
+  if (!errorMsg && (!extraEvents || !extraEvents.includes('TransactionFailed'))) {
+    const ownerSettings = await contract.ownerSettings(ownerToConfigure)
+    expect(ownerSettings.lastAction).to.be.greaterThan(0)
     expect(ownerSettings.transferInactiveOwnershipAfter).to.be.equal(transferInactiveOwnershipAfter)
     expect(ownerSettings.delegate).to.be.equal(delegatee)
-  } else {
-    await expect(
-      contract.connect(submitter).setOwnerSettings(transferInactiveOwnershipAfter, delegatee)
-    ).to.be.revertedWith(errorMsg)
   }
 }
 

@@ -22,6 +22,7 @@ export default {
   OWNER_SETTINGS_MUST_BE_GREATER_THAN_MINIMUM:
     'MyMultiSigExtended: transferInactiveOwnershipAfter must be greater than _minimumtransferInactiveOwnershipAfter',
   OWNER_SETTINGS_DELEGATEE_MUST_NOT_BE_OWNER: 'MyMultiSigExtended: delegatee is already an owner or delegatee',
+  OWNER_SETTINGS_OWNER_MUST_BE_OWNER: 'MyMultiSigExtended: owner must be an owner',
   OWNER_STILL_ACTIVE: 'MyMultiSigExtended: owner is still active',
   SENDER_NOT_DELEGATEE: 'MyMultiSigExtended: msg.sender is not the delegatee',
 
