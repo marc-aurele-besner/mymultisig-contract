@@ -3,13 +3,16 @@ pragma solidity ^0.8.0;
 
 import { Test } from 'forge-std/Test.sol';
 
+import { MyMultiSig } from '../../MyMultiSig.sol';
+
 /// @title Errors
-/// @notice Maps a `RevertStatus` enum to the exact revert message emitted by
-///         `MyMultiSig`, then exposes a `verify_revertCall` helper that
-///         stages the expected `vm.expectRevert` on the next call.
+/// @notice Maps a `RevertStatus` enum to the exact custom-error selector emitted
+///         by `MyMultiSig`, then exposes a `verify_revertCall` helper that stages
+///         the expected `vm.expectRevert` on the next call.
 /// @dev    Previously inherited from `DSTest` (re-exported by the now-removed
 ///         `foundry-test-utility`). Switched to `forge-std/Test` so the suite
-///         no longer depends on a private npm package.
+///         no longer depends on a private npm package. Revert reasons moved from
+///         `require`-strings to custom errors, so the map stores 4-byte selectors.
 contract Errors is Test {
   enum RevertStatus {
     Success,
@@ -27,33 +30,33 @@ contract Errors is Test {
     NewOwnerMustNotBeZero
   }
 
-  mapping(RevertStatus => string) private _errors;
+  mapping(RevertStatus => bytes4) private _errors;
 
-  // Associate each revert status with the exact revert message produced by MyMultiSig.
+  // Associate each revert status with the custom-error selector produced by MyMultiSig.
   constructor() {
-    _errors[RevertStatus.OnlyThisContract] = 'MyMultiSig: only this contract can call this function';
-    _errors[RevertStatus.TooManyOwners] = 'MyMultiSig: cannot add owner above 2^16 - 1';
-    _errors[RevertStatus.InvalidSignatures] = 'MyMultiSig: invalid signatures';
-    _errors[RevertStatus.InvalidOwners] = 'MyMultiSig: invalid owner';
-    _errors[RevertStatus.OwnerAlreadySigned] = 'MyMultiSig: owner already signed';
-    _errors[RevertStatus.CannotRemoveOwnerBelowThreshold] = 'MyMultiSig: cannot remove owner below threshold';
-    _errors[RevertStatus.ThresholdMustBeGreaterThanZero] = 'MyMultiSig: threshold must be greater than 0';
+    _errors[RevertStatus.OnlyThisContract] = MyMultiSig.OnlyThisContract.selector;
+    _errors[RevertStatus.TooManyOwners] = MyMultiSig.TooManyOwners.selector;
+    _errors[RevertStatus.InvalidSignatures] = MyMultiSig.InvalidSignatures.selector;
+    _errors[RevertStatus.InvalidOwners] = MyMultiSig.InvalidOwner.selector;
+    _errors[RevertStatus.OwnerAlreadySigned] = MyMultiSig.OwnerAlreadySigned.selector;
+    _errors[RevertStatus.CannotRemoveOwnerBelowThreshold] = MyMultiSig.CannotRemoveOwnerBelowThreshold.selector;
+    _errors[RevertStatus.ThresholdMustBeGreaterThanZero] = MyMultiSig.ThresholdMustBeGreaterThanZero.selector;
     _errors[
       RevertStatus.ThresholdMustBeLessOrEqualThanNumberOfOwners
-    ] = 'MyMultiSig: threshold must be less than or equal to owner count';
-    _errors[RevertStatus.OldOwnerMustBeOwner] = 'MyMultiSig: old owner must be an owner';
-    _errors[RevertStatus.NewOwnerMustNotBeOwner] = 'MyMultiSig: new owner must not be an owner';
-    _errors[RevertStatus.NewOwnerMustNotBeZero] = 'MyMultiSig: new owner must not be the zero address';
+    ] = MyMultiSig.ThresholdMustBeLessOrEqualToOwnerCount.selector;
+    _errors[RevertStatus.OldOwnerMustBeOwner] = MyMultiSig.OldOwnerMustBeOwner.selector;
+    _errors[RevertStatus.NewOwnerMustNotBeOwner] = MyMultiSig.NewOwnerMustNotBeOwner.selector;
+    _errors[RevertStatus.NewOwnerMustNotBeZero] = MyMultiSig.NewOwnerMustNotBeZero.selector;
   }
 
-  function _verify_revertCall(RevertStatus revertType_) internal view returns (string storage) {
+  function _verify_revertCall(RevertStatus revertType_) internal view returns (bytes4) {
     return _errors[revertType_];
   }
 
-  /// @notice Stages a `vm.expectRevert` with the message associated to
+  /// @notice Stages a `vm.expectRevert` with the selector associated to
   ///         `revertType_`. `Success` and `SkipValidation` do not stage a revert.
   function verify_revertCall(RevertStatus revertType_) public {
     if (revertType_ != RevertStatus.Success && revertType_ != RevertStatus.SkipValidation)
-      vm.expectRevert(bytes(_verify_revertCall(revertType_)));
+      vm.expectRevert(_verify_revertCall(revertType_));
   }
 }

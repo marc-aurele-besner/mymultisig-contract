@@ -1,30 +1,28 @@
+// Custom-error names as declared on MyMultiSig / MyMultiSigExtended. Asserted
+// with `revertedWithCustomError(contract, name)` (see test/shared/functions.ts).
 export default {
-  ONLY_SELF: 'MyMultiSig: only this contract can call this function',
-  TOO_MANY_OWNERS: 'MyMultiSig: cannot add owner above 2^16 - 1',
-  INVALID_SIGNATURES: 'MyMultiSig: invalid signatures',
-  NOT_ENOUGH_GAS: 'MyMultiSig: not enough gas',
-  NONCE_ALREADY_USED: 'MyMultiSigExtended: nonce already used',
-  OWNER_ALREADY_SIGNED: 'MyMultiSig: owner already signed',
-  CANNOT_REMOVE_OWNERS_BELOW_THRESHOLD: 'MyMultiSig: cannot remove owner below threshold',
+  ONLY_SELF: 'OnlyThisContract',
+  TOO_MANY_OWNERS: 'TooManyOwners',
+  INVALID_SIGNATURES: 'InvalidSignatures',
+  NOT_ENOUGH_GAS: 'NotEnoughGas',
+  NONCE_ALREADY_USED: 'NonceAlreadyUsed',
+  OWNER_ALREADY_SIGNED: 'OwnerAlreadySigned',
+  CANNOT_REMOVE_OWNERS_BELOW_THRESHOLD: 'CannotRemoveOwnerBelowThreshold',
 
-  THRESHOLD_MUST_BE_GREATER_THAN_ZERO: 'MyMultiSig: threshold must be greater than 0',
-  THRESHOLD_MUST_BE_LESS_OR_EQUAL_TO_OWNERS_COUNT: 'MyMultiSig: threshold must be less than or equal to owner count',
+  THRESHOLD_MUST_BE_GREATER_THAN_ZERO: 'ThresholdMustBeGreaterThanZero',
+  THRESHOLD_MUST_BE_LESS_OR_EQUAL_TO_OWNERS_COUNT: 'ThresholdMustBeLessOrEqualToOwnerCount',
 
-  THRESHOLD_NOT_ACHIEVED: 'MyMultiSig: signatures did not reach threshold',
-  INVALID_OWNER: 'MyMultiSig: invalid owner',
+  INVALID_OWNER: 'InvalidOwner',
 
-  OLD_OWNER_NOT_OWNER: 'MyMultiSig: old owner must be an owner',
-  NEW_OWNER_ALREADY_OWNER: 'MyMultiSig: new owner must not be an owner',
-  NEW_OWNER_IS_ZERO_ADDRESS: 'MyMultiSig: new owner must not be the zero address',
+  OLD_OWNER_NOT_OWNER: 'OldOwnerMustBeOwner',
+  NEW_OWNER_ALREADY_OWNER: 'NewOwnerMustNotBeOwner',
+  NEW_OWNER_IS_ZERO_ADDRESS: 'NewOwnerMustNotBeZero',
 
-  INACTIVE_OWNERSHIP_MINIMUM_LESS_THAN_7DAYS:
-    'Can set an amount of time (1 day) after which the other owners can transfer the ownership',
-  OWNER_SETTINGS_MUST_BE_GREATER_THAN_MINIMUM:
-    'MyMultiSigExtended: transferInactiveOwnershipAfter must be greater than _minimumtransferInactiveOwnershipAfter',
-  OWNER_SETTINGS_DELEGATEE_MUST_NOT_BE_OWNER: 'MyMultiSigExtended: delegatee is already an owner or delegatee',
-  OWNER_SETTINGS_OWNER_MUST_BE_OWNER: 'MyMultiSigExtended: owner must be an owner',
-  OWNER_STILL_ACTIVE: 'MyMultiSigExtended: owner is still active',
-  SENDER_NOT_DELEGATEE: 'MyMultiSigExtended: msg.sender is not the delegatee',
+  OWNER_SETTINGS_MUST_BE_GREATER_THAN_MINIMUM: 'TransferInactiveOwnershipBelowMinimum',
+  OWNER_SETTINGS_DELEGATEE_MUST_NOT_BE_OWNER: 'DelegateeAlreadyOwnerOrDelegatee',
+  OWNER_SETTINGS_OWNER_MUST_BE_OWNER: 'OwnerMustBeAnOwner',
+  OWNER_STILL_ACTIVE: 'OwnerStillActive',
+  SENDER_NOT_DELEGATEE: 'SenderNotDelegatee',
 
   PANIC_CODE_0x11:
     'VM Exception while processing transaction: reverted with panic code 0x11 (Arithmetic operation underflowed or overflowed outside of an unchecked block)',

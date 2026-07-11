@@ -239,7 +239,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         owner03.address,
         undefined,
         Helper.errors.CANNOT_REMOVE_OWNERS_BELOW_THRESHOLD,
-        ['TransactionFailed'],
+        ['TxFailure'],
       )
       await Helper.removeOwner(
         contract,
@@ -248,7 +248,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         owner02.address,
         undefined,
         Helper.errors.CANNOT_REMOVE_OWNERS_BELOW_THRESHOLD,
-        ['TransactionFailed'],
+        ['TxFailure'],
       )
     })
 
@@ -360,7 +360,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
       expect(await mockERC20.balanceOf(owner01.address)).to.be.equal(10)
     })
 
-    it('Emit TransactionFailed when valid signature try to execute a invalid call', async function () {
+    it('Emit TxFailure when valid signature try to execute a invalid call', async function () {
       const MockERC20 = await ethers.getContractFactory('MockERC20')
       const data = MockERC20.interface.encodeFunctionData('transferFrom(address,address,uint256)', [
         contract.address,
@@ -376,7 +376,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         data as `0x${string}`,
         Helper.DEFAULT_GAS,
         undefined,
-        ['TransactionFailed'],
+        ['TxFailure'],
       )
     })
 
@@ -840,7 +840,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         owner03.address,
         undefined,
         Helper.errors.CANNOT_REMOVE_OWNERS_BELOW_THRESHOLD,
-        ['TransactionFailed'],
+        ['TxFailure'],
       )
       await Helper.removeOwner(
         contract,
@@ -849,7 +849,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         owner02.address,
         undefined,
         Helper.errors.CANNOT_REMOVE_OWNERS_BELOW_THRESHOLD,
-        ['TransactionFailed'],
+        ['TxFailure'],
       )
     })
 
@@ -869,7 +869,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         ethers.BigNumber.from(60).mul(60).mul(24),
         Helper.DEFAULT_GAS,
         undefined,
-        ['TransactionFailed'],
+        ['TxFailure'],
       )
     })
 
@@ -928,7 +928,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         ethers.BigNumber.from(60).mul(60).mul(24).mul(5),
         user03.address,
         undefined,
-        ['TransactionFailed'],
+        ['TxFailure'],
       )
     })
 
@@ -941,7 +941,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         ethers.BigNumber.from(60).mul(60).mul(24).mul(31),
         owner02.address,
         undefined,
-        ['TransactionFailed'],
+        ['TxFailure'],
       )
     })
 
@@ -960,7 +960,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         ethers.BigNumber.from(60).mul(60).mul(24).mul(5),
         owner03.address,
         undefined,
-        ['TransactionFailed'],
+        ['TxFailure'],
       )
     })
 
@@ -1038,7 +1038,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
           ethers,
           provider,
         ),
-      ).to.be.revertedWith(Helper.errors.ONLY_SELF)
+      ).to.be.revertedWithCustomError(contract, Helper.errors.ONLY_SELF)
     })
 
     it('Cannot setOwnerSettings for a non-owner (isOwner enforced)', async function () {
@@ -1050,7 +1050,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         ethers.BigNumber.from(60).mul(60).mul(24).mul(8),
         user03.address,
         undefined,
-        ['TransactionFailed'],
+        ['TxFailure'],
       )
     })
 
@@ -1162,7 +1162,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       expect(await mockERC20.balanceOf(owner01.address)).to.be.equal(10)
     })
 
-    it('Emit TransactionFailed when valid signature try to execute a invalid call', async function () {
+    it('Emit TxFailure when valid signature try to execute a invalid call', async function () {
       const MockERC20 = await ethers.getContractFactory('MockERC20')
       const data = MockERC20.interface.encodeFunctionData('transferFrom(address,address,uint256)', [
         contract.address,
@@ -1178,7 +1178,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         data as `0x${string}`,
         Helper.DEFAULT_GAS,
         undefined,
-        ['TransactionFailed'],
+        ['TxFailure'],
       )
     })
 

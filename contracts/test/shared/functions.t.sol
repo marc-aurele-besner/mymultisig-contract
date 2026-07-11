@@ -49,13 +49,14 @@ contract Functions is Constants, Signatures {
     uint256 txnGas,
     uint256 txnNonce
   );
-  event TransactionFailed(
+  event TxFailure(
     address indexed sender,
     address indexed to,
     uint256 indexed value,
     bytes data,
     uint256 txnGas,
-    uint256 txnNonce
+    uint256 txnNonce,
+    bytes reason
   );
   event ContractEndOfLife(uint256 indexed txNonceLefts);
 
@@ -213,7 +214,7 @@ contract Functions is Constants, Signatures {
       emit TransactionExecuted(prank_, to_, value_, data_, txnGas_, nonce_);
     } else {
       vm.expectEmit(true, true, true, false);
-      emit TransactionFailed(prank_, to_, value_, data_, txnGas_, nonce_);
+      emit TxFailure(prank_, to_, value_, data_, txnGas_, nonce_, '');
     }
     multiSig_.execTransaction(to_, value_, data_, txnGas_, signatures_);
 

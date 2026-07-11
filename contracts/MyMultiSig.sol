@@ -29,25 +29,45 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     uint256 txnGas,
     uint256 txnNonce
   );
-  event TransactionFailed(
+  /// @notice Emitted when a transaction is executed but the low-level call to
+  ///         `to` returned `false`. `reason` carries the raw return data of the
+  ///         failed call so front-ends can decode the target's revert reason and
+  ///         distinguish an on-chain revert from a signature or gas failure
+  ///         (those revert the whole `execTransaction` with a distinct custom error).
+  event TxFailure(
     address indexed sender,
     address indexed to,
     uint256 indexed value,
     bytes data,
     uint256 txnGas,
-    uint256 txnNonce
+    uint256 txnNonce,
+    bytes reason
   );
   event ContractEndOfLife(uint256 indexed txNonceLefts);
 
+  error OnlyThisContract();
+  error TooManyOwners();
+  error InvalidSignatures();
+  error InvalidOwner();
+  error OwnerAlreadySigned();
+  error NotEnoughGas();
+  error OwnerAlreadyExists();
+  error CannotRemoveOwnerBelowThreshold();
+  error ThresholdMustBeGreaterThanZero();
+  error ThresholdMustBeLessOrEqualToOwnerCount();
+  error OldOwnerMustBeOwner();
+  error NewOwnerMustNotBeOwner();
+  error NewOwnerMustNotBeZero();
+
   modifier onlyThis() {
-    require(msg.sender == address(this), 'MyMultiSig: only this contract can call this function');
+    if (msg.sender != address(this)) revert OnlyThisContract();
     _;
   }
 
   constructor(string memory name_, address[] memory owners_, uint16 threshold_) EIP712(name_, version()) {
     _name = name_;
     uint256 length = owners_.length;
-    require(length <= 2 ** 16 - 1, 'MyMultiSig: cannot add owner above 2^16 - 1');
+    if (length > 2 ** 16 - 1) revert TooManyOwners();
     for (uint256 i = 0; i < length; ) {
       _addOwner(owners_[i]);
       unchecked {
@@ -127,15 +147,21 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     uint256 txnNonce,
     bytes memory signatures
   ) internal virtual returns (bool success) {
-    require(_validateSignature(to, value, data, txnGas, txnNonce, signatures), 'MyMultiSig: invalid signatures');
+    if (!_validateSignature(to, value, data, txnGas, txnNonce, signatures)) revert InvalidSignatures();
     _txnNonce++;
     uint256 gasBefore = gasleft();
+    bytes memory returnData;
     assembly {
       success := call(txnGas, to, value, add(data, 0x20), mload(data), 0, 0)
+      let size := returndatasize()
+      returnData := mload(0x40)
+      mstore(returnData, size)
+      returndatacopy(add(returnData, 0x20), 0, size)
+      mstore(0x40, add(add(returnData, 0x20), and(add(size, 0x1f), not(0x1f))))
     }
-    require(gasBefore - gasleft() < txnGas, 'MyMultiSig: not enough gas');
+    if (gasBefore - gasleft() >= txnGas) revert NotEnoughGas();
     if (success) emit TransactionExecuted(msg.sender, to, value, data, txnGas, txnNonce);
-    else emit TransactionFailed(msg.sender, to, value, data, txnGas, txnNonce);
+    else emit TxFailure(msg.sender, to, value, data, txnGas, txnNonce, returnData);
   }
 
   /// @notice Prepare multiple transactions
@@ -237,8 +263,8 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     unchecked {
       currentOwner = _getCurrentOwner(txHash, signatures, currentIndex);
       uint256 currentOwnerNonce = uint256(uint96(txnNonce)) + uint256(uint160(currentOwner) << 96);
-      require(_owners[currentOwner], 'MyMultiSig: invalid owner');
-      require(!_ownerNonceSigned[currentOwnerNonce], 'MyMultiSig: owner already signed');
+      if (!_owners[currentOwner]) revert InvalidOwner();
+      if (_ownerNonceSigned[currentOwnerNonce]) revert OwnerAlreadySigned();
       _ownerNonceSigned[currentOwnerNonce] = true;
     }
   }
@@ -277,7 +303,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @param owner The address to be added as an owner.
   /// @dev This function can only be called inside a multisig transaction.
   function _addOwner(address owner) internal virtual {
-    require(!_owners[owner], 'MyMultiSig: owner already exists');
+    if (_owners[owner]) revert OwnerAlreadyExists();
     _owners[owner] = true;
     ++_ownerCount;
   }
@@ -286,7 +312,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @param owner The address to be added as an owner.
   /// @dev This function can only be called inside a multisig transaction.
   function addOwner(address owner) public virtual onlyThis {
-    require(_ownerCount < 2 ** 16 - 1, 'MyMultiSig: cannot add owner above 2^16 - 1');
+    if (_ownerCount >= 2 ** 16 - 1) revert TooManyOwners();
     _addOwner(owner);
   }
 
@@ -295,7 +321,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @dev This function can only be called inside a multisig transaction.
 
   function _removeOwner(address owner) internal virtual {
-    if (_ownerCount <= _threshold) revert('MyMultiSig: cannot remove owner below threshold');
+    if (_ownerCount <= _threshold) revert CannotRemoveOwnerBelowThreshold();
     _owners[owner] = false;
     --_ownerCount;
   }
@@ -319,8 +345,8 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @param newThreshold The new threshold.
   /// @dev This function can only be called inside a multisig transaction.
   function _changeThreshold(uint16 newThreshold) private {
-    require(newThreshold > 0, 'MyMultiSig: threshold must be greater than 0');
-    require(newThreshold <= _ownerCount, 'MyMultiSig: threshold must be less than or equal to owner count');
+    if (newThreshold == 0) revert ThresholdMustBeGreaterThanZero();
+    if (newThreshold > _ownerCount) revert ThresholdMustBeLessOrEqualToOwnerCount();
     _threshold = newThreshold;
   }
 
@@ -337,9 +363,9 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @param newOwner The new owner.
   /// @dev This function can only be called inside a multisig transaction.
   function _replaceOwner(address oldOwner, address newOwner) internal virtual {
-    require(_owners[oldOwner], 'MyMultiSig: old owner must be an owner');
-    require(!_owners[newOwner], 'MyMultiSig: new owner must not be an owner');
-    require(newOwner != address(0), 'MyMultiSig: new owner must not be the zero address');
+    if (!_owners[oldOwner]) revert OldOwnerMustBeOwner();
+    if (_owners[newOwner]) revert NewOwnerMustNotBeOwner();
+    if (newOwner == address(0)) revert NewOwnerMustNotBeZero();
     _owners[oldOwner] = false;
     _owners[newOwner] = true;
   }
