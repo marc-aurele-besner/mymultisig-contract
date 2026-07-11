@@ -5,7 +5,6 @@ pragma solidity ^0.8.0;
  * @title MockERC1155 - Test
  */
 
-import 'foundry-test-utility/contracts/utils/console.sol';
 import { Helper } from '../shared/helper.t.sol';
 import { Errors } from '../shared/errors.t.sol';
 

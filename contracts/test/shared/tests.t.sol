@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.18;
 
-import 'foundry-test-utility/contracts/utils/console.sol';
 import { Helper } from './helper.t.sol';
 import { Errors } from './errors.t.sol';
 
