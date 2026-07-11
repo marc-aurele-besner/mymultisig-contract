@@ -16,6 +16,16 @@ contract MyMultiSigExtended is MyMultiSig {
   mapping(address => bool) private _ownersOrDelegates;
   mapping(uint256 => bool) private _noncesUsed;
 
+  error NonceAlreadyUsed();
+  error TransferInactiveOwnershipTooShort();
+  error TransferInactiveOwnershipBelowMinimum();
+  error OwnerMustBeAnOwner();
+  error OwnerIsNotAnOwner();
+  error DelegateeCannotBeZero();
+  error DelegateeAlreadyOwnerOrDelegatee();
+  error SenderNotDelegatee();
+  error OwnerStillActive();
+
   constructor(
     string memory name_,
     address[] memory owners_,
@@ -108,7 +118,7 @@ contract MyMultiSigExtended is MyMultiSig {
     uint256 txnNonce,
     bytes memory signatures
   ) internal virtual override returns (bool valid) {
-    require(!_noncesUsed[txnNonce], 'MyMultiSigExtended: nonce already used');
+    if (_noncesUsed[txnNonce]) revert NonceAlreadyUsed();
     return super._validateSignature(to, value, data, txnGas, txnNonce, signatures);
   }
 
@@ -144,10 +154,7 @@ contract MyMultiSigExtended is MyMultiSig {
   /// @param transferInactiveOwnershipAfter The amount of time after which the other owners can transfer the ownership to a new owner.
   /// @dev This function can only be called inside a multisig transaction.
   function setTransferInactiveOwnershipAfter(uint256 transferInactiveOwnershipAfter) public virtual onlyThis {
-    require(
-      transferInactiveOwnershipAfter >= 7 days,
-      'MyMultiSigExtended: transferInactiveOwnershipAfter must be greater than 7 days'
-    );
+    if (transferInactiveOwnershipAfter < 7 days) revert TransferInactiveOwnershipTooShort();
     _minimumTransferInactiveOwnershipAfter = transferInactiveOwnershipAfter;
   }
 
@@ -161,13 +168,11 @@ contract MyMultiSigExtended is MyMultiSig {
     uint256 transferInactiveOwnershipAfter,
     address delegatee
   ) public virtual onlyThis {
-    require(isOwner(owner), 'MyMultiSigExtended: owner must be an owner');
-    require(
-      transferInactiveOwnershipAfter > _minimumTransferInactiveOwnershipAfter,
-      'MyMultiSigExtended: transferInactiveOwnershipAfter must be greater than _minimumtransferInactiveOwnershipAfter'
-    );
-    require(delegatee != address(0), 'MyMultiSigExtended: delegatee cannot be the zero address');
-    require(!_ownersOrDelegates[delegatee], 'MyMultiSigExtended: delegatee is already an owner or delegatee');
+    if (!isOwner(owner)) revert OwnerMustBeAnOwner();
+    if (transferInactiveOwnershipAfter <= _minimumTransferInactiveOwnershipAfter)
+      revert TransferInactiveOwnershipBelowMinimum();
+    if (delegatee == address(0)) revert DelegateeCannotBeZero();
+    if (_ownersOrDelegates[delegatee]) revert DelegateeAlreadyOwnerOrDelegatee();
     _ownerSettings[owner] = OwnerSettings(block.timestamp, transferInactiveOwnershipAfter, delegatee);
     _ownersOrDelegates[delegatee] = true;
   }
@@ -175,13 +180,11 @@ contract MyMultiSigExtended is MyMultiSig {
   /// @notice Delegatee can take the ownership after the transferInactiveOwnershipAfter time
   /// @param owner The owner address.
   function takeOverOwnership(address owner) external virtual {
-    require(isOwner(owner), 'MyMultiSigExtended: owner is not an owner');
+    if (!isOwner(owner)) revert OwnerIsNotAnOwner();
     OwnerSettings memory tempOwnerSettings = _ownerSettings[owner];
-    require(tempOwnerSettings.delegate == msg.sender, 'MyMultiSigExtended: msg.sender is not the delegatee');
-    require(
-      tempOwnerSettings.lastAction + tempOwnerSettings.transferInactiveOwnershipAfter < block.timestamp,
-      'MyMultiSigExtended: owner is still active'
-    );
+    if (tempOwnerSettings.delegate != msg.sender) revert SenderNotDelegatee();
+    if (tempOwnerSettings.lastAction + tempOwnerSettings.transferInactiveOwnershipAfter >= block.timestamp)
+      revert OwnerStillActive();
     _ownerSettings[owner].delegate = address(0);
     _ownerSettings[msg.sender].lastAction = block.timestamp;
     _ownerSettings[msg.sender].delegate = address(0);

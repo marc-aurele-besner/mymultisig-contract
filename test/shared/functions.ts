@@ -24,11 +24,18 @@ export const sendRawTxn = async (input: any, sender: Wallet, ethers: any, provid
   return await provider.waitForTransaction(hash)
 }
 
-export const checkRawTxnResult = async (input: any, sender: Wallet, error: undefined | string) => {
+export const checkRawTxnResult = async (
+  input: any,
+  sender: Wallet,
+  error: undefined | string,
+  contract?: MyMultiSig | MyMultiSigExtended
+) => {
   let result
   if (error)
     if (network.name === 'hardhat' || network.name === 'localhost')
-      await expect(sendRawTxn(input, sender, ethers, ethers.provider)).to.be.revertedWith(error)
+      if (contract)
+        await expect(sendRawTxn(input, sender, ethers, ethers.provider)).to.be.revertedWithCustomError(contract, error)
+      else await expect(sendRawTxn(input, sender, ethers, ethers.provider)).to.be.revertedWith(error)
     else expect.fail('AssertionError: ' + error)
   else {
     result = await sendRawTxn(input, sender, ethers, ethers.provider)
@@ -84,7 +91,7 @@ export const execTransaction = async (
     .connect(submitter)
     .populateTransaction['execTransaction(address,uint256,bytes,uint256,bytes)'](to, value, data, gas, signatures)
 
-  const receipt = await checkRawTxnResult(input, submitter, errorMsg)
+  const receipt = await checkRawTxnResult(input, submitter, errorMsg, contract)
   if (!errorMsg) {
     const event = await getEventFromReceipt(contract, receipt)
     let found = false
@@ -100,9 +107,9 @@ export const execTransaction = async (
       } else {
         if (
           extraEvents &&
-          extraEvents.find((extraEvent: string) => extraEvent === 'TransactionFailed') &&
+          extraEvents.find((extraEvent: string) => extraEvent === 'TxFailure') &&
           event[i] &&
-          event[i].name === 'TransactionFailed'
+          event[i].name === 'TxFailure'
         ) {
           expect(event[i].args.sender).to.be.equal(submitter.address)
           expect(event[i].args.to).to.be.equal(to)
@@ -148,7 +155,7 @@ export const isValidSignature = async (
     const input = await contract
       .connect(submitter)
       .populateTransaction.isValidSignature(to, value, data, gas, nonce, signatures)
-    await checkRawTxnResult(input, submitter, errorMsg)
+    await checkRawTxnResult(input, submitter, errorMsg, contract)
     return false
   }
 }
@@ -341,7 +348,7 @@ export const setTransferInactiveOwnershipAfter = async (
     extraEvents
   )
 
-  if (!errorMsg && (!extraEvents || !extraEvents.find((e) => e === 'TransactionFailed')))
+  if (!errorMsg && (!extraEvents || !extraEvents.find((e) => e === 'TxFailure')))
     expect(await contract.minimumTransferInactiveOwnershipAfter()).to.be.equal(transferInactiveOwnershipAfter)
 }
 
@@ -369,7 +376,7 @@ export const markNonceAsUsed = async (
   )
   expect(await contract.isNonceUsed(nonce)).to.be.true
 
-  if (!errorMsg && (!extraEvents || !extraEvents.find((e) => e === 'TransactionFailed')))
+  if (!errorMsg && (!extraEvents || !extraEvents.find((e) => e === 'TxFailure')))
     expect(await contract.isNonceUsed(nonce)).to.be.false
 }
 
@@ -401,7 +408,7 @@ export const setOwnerSettings = async (
     extraEvents
   )
 
-  if (!errorMsg && (!extraEvents || !extraEvents.includes('TransactionFailed'))) {
+  if (!errorMsg && (!extraEvents || !extraEvents.includes('TxFailure'))) {
     const ownerSettings = await contract.ownerSettings(ownerToConfigure)
     expect(ownerSettings.lastAction).to.be.greaterThan(0)
     expect(ownerSettings.transferInactiveOwnershipAfter).to.be.equal(transferInactiveOwnershipAfter)
@@ -427,7 +434,10 @@ export const takeOverOwnership = async (
     expect(await contract.isOwner(originalOwner)).to.be.false
     // expect(finalOwnerSettings.delegate).to.be.equal(ethers.constants.AddressZero)
   } else {
-    await expect(contract.connect(submitter).takeOverOwnership(originalOwner)).to.be.revertedWith(errorMsg)
+    await expect(contract.connect(submitter).takeOverOwnership(originalOwner)).to.be.revertedWithCustomError(
+      contract,
+      errorMsg
+    )
   }
 }
 
@@ -482,5 +492,5 @@ export const execTransactionWithNonceReverted = async (
     )
   return await expect(
     sendRawTxn(input, submitter, ethers, ethers.provider),
-  ).to.be.revertedWith(errorMsg)
+  ).to.be.revertedWithCustomError(contract, errorMsg)
 }
