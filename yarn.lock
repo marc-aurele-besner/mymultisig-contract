@@ -3074,11 +3074,6 @@ form-data@~2.3.2:
     combined-stream "^1.0.6"
     mime-types "^2.1.12"
 
-foundry-test-utility@^0.1.1:
-  version "0.1.1"
-  resolved "https://registry.yarnpkg.com/foundry-test-utility/-/foundry-test-utility-0.1.1.tgz#90ddf7c4a06d3bf5681c8b0c81850ee221818973"
-  integrity sha512-dGUAF5U02bkTgRoIYJDvxAHC+J28jtXZqeDcDgPD0pNU/xnJCxmkLfCJU8QCncRwXDIAu3ONZDO+NaZfoyjcYQ==
-
 fp-ts@1.19.3:
   version "1.19.3"
   resolved "https://registry.yarnpkg.com/fp-ts/-/fp-ts-1.19.3.tgz#261a60d1088fbff01f91256f91d21d0caaaaa96f"

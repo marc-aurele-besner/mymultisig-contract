@@ -12,6 +12,7 @@
     "README.md"
   ],
   "scripts": {
+    "postinstall": "[ -d lib/forge-std ] && (mkdir -p node_modules && ln -sfn ../lib/forge-std node_modules/forge-std) || true",
     "test": "bash ./test.sh",
     "build": "hardhat run scripts/buildAbi.ts && hardhat run scripts/buildTypes.ts",
     "compile": "hardhat compile",
@@ -75,7 +76,6 @@
     "dotenv": "^16.0.3",
     "ethers": "5.7.2",
     "ethersV6": "npm:ethers",
-    "foundry-test-utility": "^0.1.1",
     "fs": "^0.0.1-security",
     "hardhat": "^2.12.6",
     "hardhat-contract-clarity": "^0.1.1",

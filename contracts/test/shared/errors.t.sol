@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { Vm } from 'foundry-test-utility/contracts/utils/vm.sol';
-import { DSTest } from 'foundry-test-utility/contracts/utils/test.sol';
+import { Test } from 'forge-std/Test.sol';
 
-contract Errors is DSTest {
-  Vm public constant vm = Vm(address(uint160(uint256(keccak256('hevm cheat code')))));
-
-  mapping(RevertStatus => string) private _errors;
-
-  // Add a revert error to the enum of errors.
+/// @title Errors
+/// @notice Maps a `RevertStatus` enum to the exact revert message emitted by
+///         `MyMultiSig`, then exposes a `verify_revertCall` helper that
+///         stages the expected `vm.expectRevert` on the next call.
+/// @dev    Previously inherited from `DSTest` (re-exported by the now-removed
+///         `foundry-test-utility`). Switched to `forge-std/Test` so the suite
+///         no longer depends on a private npm package.
+contract Errors is Test {
   enum RevertStatus {
     Success,
     SkipValidation,
@@ -26,7 +27,9 @@ contract Errors is DSTest {
     NewOwnerMustNotBeZero
   }
 
-  // Associate your error with a revert message and add it to the mapping.
+  mapping(RevertStatus => string) private _errors;
+
+  // Associate each revert status with the exact revert message produced by MyMultiSig.
   constructor() {
     _errors[RevertStatus.OnlyThisContract] = 'MyMultiSig: only this contract can call this function';
     _errors[RevertStatus.TooManyOwners] = 'MyMultiSig: cannot add owner above 2^16 - 1';
@@ -43,12 +46,12 @@ contract Errors is DSTest {
     _errors[RevertStatus.NewOwnerMustNotBeZero] = 'MyMultiSig: new owner must not be the zero address';
   }
 
-  // Return the error message associated with the error.
   function _verify_revertCall(RevertStatus revertType_) internal view returns (string storage) {
     return _errors[revertType_];
   }
 
-  // Expect a revert error if the revert type is not success.
+  /// @notice Stages a `vm.expectRevert` with the message associated to
+  ///         `revertType_`. `Success` and `SkipValidation` do not stage a revert.
   function verify_revertCall(RevertStatus revertType_) public {
     if (revertType_ != RevertStatus.Success && revertType_ != RevertStatus.SkipValidation)
       vm.expectRevert(bytes(_verify_revertCall(revertType_)));

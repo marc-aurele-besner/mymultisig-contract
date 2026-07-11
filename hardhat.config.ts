@@ -1,4 +1,8 @@
 import { HardhatUserConfig } from 'hardhat/config'
+import { TASK_COMPILE_GET_REMAPPINGS } from 'hardhat/builtin-tasks/task-names'
+import { subtask } from 'hardhat/config'
+import * as fs from 'fs'
+import * as path from 'path'
 import * as dotenv from 'dotenv'
 import '@nomicfoundation/hardhat-toolbox'
 import 'deployment-tool'
@@ -6,6 +10,35 @@ import 'hardhat-contract-clarity'
 import '@openzeppelin/hardhat-upgrades'
 
 dotenv.config()
+
+// Hardhat's stock `TASK_COMPILE_GET_REMAPPINGS` returns `{}` and ignores
+// `remappings.txt` entirely, which means imports from any library declared in
+// remappings.txt (e.g. `forge-std/Test.sol`) fail to resolve under Hardhat.
+// `contracts/test/` reuses the same remappings as Foundry; parse remappings.txt
+// ourselves so Hardhat's resolver and Foundry see the same mapping.
+subtask(TASK_COMPILE_GET_REMAPPINGS, async (): Promise<Record<string, string>> => {
+  const remappingsFile = path.join(__dirname, 'remappings.txt')
+  if (!fs.existsSync(remappingsFile)) return {}
+
+  const remappings: Record<string, string> = {}
+  for (const rawLine of fs.readFileSync(remappingsFile, 'utf8').split('\n')) {
+    const line = rawLine.trim()
+    if (line.length === 0 || line.startsWith('#')) continue
+    const eq = line.indexOf('=')
+    if (eq === -1) continue
+    const from = line.slice(0, eq).trim()
+    let to = line.slice(eq + 1).trim()
+    if (from.length === 0 || to.length === 0) continue
+    // Hardhat's `applyRemappings` does a plain prefix replace, so the `to` side
+    // must keep its trailing `/` — otherwise `@openzeppelin/contracts/=node_modules/@openzeppelin/contracts`
+    // collapses `@openzeppelin/contracts/security/Foo.sol` to
+    // `node_modules/@openzeppelin/contractssecurity/Foo.sol`. Forge tolerates the
+    // missing slash, so we patch it here for Hardhat only.
+    if (!to.endsWith('/')) to = to + '/'
+    remappings[from] = to
+  }
+  return remappings
+})
 
 const {
   RPC_MAINNET,
