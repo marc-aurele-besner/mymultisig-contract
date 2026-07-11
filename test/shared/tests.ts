@@ -894,7 +894,9 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
     it('Can set owner settings (14 days -> user2)', async function () {
       await Helper.setOwnerSettings(
         contract,
+        owner01.address,
         owner01,
+        [owner01, owner02, owner03],
         ethers.BigNumber.from(60).mul(60).mul(24).mul(14),
         user02.address,
       )
@@ -903,7 +905,9 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
     it('Can set owner settings (31 days -> user03)', async function () {
       await Helper.setOwnerSettings(
         contract,
+        owner01.address,
         owner01,
+        [owner01, owner02, owner03],
         ethers.BigNumber.from(60).mul(60).mul(24).mul(31),
         user03.address,
       )
@@ -918,22 +922,26 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       )
       await Helper.setOwnerSettings(
         contract,
+        owner01.address,
         owner01,
+        [owner01, owner02, owner03],
         ethers.BigNumber.from(60).mul(60).mul(24).mul(5),
         user03.address,
         undefined,
-        Helper.errors.OWNER_SETTINGS_MUST_BE_GREATER_THAN_MINIMUM,
+        ['TransactionFailed'],
       )
     })
 
     it('Can set owner settings (31 days -> owner02) (should fail)', async function () {
       await Helper.setOwnerSettings(
         contract,
+        owner01.address,
         owner01,
+        [owner01, owner02, owner03],
         ethers.BigNumber.from(60).mul(60).mul(24).mul(31),
         owner02.address,
         undefined,
-        Helper.errors.OWNER_SETTINGS_DELEGATEE_MUST_NOT_BE_OWNER,
+        ['TransactionFailed'],
       )
     })
 
@@ -946,11 +954,13 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       )
       await Helper.setOwnerSettings(
         contract,
+        owner01.address,
         owner01,
+        [owner01, owner02, owner03],
         ethers.BigNumber.from(60).mul(60).mul(24).mul(5),
         owner03.address,
         undefined,
-        Helper.errors.OWNER_SETTINGS_MUST_BE_GREATER_THAN_MINIMUM,
+        ['TransactionFailed'],
       )
     })
 
@@ -961,7 +971,14 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         [owner01, owner02, owner03],
         ethers.BigNumber.from(60).mul(60).mul(24).mul(7),
       )
-      await Helper.setOwnerSettings(contract, owner01, ethers.BigNumber.from(60).mul(60).mul(24).mul(8), user03.address)
+      await Helper.setOwnerSettings(
+        contract,
+        owner01.address,
+        owner01,
+        [owner01, owner02, owner03],
+        ethers.BigNumber.from(60).mul(60).mul(24).mul(8),
+        user03.address,
+      )
       await time.increase(60 * 60 * 24 * 9)
       await Helper.takeOverOwnership(contract, user03, owner01.address)
     })
@@ -973,7 +990,14 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         [owner01, owner02, owner03],
         ethers.BigNumber.from(60).mul(60).mul(24).mul(7),
       )
-      await Helper.setOwnerSettings(contract, owner01, ethers.BigNumber.from(60).mul(60).mul(24).mul(8), user03.address)
+      await Helper.setOwnerSettings(
+        contract,
+        owner01.address,
+        owner01,
+        [owner01, owner02, owner03],
+        ethers.BigNumber.from(60).mul(60).mul(24).mul(8),
+        user03.address,
+      )
       await time.increase(60 * 60 * 24 * 5)
       await Helper.takeOverOwnership(contract, user03, owner01.address, Helper.errors.OWNER_STILL_ACTIVE)
     })
@@ -985,9 +1009,49 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         [owner01, owner02, owner03],
         ethers.BigNumber.from(60).mul(60).mul(24).mul(7),
       )
-      await Helper.setOwnerSettings(contract, owner01, ethers.BigNumber.from(60).mul(60).mul(24).mul(8), user03.address)
+      await Helper.setOwnerSettings(
+        contract,
+        owner01.address,
+        owner01,
+        [owner01, owner02, owner03],
+        ethers.BigNumber.from(60).mul(60).mul(24).mul(8),
+        user03.address,
+      )
       await time.increase(60 * 60 * 24 * 9)
       await Helper.takeOverOwnership(contract, user02, owner01.address, Helper.errors.SENDER_NOT_DELEGATEE)
+    })
+
+    it('Cannot setOwnerSettings directly (onlyThis enforced)', async function () {
+      const data = contract.interface.encodeFunctionData('setOwnerSettings(address,uint256,address)', [
+        owner01.address,
+        ethers.BigNumber.from(60).mul(60).mul(24).mul(8),
+        user03.address,
+      ]) as `0x${string}`
+      await expect(
+        Helper.sendRawTxn(
+          {
+            to: contract.address,
+            value: 0,
+            data,
+          },
+          owner01,
+          ethers,
+          provider,
+        ),
+      ).to.be.revertedWith(Helper.errors.ONLY_SELF)
+    })
+
+    it('Cannot setOwnerSettings for a non-owner (isOwner enforced)', async function () {
+      await Helper.setOwnerSettings(
+        contract,
+        user01.address,
+        owner01,
+        [owner01, owner02, owner03],
+        ethers.BigNumber.from(60).mul(60).mul(24).mul(8),
+        user03.address,
+        undefined,
+        ['TransactionFailed'],
+      )
     })
 
     it('Execute transaction without data but 1 ETH in value', async function () {

@@ -130,17 +130,23 @@ contract MyMultiSigExtended is MyMultiSig {
   }
 
   /// @notice Owner can delegate the ownership to another address and set an amount of time after which the delegatee can take the ownership
+  /// @param owner The owner delegating. Must be a current owner of the wallet.
   /// @param transferInactiveOwnershipAfter The amount of time after which the delegatee can take the ownership.
   /// @param delegatee The address that will be able to take the ownership after the transferInactiveOwnershipAfter time.
   /// @dev This function can only be called inside a multisig transaction.
-  function setOwnerSettings(uint256 transferInactiveOwnershipAfter, address delegatee) public virtual {
+  function setOwnerSettings(
+    address owner,
+    uint256 transferInactiveOwnershipAfter,
+    address delegatee
+  ) public virtual onlyThis {
+    require(isOwner(owner), 'MyMultiSigExtended: owner must be an owner');
     require(
       transferInactiveOwnershipAfter > _minimumTransferInactiveOwnershipAfter,
       'MyMultiSigExtended: transferInactiveOwnershipAfter must be greater than _minimumtransferInactiveOwnershipAfter'
     );
     require(delegatee != address(0), 'MyMultiSigExtended: delegatee cannot be the zero address');
     require(!_ownersOrDelegates[delegatee], 'MyMultiSigExtended: delegatee is already an owner or delegatee');
-    _ownerSettings[msg.sender] = OwnerSettings(block.timestamp, transferInactiveOwnershipAfter, delegatee);
+    _ownerSettings[owner] = OwnerSettings(block.timestamp, transferInactiveOwnershipAfter, delegatee);
     _ownersOrDelegates[delegatee] = true;
   }
 
