@@ -181,4 +181,88 @@ abstract contract TestBasic is Helper {
     }
     assertTrue(myMultiSig.isOwner(NOT_OWNERS[100]));
   }
+
+  function testMyMultiSig_multiRequest_emitsPerCallResults() public {
+    uint256 NEW_OWNERS_COUNT = 3;
+    address[] memory to_ = new address[](NEW_OWNERS_COUNT);
+    uint256[] memory value_ = new uint256[](NEW_OWNERS_COUNT);
+    bytes[] memory data_ = new bytes[](NEW_OWNERS_COUNT);
+    uint256[] memory txGas_ = new uint256[](NEW_OWNERS_COUNT);
+    for (uint256 i = 0; i < NEW_OWNERS_COUNT; i++) {
+      to_[i] = address(myMultiSig);
+      value_[i] = 0;
+      data_[i] = build_addOwner(NOT_OWNERS[i]);
+      txGas_[i] = DEFAULT_GAS;
+    }
+
+    (uint256 txNonce, bool[] memory successes, bytes[] memory returnData) = help_multiRequestAndCapture(
+      OWNERS[0],
+      myMultiSig,
+      OWNERS_PK,
+      to_,
+      value_,
+      data_,
+      txGas_
+    );
+
+    assertEq(txNonce, 0);
+    assertEq(successes.length, NEW_OWNERS_COUNT);
+    assertEq(returnData.length, NEW_OWNERS_COUNT);
+    for (uint256 i = 0; i < NEW_OWNERS_COUNT; i++) {
+      assertTrue(successes[i]);
+      assertEq(returnData[i].length, 0);
+      assertTrue(myMultiSig.isOwner(NOT_OWNERS[i]));
+    }
+  }
+
+  function testMyMultiSig_multiRequest_recordsPartialFailures() public {
+    // The wallet itself has no ETH, so any non-zero `value` transfer to an
+    // EOA reverts without data. Build a batch where the first call is a
+    // successful `addOwner` and the second / third attempts to forward 1 wei
+    // to NOT_OWNERS[0] — those must fail and be recorded as failures in the
+    // MultiRequestExecuted event.
+    address[] memory to_ = new address[](3);
+    uint256[] memory value_ = new uint256[](3);
+    bytes[] memory data_ = new bytes[](3);
+    uint256[] memory txGas_ = new uint256[](3);
+
+    to_[0] = address(myMultiSig);
+    value_[0] = 0;
+    data_[0] = build_addOwner(NOT_OWNERS[0]);
+    txGas_[0] = DEFAULT_GAS;
+
+    to_[1] = NOT_OWNERS[0];
+    value_[1] = 1;
+    data_[1] = '';
+    txGas_[1] = DEFAULT_GAS;
+
+    to_[2] = NOT_OWNERS[0];
+    value_[2] = 2;
+    data_[2] = '';
+    txGas_[2] = DEFAULT_GAS;
+
+    (uint256 txNonce, bool[] memory successes, bytes[] memory returnData) = help_multiRequestAndCapture(
+      OWNERS[0],
+      myMultiSig,
+      OWNERS_PK,
+      to_,
+      value_,
+      data_,
+      txGas_
+    );
+
+    assertEq(txNonce, 0);
+    assertEq(successes.length, 3);
+    assertEq(returnData.length, 3);
+    assertTrue(successes[0]);
+    assertFalse(successes[1]);
+    assertFalse(successes[2]);
+    // addOwner succeeded — NOT_OWNERS[0] is now an owner.
+    assertTrue(myMultiSig.isOwner(NOT_OWNERS[0]));
+    // The two failed value transfers captured empty returnData: the EVM
+    // reverts out-of-gas / insufficient-balance with no payload because the
+    // call failed before any code ran.
+    assertEq(returnData[1].length, 0);
+    assertEq(returnData[2].length, 0);
+  }
 }

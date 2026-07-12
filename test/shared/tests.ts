@@ -601,6 +601,100 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
       expect(await mockERC20.balanceOf(owner03.address)).to.be.equal(50)
     })
 
+    it('multiRequest emits MultiRequestExecuted with per-call success and return data', async function () {
+      const MockERC20 = await ethers.getContractFactory('MockERC20')
+      const mockERC20 = await MockERC20.deploy()
+      await mockERC20.deployed()
+      const receipt = await Helper.multiRequest(
+        contract,
+        owner01,
+        [owner01, owner02, owner03],
+        [mockERC20.address, mockERC20.address, mockERC20.address],
+        [Helper.ZERO, Helper.ZERO, Helper.ZERO],
+        [
+          MockERC20.interface.encodeFunctionData('mint(address,uint256)', [contract.address, 75]),
+          MockERC20.interface.encodeFunctionData('transfer(address,uint256)', [owner01.address, 25]),
+          MockERC20.interface.encodeFunctionData('transfer(address,uint256)', [owner02.address, 25]),
+        ],
+        [Helper.DEFAULT_GAS * 2, Helper.DEFAULT_GAS * 2, Helper.DEFAULT_GAS * 2],
+      )
+      const parsed = receipt.logs
+        .map((log: any) => {
+          try {
+            return contract.interface.parseLog(log)
+          } catch (e) {
+            return undefined
+          }
+        })
+        .filter((log: any) => log && log.name === 'MultiRequestExecuted')
+      expect(parsed).to.have.lengthOf(1)
+      const event = parsed[0]
+      expect(event.args.txNonce).to.equal(0)
+      expect(event.args.successes).to.have.lengthOf(3)
+      expect(event.args.successes[0]).to.equal(true)
+      expect(event.args.successes[1]).to.equal(true)
+      expect(event.args.successes[2]).to.equal(true)
+      // MockERC20 has no return value on `mint`/`transfer`, so every
+      // returnData[i] is the ABI-encoded encoding of the empty bytes
+      // (`0x` padded to 32 bytes in the logs).
+      expect(event.args.returnData).to.have.lengthOf(3)
+      expect(await mockERC20.balanceOf(contract.address)).to.be.equal(25)
+      expect(await mockERC20.balanceOf(owner01.address)).to.be.equal(25)
+      expect(await mockERC20.balanceOf(owner02.address)).to.be.equal(25)
+    })
+
+    it('multiRequest records partial failures in MultiRequestExecuted without reverting', async function () {
+      const MockERC20 = await ethers.getContractFactory('MockERC20')
+      const mockERC20 = await MockERC20.deploy()
+      await mockERC20.deployed()
+      // Three calls:
+      //   1. mint(contract, 100)               → success
+      //   2. transfer(owner01, 50)             → success (uses the minted balance)
+      //   3. transfer(owner02, 9999)           → revert (insufficient balance)
+      // The outer execTransaction must still succeed; the batch itself must
+      // record successes=[true,true,false] and capture the revert payload.
+      const receipt = await Helper.multiRequest(
+        contract,
+        owner01,
+        [owner01, owner02, owner03],
+        [mockERC20.address, mockERC20.address, mockERC20.address],
+        [Helper.ZERO, Helper.ZERO, Helper.ZERO],
+        [
+          MockERC20.interface.encodeFunctionData('mint(address,uint256)', [contract.address, 100]),
+          MockERC20.interface.encodeFunctionData('transfer(address,uint256)', [owner01.address, 50]),
+          MockERC20.interface.encodeFunctionData('transfer(address,uint256)', [owner02.address, 9999]),
+        ],
+        [Helper.DEFAULT_GAS * 2, Helper.DEFAULT_GAS * 2, Helper.DEFAULT_GAS * 2],
+      )
+      const parsed = receipt.logs
+        .map((log: any) => {
+          try {
+            return contract.interface.parseLog(log)
+          } catch (e) {
+            return undefined
+          }
+        })
+        .filter((log: any) => log && log.name === 'MultiRequestExecuted')
+      expect(parsed).to.have.lengthOf(1)
+      const event = parsed[0]
+      expect(event.args.txNonce).to.equal(0)
+      expect(event.args.successes).to.have.lengthOf(3)
+      expect(event.args.successes[0]).to.equal(true)
+      expect(event.args.successes[1]).to.equal(true)
+      expect(event.args.successes[2]).to.equal(false)
+      expect(event.args.returnData).to.have.lengthOf(3)
+      // The third call reverted; the captured returnData must carry the
+      // ABI-encoded revert reason rather than be empty. ERC20InsufficientBalance
+      // selector is 0xe450d38c — check it appears somewhere in the data.
+      const failedReturnData: string = event.args.returnData[2]
+      expect(failedReturnData.length).to.be.greaterThan(2)
+      // State after the partial failure: contract holds the 50 it could not
+      // send to owner02; owner01 received their 50.
+      expect(await mockERC20.balanceOf(contract.address)).to.be.equal(50)
+      expect(await mockERC20.balanceOf(owner01.address)).to.be.equal(50)
+      expect(await mockERC20.balanceOf(owner02.address)).to.be.equal(0)
+    })
+
     describe('approveHash - safe-style on-chain approvals', function () {
       const hashForAddUser01AtNonce = async (contract: any, nonce: any) =>
         await contract.generateHash(
@@ -1396,6 +1490,90 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       expect(await mockERC20.balanceOf(owner01.address)).to.be.equal(50)
       expect(await mockERC20.balanceOf(owner02.address)).to.be.equal(50)
       expect(await mockERC20.balanceOf(owner03.address)).to.be.equal(50)
+    })
+
+    it('multiRequest emits MultiRequestExecuted with per-call success and return data', async function () {
+      const MockERC20 = await ethers.getContractFactory('MockERC20')
+      const mockERC20 = await MockERC20.deploy()
+      await mockERC20.deployed()
+      const receipt = await Helper.multiRequest(
+        contract,
+        owner01,
+        [owner01, owner02, owner03],
+        [mockERC20.address, mockERC20.address, mockERC20.address],
+        [Helper.ZERO, Helper.ZERO, Helper.ZERO],
+        [
+          MockERC20.interface.encodeFunctionData('mint(address,uint256)', [contract.address, 75]),
+          MockERC20.interface.encodeFunctionData('transfer(address,uint256)', [owner01.address, 25]),
+          MockERC20.interface.encodeFunctionData('transfer(address,uint256)', [owner02.address, 25]),
+        ],
+        [Helper.DEFAULT_GAS * 2, Helper.DEFAULT_GAS * 2, Helper.DEFAULT_GAS * 2],
+      )
+      const parsed = receipt.logs
+        .map((log: any) => {
+          try {
+            return contract.interface.parseLog(log)
+          } catch (e) {
+            return undefined
+          }
+        })
+        .filter((log: any) => log && log.name === 'MultiRequestExecuted')
+      expect(parsed).to.have.lengthOf(1)
+      const event = parsed[0]
+      expect(event.args.txNonce).to.equal(0)
+      expect(event.args.successes).to.have.lengthOf(3)
+      expect(event.args.successes[0]).to.equal(true)
+      expect(event.args.successes[1]).to.equal(true)
+      expect(event.args.successes[2]).to.equal(true)
+      expect(event.args.returnData).to.have.lengthOf(3)
+      expect(await mockERC20.balanceOf(contract.address)).to.be.equal(25)
+      expect(await mockERC20.balanceOf(owner01.address)).to.be.equal(25)
+      expect(await mockERC20.balanceOf(owner02.address)).to.be.equal(25)
+    })
+
+    it('multiRequest records partial failures in MultiRequestExecuted without reverting', async function () {
+      const MockERC20 = await ethers.getContractFactory('MockERC20')
+      const mockERC20 = await MockERC20.deploy()
+      await mockERC20.deployed()
+      // Three calls: mint succeeds, transfer to owner01 succeeds, transfer to
+      // owner02 reverts because the contract does not hold 9999 tokens. The
+      // batch must record successes=[true,true,false] and capture the revert
+      // payload in returnData[2].
+      const receipt = await Helper.multiRequest(
+        contract,
+        owner01,
+        [owner01, owner02, owner03],
+        [mockERC20.address, mockERC20.address, mockERC20.address],
+        [Helper.ZERO, Helper.ZERO, Helper.ZERO],
+        [
+          MockERC20.interface.encodeFunctionData('mint(address,uint256)', [contract.address, 100]),
+          MockERC20.interface.encodeFunctionData('transfer(address,uint256)', [owner01.address, 50]),
+          MockERC20.interface.encodeFunctionData('transfer(address,uint256)', [owner02.address, 9999]),
+        ],
+        [Helper.DEFAULT_GAS * 2, Helper.DEFAULT_GAS * 2, Helper.DEFAULT_GAS * 2],
+      )
+      const parsed = receipt.logs
+        .map((log: any) => {
+          try {
+            return contract.interface.parseLog(log)
+          } catch (e) {
+            return undefined
+          }
+        })
+        .filter((log: any) => log && log.name === 'MultiRequestExecuted')
+      expect(parsed).to.have.lengthOf(1)
+      const event = parsed[0]
+      expect(event.args.txNonce).to.equal(0)
+      expect(event.args.successes).to.have.lengthOf(3)
+      expect(event.args.successes[0]).to.equal(true)
+      expect(event.args.successes[1]).to.equal(true)
+      expect(event.args.successes[2]).to.equal(false)
+      expect(event.args.returnData).to.have.lengthOf(3)
+      const failedReturnData: string = event.args.returnData[2]
+      expect(failedReturnData.length).to.be.greaterThan(2)
+      expect(await mockERC20.balanceOf(contract.address)).to.be.equal(50)
+      expect(await mockERC20.balanceOf(owner01.address)).to.be.equal(50)
+      expect(await mockERC20.balanceOf(owner02.address)).to.be.equal(0)
     })
 
     it('6-arg execTransaction honors the caller-supplied nonce (replay at N+5)', async function () {

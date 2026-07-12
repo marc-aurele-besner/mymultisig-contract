@@ -175,7 +175,7 @@ export const multiRequest = async (
   for (var i = 0; i < to_.length; i++) {
     gas += gas_[i]
   }
-  await execTransaction(
+  return await execTransaction(
     contract,
     submitter,
     owners,
