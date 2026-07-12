@@ -56,6 +56,17 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   ///         encodes `(to, value, data, gas, nonce)` so each approval is
   ///         bound to a single, fully-specified transaction.
   event ApproveHash(address indexed owner, bytes32 indexed hash);
+  /// @notice Emitted at the end of every `multiRequest` call, once per batch,
+  ///         carrying the per-call outcome arrays so off-chain consumers and
+  ///         indexers can audit partial failures without replaying the inner
+  ///         transactions. `successes[i]` mirrors the boolean returned by the
+  ///         low-level `call` to `to[i]` (`true` for a successful return,
+  ///         `false` for a silent revert). `returnData[i]` carries the raw
+  ///         return data of the call — empty for a successful no-data return,
+  ///         the ABI-encoded revert payload for a failed call, or the happy-
+  ///         path return value when the call succeeded. `txNonce` is the
+  ///         outer `execTransaction` nonce under which the batch ran.
+  event MultiRequestExecuted(uint256 indexed txNonce, bool[] successes, bytes[] returnData);
 
   error OnlyThisContract();
   error TooManyOwners();
@@ -222,25 +233,55 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @param value The amount of Ether to be transferred. (as a array)
   /// @param data The data to be passed along with the transaction. (as a array)
   /// @param txGas The gas limit for the transaction. (as a array)
+  /// @return successes One entry per inner call, in input order: `true` if the
+  ///         low-level `call` returned success, `false` otherwise (silent
+  ///         revert or explicit `revert()`/`require(false)`). Identical to
+  ///         the `successes` array emitted in `MultiRequestExecuted`.
+  /// @return returnData One entry per inner call, in input order: the raw
+  ///         return data of the call — empty bytes on a successful no-data
+  ///         return, the ABI-encoded revert payload on a failure, or the
+  ///         happy-path return value when the call succeeded. Identical to
+  ///         the `returnData` array emitted in `MultiRequestExecuted`.
+  /// @dev    This function never reverts on inner-call failure: every call is
+  ///         executed and its outcome recorded. A batch with any failure is
+  ///         surfaced via `successes[i] == false` and the captured revert
+  ///         payload in `returnData[i]`. A single `MultiRequestExecuted`
+  ///         event is emitted once the full batch has run, giving callers
+  ///         and indexers a complete audit trail in one log entry.
   function multiRequest(
     address[] memory to,
     uint256[] memory value,
     bytes[] memory data,
     uint256[] memory txGas
-  ) public payable virtual onlyThis returns (bool success) {
+  ) public payable virtual onlyThis returns (bool[] memory successes, bytes[] memory returnData) {
     uint256 qty = to.length;
+    successes = new bool[](qty);
+    returnData = new bytes[](qty);
     for (uint256 i; i < qty; ) {
       address to_ = to[i];
       uint256 value_ = value[i];
       bytes memory data_ = data[i];
       uint256 txGas_ = txGas[i];
+      bool callSuccess;
+      bytes memory callReturnData;
       assembly {
-        success := call(txGas_, to_, value_, add(data_, 0x20), mload(data_), 0, 0)
+        callSuccess := call(txGas_, to_, value_, add(data_, 0x20), mload(data_), 0, 0)
+        let size := returndatasize()
+        callReturnData := mload(0x40)
+        mstore(callReturnData, size)
+        returndatacopy(add(callReturnData, 0x20), 0, size)
+        // round size up to the next 32-byte word for the free-memory pointer
+        mstore(0x40, add(add(callReturnData, 0x20), and(add(size, 0x1f), not(0x1f))))
       }
+      successes[i] = callSuccess;
+      returnData[i] = callReturnData;
       unchecked {
         ++i;
       }
     }
+    // `_txnNonce` has already been bumped in `_execTransaction` before this
+    // function is reached, so the outer transaction's nonce is one less.
+    emit MultiRequestExecuted(_txnNonce - 1, successes, returnData);
   }
 
   /// @notice Return the current owner address from the full signature at the id position

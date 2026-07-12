@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import { Vm } from 'forge-std/Vm.sol';
 import { Constants } from './constants.t.sol';
 import { Errors } from './errors.t.sol';
 import { Signatures } from './signatures.t.sol';
@@ -61,6 +62,7 @@ contract Functions is Constants, Signatures {
     bytes reason
   );
   event ContractEndOfLife(uint256 indexed txNonceLefts);
+  event MultiRequestExecuted(uint256 indexed txNonce, bool[] successes, bytes[] returnData);
 
   function initialize_tests(uint8 LOG_LEVEL_, TestType testType_) public returns (MyMultiSigFactory, MyMultiSig) {
     // Set general test settings
@@ -401,6 +403,47 @@ contract Functions is Constants, Signatures {
     uint96 nonce = multiSig_.nonce();
     bytes memory signatures = build_signatures(multiSig_, ownersPk_, to, value, data, gas);
     help_execTransaction(multiSig_, prank_, to, value, data, gas, signatures, nonce, revertType_);
+  }
+
+  /// @dev Invokes `multiRequest` on the wallet and returns the parsed
+  ///      `MultiRequestExecuted` event along with the per-call arrays.
+  ///      Used by the partial-failure / per-call-result tests.
+  function help_multiRequestAndCapture(
+    address prank_,
+    MyMultiSig multiSig_,
+    uint256[] memory ownersPk_,
+    address[] memory to_,
+    uint256[] memory value_,
+    bytes[] memory data_,
+    uint256[] memory txGas_
+  ) internal returns (uint256 txNonce, bool[] memory successes, bytes[] memory returnData) {
+    vm.prank(prank_);
+    address to = address(multiSig_);
+    uint256 value = 0;
+    bytes memory data = build_multiRequest(to_, value_, data_, txGas_);
+    uint256 gas;
+    for (uint256 i = 0; i < to_.length; i++) {
+      gas += txGas_[i];
+    }
+    uint96 nonce = multiSig_.nonce();
+    bytes memory signatures = build_signatures(multiSig_, ownersPk_, to, value, data, gas);
+
+    vm.recordLogs();
+    multiSig_.execTransaction(to, value, data, gas, signatures);
+    Vm.Log[] memory logs = vm.getRecordedLogs();
+
+    bool found;
+    for (uint256 i = 0; i < logs.length; i++) {
+      if (logs[i].topics[0] == keccak256('MultiRequestExecuted(uint256,bool[],bytes[])')) {
+        // txNonce is the indexed first parameter — it lives in topics[1].
+        txNonce = uint256(logs[i].topics[1]);
+        (successes, returnData) = abi.decode(logs[i].data, (bool[], bytes[]));
+        found = true;
+        break;
+      }
+    }
+    require(found, 'MultiRequestExecuted event not found');
+    assertEq(txNonce, nonce);
   }
 
   function help_multiRequest(

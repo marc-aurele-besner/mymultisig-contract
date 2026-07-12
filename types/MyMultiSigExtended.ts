@@ -405,6 +405,7 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     "ApproveHash(address,bytes32)": EventFragment;
     "ContractEndOfLife(uint256)": EventFragment;
     "EIP712DomainChanged()": EventFragment;
+    "MultiRequestExecuted(uint256,bool[],bytes[])": EventFragment;
     "OwnerAdded(address)": EventFragment;
     "OwnerRemoved(address)": EventFragment;
     "ThresholdChanged(uint256)": EventFragment;
@@ -415,6 +416,7 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
   getEvent(nameOrSignatureOrTopic: "ApproveHash"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "ContractEndOfLife"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "EIP712DomainChanged"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "MultiRequestExecuted"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "OwnerAdded"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "OwnerRemoved"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "ThresholdChanged"): EventFragment;
@@ -452,6 +454,19 @@ export type EIP712DomainChangedEvent = TypedEvent<
 
 export type EIP712DomainChangedEventFilter =
   TypedEventFilter<EIP712DomainChangedEvent>;
+
+export interface MultiRequestExecutedEventObject {
+  txNonce: BigNumber;
+  successes: boolean[];
+  returnData: string[];
+}
+export type MultiRequestExecutedEvent = TypedEvent<
+  [BigNumber, boolean[], string[]],
+  MultiRequestExecutedEventObject
+>;
+
+export type MultiRequestExecutedEventFilter =
+  TypedEventFilter<MultiRequestExecutedEvent>;
 
 export interface OwnerAddedEventObject {
   owner: string;
@@ -1023,7 +1038,9 @@ export interface MyMultiSigExtended extends BaseContract {
       data: PromiseOrValue<BytesLike>[],
       txGas: PromiseOrValue<BigNumberish>[],
       overrides?: CallOverrides
-    ): Promise<boolean>;
+    ): Promise<
+      [boolean[], string[]] & { successes: boolean[]; returnData: string[] }
+    >;
 
     name(overrides?: CallOverrides): Promise<string>;
 
@@ -1124,6 +1141,17 @@ export interface MyMultiSigExtended extends BaseContract {
 
     "EIP712DomainChanged()"(): EIP712DomainChangedEventFilter;
     EIP712DomainChanged(): EIP712DomainChangedEventFilter;
+
+    "MultiRequestExecuted(uint256,bool[],bytes[])"(
+      txNonce?: PromiseOrValue<BigNumberish> | null,
+      successes?: null,
+      returnData?: null
+    ): MultiRequestExecutedEventFilter;
+    MultiRequestExecuted(
+      txNonce?: PromiseOrValue<BigNumberish> | null,
+      successes?: null,
+      returnData?: null
+    ): MultiRequestExecutedEventFilter;
 
     "OwnerAdded(address)"(
       owner?: PromiseOrValue<string> | null
