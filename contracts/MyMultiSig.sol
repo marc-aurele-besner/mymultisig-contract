@@ -14,6 +14,13 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
 
   mapping(address => bool) private _owners;
   mapping(uint256 => bool) private _ownerNonceSigned;
+  /// @notice Per-hash set of owners who have pre-approved the transaction
+  ///         via `approveHash`. Keyed by the 32-byte EIP-712 transaction hash.
+  mapping(bytes32 => mapping(address => bool)) private _approvedHashes;
+  /// @notice Per-hash list of owners who have pre-approved the transaction,
+  ///         in the order they called `approveHash`. Stored as an array so
+  ///         `getApprovedOwners` can return it without an extra off-chain indexer.
+  mapping(bytes32 => address[]) private _approvedOwners;
 
   bytes32 private constant _TRANSACTION_TYPEHASH =
     keccak256('Transaction(address to,uint256 value,bytes data,uint256 gas,uint96 nonce)');
@@ -44,12 +51,18 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     bytes reason
   );
   event ContractEndOfLife(uint256 indexed txNonceLefts);
+  /// @notice Emitted when an owner pre-approves a transaction hash via
+  ///         `approveHash`. The hash is the EIP-712 transaction hash; it
+  ///         encodes `(to, value, data, gas, nonce)` so each approval is
+  ///         bound to a single, fully-specified transaction.
+  event ApproveHash(address indexed owner, bytes32 indexed hash);
 
   error OnlyThisContract();
   error TooManyOwners();
   error InvalidSignatures();
   error InvalidOwner();
   error OwnerAlreadySigned();
+  error NotOwner();
   error NotEnoughGas();
   error OwnerAlreadyExists();
   error CannotRemoveOwnerBelowThreshold();
@@ -113,6 +126,46 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @return True if the address is the owner, false otherwise.
   function isOwner(address owner) public view virtual returns (bool) {
     return _owners[owner];
+  }
+
+  /// @notice Returns the owners who have pre-approved the given hash via
+  ///         `approveHash`. Returned in the order they called `approveHash`;
+  ///         each address appears at most once because the function is
+  ///         idempotent per (hash, owner).
+  /// @param hash The EIP-712 transaction hash.
+  /// @return The list of owner addresses that approved `hash`.
+  function getApprovedOwners(bytes32 hash) public view virtual returns (address[] memory) {
+    return _approvedOwners[hash];
+  }
+
+  /// @notice Returns the signature threshold that `execTransaction` will check
+  ///         against for `hash`. The wallet has a single contract-wide
+  ///         threshold; the `hash` argument exists for Safe API parity so
+  ///         off-chain clients can query the threshold using the same value
+  ///         they pass to `approveHash`.
+  /// @return The current threshold.
+  function getThreshold(bytes32 /* hash */) public view virtual returns (uint256) {
+    return _threshold;
+  }
+
+  /// @notice Pre-approves a transaction hash off the owner's own balance /
+  ///         signature collection. The hash is the EIP-712 transaction hash
+  ///         (see `generateHash`); the corresponding transaction may later be
+  ///         executed by anyone — including a relayer — once enough
+  ///         signatures and approvals have been collected for it.
+  /// @dev Idempotent per (owner, hash): calling twice with the same
+  ///      arguments is a no-op (does not revert, does not double-count).
+  ///      The owner's vote is stored until the matching transaction is
+  ///      executed or the nonce is invalidated via `markNonceAsUsed`.
+  ///      Reverts with `NotOwner` if `msg.sender` is not a current owner.
+  /// @param hash The EIP-712 transaction hash to approve.
+  function approveHash(bytes32 hash) public virtual {
+    if (!_owners[msg.sender]) revert NotOwner();
+    if (_approvedHashes[hash][msg.sender]) return;
+    _approvedHashes[hash][msg.sender] = true;
+    _approvedOwners[hash].push(msg.sender);
+    _recordOwnerApproval(msg.sender);
+    emit ApproveHash(msg.sender, hash);
   }
 
   /// @notice Executes a transaction
@@ -234,19 +287,40 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     bytes memory signatures
   ) public view returns (bool valid) {
     uint16 threshold_ = _threshold;
-    if (signatures.length < 65 * threshold_) return false;
-    address currentOwner;
     bytes32 txHash = generateHash(to, value, data, txnGas, txnNonce);
-    for (uint16 i; i < threshold_; ) {
+    // Count on-chain approvals first; they offset the number of ECDSA
+    // signatures required to reach `threshold_`. An approved owner that was
+    // later removed from the wallet, or one whose vote was already consumed
+    // for this nonce, fails the check below.
+    address[] storage approved = _approvedOwners[txHash];
+    uint256 ownerNonce;
+    uint256 counted;
+    for (uint256 i; i < approved.length; ) {
       unchecked {
-        currentOwner = _getCurrentOwner(txHash, signatures, i);
-        if (
-          !_owners[currentOwner] || _ownerNonceSigned[uint256(uint96(txnNonce)) + uint256(uint160(currentOwner) << 96)]
-        ) return false;
+        address approvedOwner = approved[i];
+        if (!_owners[approvedOwner]) return false;
+        ownerNonce = uint256(uint96(txnNonce)) + uint256(uint160(approvedOwner) << 96);
+        if (_ownerNonceSigned[ownerNonce]) return false;
+        ++counted;
         ++i;
       }
     }
-    return true;
+    // We only need enough signatures to bring the total up to `threshold_`.
+    uint256 requiredSigs = counted >= threshold_ ? 0 : uint256(threshold_) - counted;
+    if (signatures.length < 65 * requiredSigs) return false;
+    uint256 sigCount = signatures.length / 65;
+    for (uint256 i = 0; i < sigCount; ) {
+      unchecked {
+        if (counted >= threshold_) break;
+        address currentOwner = _getCurrentOwner(txHash, signatures, uint16(i));
+        if (!_owners[currentOwner]) return false;
+        ownerNonce = uint256(uint96(txnNonce)) + uint256(uint160(currentOwner) << 96);
+        if (_ownerNonceSigned[ownerNonce]) return false;
+        ++counted;
+        ++i;
+      }
+    }
+    return counted >= threshold_;
   }
 
   /// @notice Determines if the owner is valid
@@ -288,16 +362,52 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     bytes memory signatures
   ) internal virtual returns (bool valid) {
     uint16 threshold_ = _threshold;
-    if (signatures.length < 65 * threshold_) return (false);
     bytes32 txHash = generateHash(to, value, data, txnGas, txnNonce);
-    for (uint16 i; i < threshold_; ) {
+    // First count on-chain approvals for the transaction hash. Each approved
+    // owner is recorded in `_ownerNonceSigned` so that an ECDSA signature
+    // supplied for the same owner+nonce pair reverts with `OwnerAlreadySigned`
+    // in `_validateOwner` below instead of being double-counted.
+    address[] storage approved = _approvedOwners[txHash];
+    uint256 ownerNonce;
+    uint256 counted;
+    for (uint256 i; i < approved.length; ) {
       unchecked {
-        _validateOwner(txHash, signatures, txnNonce, i);
+        address approvedOwner = approved[i];
+        if (!_owners[approvedOwner]) return false;
+        ownerNonce = uint256(uint96(txnNonce)) + uint256(uint160(approvedOwner) << 96);
+        if (_ownerNonceSigned[ownerNonce]) return false;
+        _ownerNonceSigned[ownerNonce] = true;
+        _recordOwnerApproval(approvedOwner);
+        ++counted;
         ++i;
       }
     }
-    return true;
+    // With `counted` slots already filled, the remaining signatures must
+    // bring the total up to `threshold_`. We only need to inspect that many
+    // 65-byte chunks; any extra bytes are ignored. `_validateOwner` retains
+    // the legacy `InvalidOwner` / `OwnerAlreadySigned` reverts so existing
+    // tests and integrations keep the same error semantics on the ECDSA path.
+    uint256 requiredSigs = counted >= threshold_ ? 0 : uint256(threshold_) - counted;
+    if (signatures.length < 65 * requiredSigs) return false;
+    uint256 sigCount = signatures.length / 65;
+    for (uint256 i = 0; i < sigCount; ) {
+      unchecked {
+        if (counted >= threshold_) break;
+        _validateOwner(txHash, signatures, txnNonce, uint16(i));
+        ++counted;
+        ++i;
+      }
+    }
+    return counted >= threshold_;
   }
+
+  /// @notice Hook fired each time an owner's vote is recorded against a
+  ///         transaction via `approveHash`. The base implementation is a
+  ///         no-op; `MyMultiSigExtended` overrides this hook to bump
+  ///         `lastAction` for inactivity tracking. The ECDSA path already
+  ///         records `lastAction` through the `_validateOwner` override on
+  ///         `MyMultiSigExtended`.
+  function _recordOwnerApproval(address /* owner */) internal virtual {}
 
   /// @notice Adds an owner
   /// @param owner The address to be added as an owner.

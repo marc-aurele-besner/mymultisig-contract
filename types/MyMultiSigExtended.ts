@@ -46,10 +46,14 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
   functions: {
     "addOwner(address)": FunctionFragment;
     "allowOnlyOwnerRequest()": FunctionFragment;
+    "approveHash(bytes32)": FunctionFragment;
     "changeThreshold(uint16)": FunctionFragment;
+    "eip712Domain()": FunctionFragment;
     "execTransaction(address,uint256,bytes,uint256,uint256,bytes)": FunctionFragment;
     "execTransaction(address,uint256,bytes,uint256,bytes)": FunctionFragment;
     "generateHash(address,uint256,bytes,uint256,uint256)": FunctionFragment;
+    "getApprovedOwners(bytes32)": FunctionFragment;
+    "getThreshold(bytes32)": FunctionFragment;
     "incrementNonce()": FunctionFragment;
     "isNonceUsed(uint256)": FunctionFragment;
     "isOwner(address)": FunctionFragment;
@@ -67,7 +71,7 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     "removeOwner(address)": FunctionFragment;
     "replaceOwner(address,address)": FunctionFragment;
     "setOnlyOwnerRequest(bool)": FunctionFragment;
-    "setOwnerSettings(uint256,address)": FunctionFragment;
+    "setOwnerSettings(address,uint256,address)": FunctionFragment;
     "setTransferInactiveOwnershipAfter(uint256)": FunctionFragment;
     "supportsInterface(bytes4)": FunctionFragment;
     "takeOverOwnership(address)": FunctionFragment;
@@ -79,10 +83,14 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     nameOrSignatureOrTopic:
       | "addOwner"
       | "allowOnlyOwnerRequest"
+      | "approveHash"
       | "changeThreshold"
+      | "eip712Domain"
       | "execTransaction(address,uint256,bytes,uint256,uint256,bytes)"
       | "execTransaction(address,uint256,bytes,uint256,bytes)"
       | "generateHash"
+      | "getApprovedOwners"
+      | "getThreshold"
       | "incrementNonce"
       | "isNonceUsed"
       | "isOwner"
@@ -117,8 +125,16 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     values?: undefined
   ): string;
   encodeFunctionData(
+    functionFragment: "approveHash",
+    values: [PromiseOrValue<BytesLike>]
+  ): string;
+  encodeFunctionData(
     functionFragment: "changeThreshold",
     values: [PromiseOrValue<BigNumberish>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "eip712Domain",
+    values?: undefined
   ): string;
   encodeFunctionData(
     functionFragment: "execTransaction(address,uint256,bytes,uint256,uint256,bytes)",
@@ -150,6 +166,14 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
       PromiseOrValue<BigNumberish>,
       PromiseOrValue<BigNumberish>
     ]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "getApprovedOwners",
+    values: [PromiseOrValue<BytesLike>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "getThreshold",
+    values: [PromiseOrValue<BytesLike>]
   ): string;
   encodeFunctionData(
     functionFragment: "incrementNonce",
@@ -244,7 +268,11 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "setOwnerSettings",
-    values: [PromiseOrValue<BigNumberish>, PromiseOrValue<string>]
+    values: [
+      PromiseOrValue<string>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<string>
+    ]
   ): string;
   encodeFunctionData(
     functionFragment: "setTransferInactiveOwnershipAfter",
@@ -267,7 +295,15 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "approveHash",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "changeThreshold",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "eip712Domain",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -280,6 +316,14 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "generateHash",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "getApprovedOwners",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "getThreshold",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -358,21 +402,36 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
   decodeFunctionResult(functionFragment: "version", data: BytesLike): Result;
 
   events: {
+    "ApproveHash(address,bytes32)": EventFragment;
     "ContractEndOfLife(uint256)": EventFragment;
+    "EIP712DomainChanged()": EventFragment;
     "OwnerAdded(address)": EventFragment;
     "OwnerRemoved(address)": EventFragment;
     "ThresholdChanged(uint256)": EventFragment;
     "TransactionExecuted(address,address,uint256,bytes,uint256,uint256)": EventFragment;
-    "TransactionFailed(address,address,uint256,bytes,uint256,uint256)": EventFragment;
+    "TxFailure(address,address,uint256,bytes,uint256,uint256,bytes)": EventFragment;
   };
 
+  getEvent(nameOrSignatureOrTopic: "ApproveHash"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "ContractEndOfLife"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "EIP712DomainChanged"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "OwnerAdded"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "OwnerRemoved"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "ThresholdChanged"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "TransactionExecuted"): EventFragment;
-  getEvent(nameOrSignatureOrTopic: "TransactionFailed"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "TxFailure"): EventFragment;
 }
+
+export interface ApproveHashEventObject {
+  owner: string;
+  hash: string;
+}
+export type ApproveHashEvent = TypedEvent<
+  [string, string],
+  ApproveHashEventObject
+>;
+
+export type ApproveHashEventFilter = TypedEventFilter<ApproveHashEvent>;
 
 export interface ContractEndOfLifeEventObject {
   txNonceLefts: BigNumber;
@@ -384,6 +443,15 @@ export type ContractEndOfLifeEvent = TypedEvent<
 
 export type ContractEndOfLifeEventFilter =
   TypedEventFilter<ContractEndOfLifeEvent>;
+
+export interface EIP712DomainChangedEventObject {}
+export type EIP712DomainChangedEvent = TypedEvent<
+  [],
+  EIP712DomainChangedEventObject
+>;
+
+export type EIP712DomainChangedEventFilter =
+  TypedEventFilter<EIP712DomainChangedEvent>;
 
 export interface OwnerAddedEventObject {
   owner: string;
@@ -426,21 +494,21 @@ export type TransactionExecutedEvent = TypedEvent<
 export type TransactionExecutedEventFilter =
   TypedEventFilter<TransactionExecutedEvent>;
 
-export interface TransactionFailedEventObject {
+export interface TxFailureEventObject {
   sender: string;
   to: string;
   value: BigNumber;
   data: string;
   txnGas: BigNumber;
   txnNonce: BigNumber;
+  reason: string;
 }
-export type TransactionFailedEvent = TypedEvent<
-  [string, string, BigNumber, string, BigNumber, BigNumber],
-  TransactionFailedEventObject
+export type TxFailureEvent = TypedEvent<
+  [string, string, BigNumber, string, BigNumber, BigNumber, string],
+  TxFailureEventObject
 >;
 
-export type TransactionFailedEventFilter =
-  TypedEventFilter<TransactionFailedEvent>;
+export type TxFailureEventFilter = TypedEventFilter<TxFailureEvent>;
 
 export interface MyMultiSigExtended extends BaseContract {
   connect(signerOrProvider: Signer | Provider | string): this;
@@ -476,10 +544,29 @@ export interface MyMultiSigExtended extends BaseContract {
 
     allowOnlyOwnerRequest(overrides?: CallOverrides): Promise<[boolean]>;
 
+    approveHash(
+      hash: PromiseOrValue<BytesLike>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
     changeThreshold(
       newThreshold: PromiseOrValue<BigNumberish>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
+
+    eip712Domain(
+      overrides?: CallOverrides
+    ): Promise<
+      [string, string, string, BigNumber, string, string, BigNumber[]] & {
+        fields: string;
+        name: string;
+        version: string;
+        chainId: BigNumber;
+        verifyingContract: string;
+        salt: string;
+        extensions: BigNumber[];
+      }
+    >;
 
     "execTransaction(address,uint256,bytes,uint256,uint256,bytes)"(
       to: PromiseOrValue<string>,
@@ -508,6 +595,16 @@ export interface MyMultiSigExtended extends BaseContract {
       txnNonce: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
     ): Promise<[string]>;
+
+    getApprovedOwners(
+      hash: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<[string[]]>;
+
+    getThreshold(
+      arg0: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<[BigNumber]>;
 
     incrementNonce(
       overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -604,6 +701,7 @@ export interface MyMultiSigExtended extends BaseContract {
     ): Promise<ContractTransaction>;
 
     setOwnerSettings(
+      owner: PromiseOrValue<string>,
       transferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
       delegatee: PromiseOrValue<string>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -636,10 +734,29 @@ export interface MyMultiSigExtended extends BaseContract {
 
   allowOnlyOwnerRequest(overrides?: CallOverrides): Promise<boolean>;
 
+  approveHash(
+    hash: PromiseOrValue<BytesLike>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
   changeThreshold(
     newThreshold: PromiseOrValue<BigNumberish>,
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
+
+  eip712Domain(
+    overrides?: CallOverrides
+  ): Promise<
+    [string, string, string, BigNumber, string, string, BigNumber[]] & {
+      fields: string;
+      name: string;
+      version: string;
+      chainId: BigNumber;
+      verifyingContract: string;
+      salt: string;
+      extensions: BigNumber[];
+    }
+  >;
 
   "execTransaction(address,uint256,bytes,uint256,uint256,bytes)"(
     to: PromiseOrValue<string>,
@@ -668,6 +785,16 @@ export interface MyMultiSigExtended extends BaseContract {
     txnNonce: PromiseOrValue<BigNumberish>,
     overrides?: CallOverrides
   ): Promise<string>;
+
+  getApprovedOwners(
+    hash: PromiseOrValue<BytesLike>,
+    overrides?: CallOverrides
+  ): Promise<string[]>;
+
+  getThreshold(
+    arg0: PromiseOrValue<BytesLike>,
+    overrides?: CallOverrides
+  ): Promise<BigNumber>;
 
   incrementNonce(
     overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -764,6 +891,7 @@ export interface MyMultiSigExtended extends BaseContract {
   ): Promise<ContractTransaction>;
 
   setOwnerSettings(
+    owner: PromiseOrValue<string>,
     transferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
     delegatee: PromiseOrValue<string>,
     overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -796,10 +924,29 @@ export interface MyMultiSigExtended extends BaseContract {
 
     allowOnlyOwnerRequest(overrides?: CallOverrides): Promise<boolean>;
 
+    approveHash(
+      hash: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
     changeThreshold(
       newThreshold: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
     ): Promise<void>;
+
+    eip712Domain(
+      overrides?: CallOverrides
+    ): Promise<
+      [string, string, string, BigNumber, string, string, BigNumber[]] & {
+        fields: string;
+        name: string;
+        version: string;
+        chainId: BigNumber;
+        verifyingContract: string;
+        salt: string;
+        extensions: BigNumber[];
+      }
+    >;
 
     "execTransaction(address,uint256,bytes,uint256,uint256,bytes)"(
       to: PromiseOrValue<string>,
@@ -828,6 +975,16 @@ export interface MyMultiSigExtended extends BaseContract {
       txnNonce: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
     ): Promise<string>;
+
+    getApprovedOwners(
+      hash: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<string[]>;
+
+    getThreshold(
+      arg0: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
 
     incrementNonce(overrides?: CallOverrides): Promise<void>;
 
@@ -922,6 +1079,7 @@ export interface MyMultiSigExtended extends BaseContract {
     ): Promise<void>;
 
     setOwnerSettings(
+      owner: PromiseOrValue<string>,
       transferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
       delegatee: PromiseOrValue<string>,
       overrides?: CallOverrides
@@ -948,12 +1106,24 @@ export interface MyMultiSigExtended extends BaseContract {
   };
 
   filters: {
+    "ApproveHash(address,bytes32)"(
+      owner?: PromiseOrValue<string> | null,
+      hash?: PromiseOrValue<BytesLike> | null
+    ): ApproveHashEventFilter;
+    ApproveHash(
+      owner?: PromiseOrValue<string> | null,
+      hash?: PromiseOrValue<BytesLike> | null
+    ): ApproveHashEventFilter;
+
     "ContractEndOfLife(uint256)"(
       txNonceLefts?: PromiseOrValue<BigNumberish> | null
     ): ContractEndOfLifeEventFilter;
     ContractEndOfLife(
       txNonceLefts?: PromiseOrValue<BigNumberish> | null
     ): ContractEndOfLifeEventFilter;
+
+    "EIP712DomainChanged()"(): EIP712DomainChangedEventFilter;
+    EIP712DomainChanged(): EIP712DomainChangedEventFilter;
 
     "OwnerAdded(address)"(
       owner?: PromiseOrValue<string> | null
@@ -991,22 +1161,24 @@ export interface MyMultiSigExtended extends BaseContract {
       txnNonce?: null
     ): TransactionExecutedEventFilter;
 
-    "TransactionFailed(address,address,uint256,bytes,uint256,uint256)"(
+    "TxFailure(address,address,uint256,bytes,uint256,uint256,bytes)"(
       sender?: PromiseOrValue<string> | null,
       to?: PromiseOrValue<string> | null,
       value?: PromiseOrValue<BigNumberish> | null,
       data?: null,
       txnGas?: null,
-      txnNonce?: null
-    ): TransactionFailedEventFilter;
-    TransactionFailed(
+      txnNonce?: null,
+      reason?: null
+    ): TxFailureEventFilter;
+    TxFailure(
       sender?: PromiseOrValue<string> | null,
       to?: PromiseOrValue<string> | null,
       value?: PromiseOrValue<BigNumberish> | null,
       data?: null,
       txnGas?: null,
-      txnNonce?: null
-    ): TransactionFailedEventFilter;
+      txnNonce?: null,
+      reason?: null
+    ): TxFailureEventFilter;
   };
 
   estimateGas: {
@@ -1017,10 +1189,17 @@ export interface MyMultiSigExtended extends BaseContract {
 
     allowOnlyOwnerRequest(overrides?: CallOverrides): Promise<BigNumber>;
 
+    approveHash(
+      hash: PromiseOrValue<BytesLike>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
     changeThreshold(
       newThreshold: PromiseOrValue<BigNumberish>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
+
+    eip712Domain(overrides?: CallOverrides): Promise<BigNumber>;
 
     "execTransaction(address,uint256,bytes,uint256,uint256,bytes)"(
       to: PromiseOrValue<string>,
@@ -1047,6 +1226,16 @@ export interface MyMultiSigExtended extends BaseContract {
       data: PromiseOrValue<BytesLike>,
       txnGas: PromiseOrValue<BigNumberish>,
       txnNonce: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    getApprovedOwners(
+      hash: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    getThreshold(
+      arg0: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
@@ -1145,6 +1334,7 @@ export interface MyMultiSigExtended extends BaseContract {
     ): Promise<BigNumber>;
 
     setOwnerSettings(
+      owner: PromiseOrValue<string>,
       transferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
       delegatee: PromiseOrValue<string>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -1180,10 +1370,17 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
+    approveHash(
+      hash: PromiseOrValue<BytesLike>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
     changeThreshold(
       newThreshold: PromiseOrValue<BigNumberish>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
+
+    eip712Domain(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     "execTransaction(address,uint256,bytes,uint256,uint256,bytes)"(
       to: PromiseOrValue<string>,
@@ -1210,6 +1407,16 @@ export interface MyMultiSigExtended extends BaseContract {
       data: PromiseOrValue<BytesLike>,
       txnGas: PromiseOrValue<BigNumberish>,
       txnNonce: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    getApprovedOwners(
+      hash: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    getThreshold(
+      arg0: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
@@ -1308,6 +1515,7 @@ export interface MyMultiSigExtended extends BaseContract {
     ): Promise<PopulatedTransaction>;
 
     setOwnerSettings(
+      owner: PromiseOrValue<string>,
       transferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
       delegatee: PromiseOrValue<string>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
