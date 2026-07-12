@@ -1,6 +1,6 @@
 import { ethers } from 'hardhat'
 
-import Helper from '../test/shared'
+import Helper from '../../test/shared'
 
 let provider: any
 let owner01: any
