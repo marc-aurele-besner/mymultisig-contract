@@ -106,6 +106,16 @@ contract MyMultiSigExtended is MyMultiSig {
     }
   }
 
+  /// @notice Bumps `lastAction` for the owner whenever their vote is recorded
+  ///         against a transaction — both when the vote arrives as an off-chain
+  ///         ECDSA signature inside `execTransaction` and when the owner
+  ///         pre-approves the transaction via `approveHash`. Without this
+  ///         override, on-chain approvals would silently bypass the inactivity
+  ///         tracking that `takeOverOwnership` relies on.
+  function _recordOwnerApproval(address owner) internal virtual override {
+    _ownerSettings[owner].lastAction = block.timestamp;
+  }
+
   /// @notice Determines if the signature is valid (extended)
   /// @dev Rejects signatures bound to a nonce that has already been marked as used,
   ///      so `markNonceAsUsed` permanently invalidates any transaction whose

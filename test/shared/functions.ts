@@ -494,3 +494,36 @@ export const execTransactionWithNonceReverted = async (
     sendRawTxn(input, submitter, ethers, ethers.provider),
   ).to.be.revertedWithCustomError(contract, errorMsg)
 }
+
+/// @notice Calls `approveHash(hash)` from `owner` and asserts the resulting
+/// `ApproveHash` event is emitted (or reverts when `errorMsg` is supplied).
+/// When `expectEvent` is false (idempotent re-call), the helper only asserts
+/// the call succeeded without requiring an event.
+export const approveHash = async (
+  contract: MyMultiSig | MyMultiSigExtended,
+  owner: Wallet,
+  hash: string,
+  errorMsg?: string,
+  expectEvent = true
+) => {
+  if (!errorMsg) {
+    const tx = await contract.connect(owner).approveHash(hash)
+    const receipt = await tx.wait()
+    if (expectEvent) {
+      const parsed = receipt.logs
+        .map((log: any) => {
+          try {
+            return contract.interface.parseLog(log)
+          } catch (e) {
+            return
+          }
+        })
+        .find((e: any) => e && e.name === 'ApproveHash')
+      expect(parsed, 'ApproveHash event not found').to.not.equal(undefined)
+      expect(parsed!.args.owner).to.equal(owner.address)
+      expect(parsed!.args.hash).to.equal(hash)
+    }
+  } else {
+    await expect(contract.connect(owner).approveHash(hash)).to.be.revertedWithCustomError(contract, errorMsg)
+  }
+}

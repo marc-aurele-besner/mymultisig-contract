@@ -7,6 +7,7 @@ export default {
   NOT_ENOUGH_GAS: 'NotEnoughGas',
   NONCE_ALREADY_USED: 'NonceAlreadyUsed',
   OWNER_ALREADY_SIGNED: 'OwnerAlreadySigned',
+  NOT_OWNER: 'NotOwner',
   CANNOT_REMOVE_OWNERS_BELOW_THRESHOLD: 'CannotRemoveOwnerBelowThreshold',
 
   THRESHOLD_MUST_BE_GREATER_THAN_ZERO: 'ThresholdMustBeGreaterThanZero',

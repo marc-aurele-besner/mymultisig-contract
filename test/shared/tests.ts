@@ -600,6 +600,117 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
       expect(await mockERC20.balanceOf(owner02.address)).to.be.equal(50)
       expect(await mockERC20.balanceOf(owner03.address)).to.be.equal(50)
     })
+
+    describe('approveHash - safe-style on-chain approvals', function () {
+      const hashForAddUser01AtNonce = async (contract: any, nonce: any) =>
+        await contract.generateHash(
+          contract.address,
+          Helper.ZERO,
+          contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
+          Helper.DEFAULT_GAS,
+          nonce,
+        )
+
+      it('Owner can pre-approve a hash via approveHash and the event is emitted', async function () {
+        const hash = await hashForAddUser01AtNonce(contract, ethers.BigNumber.from(0))
+        expect(await contract.getApprovedOwners(hash)).to.have.lengthOf(0)
+        await Helper.approveHash(contract, owner01, hash)
+        const approved = await contract.getApprovedOwners(hash)
+        expect(approved).to.have.lengthOf(1)
+        expect(approved[0]).to.equal(owner01.address)
+        expect(await contract.getThreshold(hash)).to.equal(Helper.DEFAULT_THRESHOLD)
+      })
+
+      it('approveHash is idempotent per (owner, hash)', async function () {
+        const hash = await hashForAddUser01AtNonce(contract, ethers.BigNumber.from(0))
+        await Helper.approveHash(contract, owner01, hash)
+        // Second call from the same owner for the same hash is a no-op: the
+        // ApproveHash event must NOT be emitted again, otherwise relayer
+        // tooling would count the same vote twice.
+        await Helper.approveHash(contract, owner01, hash, undefined, false)
+        const approved = await contract.getApprovedOwners(hash)
+        expect(approved).to.have.lengthOf(1)
+        expect(approved[0]).to.equal(owner01.address)
+      })
+
+      it('approveHash reverts when called by a non-owner', async function () {
+        const hash = await hashForAddUser01AtNonce(contract, ethers.BigNumber.from(0))
+        await Helper.approveHash(contract, user01, hash, Helper.errors.NOT_OWNER)
+        expect(await contract.getApprovedOwners(hash)).to.have.lengthOf(0)
+      })
+
+      it('Approving the same hash from two different owners accumulates in getApprovedOwners', async function () {
+        const hash = await hashForAddUser01AtNonce(contract, ethers.BigNumber.from(0))
+        await Helper.approveHash(contract, owner01, hash)
+        await Helper.approveHash(contract, owner02, hash)
+        const approved = await contract.getApprovedOwners(hash)
+        expect(approved).to.have.lengthOf(2)
+        expect(approved).to.include.members([owner01.address, owner02.address])
+      })
+
+      it('A single on-chain approval + a single ECDSA signature reaches the threshold', async function () {
+        const data = contract.interface.encodeFunctionData('addOwner(address)', [user01.address])
+        const hash = await hashForAddUser01AtNonce(contract, ethers.BigNumber.from(0))
+        // owner01 approves on-chain; owner02 supplies the only ECDSA signature.
+        await Helper.approveHash(contract, owner01, hash)
+        const signatures = await Helper.prepareSignatures(
+          contract,
+          [owner02],
+          contract.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          ethers.BigNumber.from(0),
+        )
+        // 1 ECDSA sig + 1 on-chain approval = threshold (2).
+        await Helper.execTransaction(
+          contract,
+          owner01,
+          [owner02],
+          contract.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          undefined,
+          ['OwnerAdded'],
+          signatures,
+        )
+        expect(await contract.isOwner(user01.address)).to.be.true
+      })
+
+      it('Approving a hash for a different nonce does not affect the original tx', async function () {
+        const hashN0 = await hashForAddUser01AtNonce(contract, ethers.BigNumber.from(0))
+        const hashN1 = await hashForAddUser01AtNonce(contract, ethers.BigNumber.from(1))
+        await Helper.approveHash(contract, owner01, hashN0)
+        await Helper.approveHash(contract, owner02, hashN1)
+        expect(await contract.getApprovedOwners(hashN0)).to.have.lengthOf(1)
+        expect(await contract.getApprovedOwners(hashN1)).to.have.lengthOf(1)
+      })
+
+      it('Approving with an owner who was later removed makes isValidSignature false', async function () {
+        const data = contract.interface.encodeFunctionData('replaceOwner(address,address)', [
+          owner01.address,
+          user01.address,
+        ])
+        // owner01 approves a hash, then is replaced via the multisig; the
+        // previously-recorded approval is now stale and a fresh approval from
+        // owner01 must revert with NotOwner.
+        const hash = await hashForAddUser01AtNonce(contract, ethers.BigNumber.from(0))
+        await Helper.approveHash(contract, owner01, hash)
+        await Helper.execTransaction(
+          contract,
+          owner01,
+          [owner01, owner02, owner03],
+          contract.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          undefined,
+          ['OwnerRemoved', 'OwnerAdded'],
+        )
+        await Helper.approveHash(contract, owner01, hash, Helper.errors.NOT_OWNER)
+      })
+    })
   })
 }
 
