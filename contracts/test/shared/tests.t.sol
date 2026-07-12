@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.18;
+pragma solidity 0.8.24;
 
 import { Helper } from './helper.t.sol';
 import { Errors } from './errors.t.sol';
