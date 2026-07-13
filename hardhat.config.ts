@@ -4,6 +4,7 @@ import { subtask } from 'hardhat/config'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as dotenv from 'dotenv'
+import { glob as tcGlob, runTypeChain as tcRunTypeChain } from 'typechain'
 import '@nomicfoundation/hardhat-toolbox'
 import 'deployment-tool'
 import '@openzeppelin/hardhat-upgrades'
@@ -37,6 +38,57 @@ subtask(TASK_COMPILE_GET_REMAPPINGS, async (): Promise<Record<string, string>> =
     remappings[from] = to
   }
   return remappings
+})
+
+// `@typechain/hardhat@6.1.5` (bundled) globs artifacts with
+// `${artifacts}/!(build-info)/**/+([a-zA-Z0-9_]).json`. The extglob only
+// excludes a direct child `build-info/` dir, so build-info files emitted
+// under per-source paths (e.g. `artifacts/contracts/build-info/*.json`) and
+// Hardhat's `*.dbg.json` debug artifacts still match the glob. Neither shape
+// is an ABI array or has `.abi`/`.compilerOutput.abi`, so typechain's
+// `extractAbi` throws `MalformedAbiError: Not a valid ABI`. Re-run the same
+// glob here, drop the build-info / debug files, and drive `runTypeChain`
+// directly so the typechain step succeeds.
+// `@typechain/hardhat@6.1.5` (bundled) globs artifacts with
+// `${artifacts}/!(build-info)/**/+([a-zA-Z0-9_]).json`. The extglob only
+// excludes a direct child `build-info/` dir, so build-info files emitted
+// under per-source paths (e.g. `artifacts/contracts/build-info/*.json`) and
+// Hardhat's `*.dbg.json` debug artifacts still match the glob. Neither shape
+// is an ABI array or has `.abi`/`.compilerOutput.abi`, so typechain's
+// `extractAbi` throws `MalformedAbiError: Not a valid ABI`. Override the
+// subtask's action to drop the build-info / debug files before driving
+// `runTypeChain` directly. Hardhat forbids redefining params on an
+// overridden task, so we only `setAction` here — `compileSolOutput` and
+// `quiet` stay defined by the plugin's `addParam`/`addFlag` calls.
+subtask('typechain:generate-types').setAction(async ({ quiet }: { quiet: boolean }, { config }: { config: any }) => {
+  const cwd = config.paths.root
+  const tcCfg = config.typechain
+  const isBuildInfoOrDbg = (p: string) =>
+    /[/\\]build-info[/\\]/.test(p) || /\.dbg\.json$/i.test(p)
+  const allFiles = tcGlob(cwd, [`${config.paths.artifacts}/!(build-info)/**/+([a-zA-Z0-9_]).json`]).filter(
+    (p: string) => !isBuildInfoOrDbg(p),
+  )
+  if (!quiet) {
+    console.log(
+      `Generating typings for: ${allFiles.length} artifacts in dir: ${tcCfg.outDir} for target: ${tcCfg.target}`,
+    )
+  }
+  const result = await tcRunTypeChain({
+    cwd,
+    allFiles,
+    filesToProcess: allFiles,
+    outDir: tcCfg.outDir,
+    target: tcCfg.target,
+    flags: {
+      alwaysGenerateOverloads: tcCfg.alwaysGenerateOverloads,
+      discriminateTypes: tcCfg.discriminateTypes,
+      tsNocheck: tcCfg.tsNocheck,
+      environment: 'hardhat',
+    },
+  })
+  if (!quiet) {
+    console.log(`Successfully generated ${result.filesGenerated} typings!`)
+  }
 })
 
 const {
