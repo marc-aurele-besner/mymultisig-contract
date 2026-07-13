@@ -26,7 +26,7 @@
     "network": "sepolia",
     "deployer": "0x45C36f4D95ab36758a87F293aB998d6F5736eCcc",
     "deploymentDate": "Mon Jul 14 2026 10:14:05 GMT-0400 (Eastern Daylight Saving Time)",
-    "chainId": 5,
+    "chainId": 11155111,
     "blockHash": "",
     "blockNumber": 0,
     "tag": "",
