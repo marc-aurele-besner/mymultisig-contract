@@ -457,6 +457,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     if (_owners[owner]) revert OwnerAlreadyExists();
     _owners[owner] = true;
     ++_ownerCount;
+    emit OwnerAdded(owner);
   }
 
   /// @notice Adds an owner
@@ -475,6 +476,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     if (_ownerCount <= _threshold) revert CannotRemoveOwnerBelowThreshold();
     _owners[owner] = false;
     --_ownerCount;
+    emit OwnerRemoved(owner);
   }
 
   /// @notice Removes an owner
@@ -519,6 +521,8 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     if (newOwner == address(0)) revert NewOwnerMustNotBeZero();
     _owners[oldOwner] = false;
     _owners[newOwner] = true;
+    emit OwnerRemoved(oldOwner);
+    emit OwnerAdded(newOwner);
   }
 
   function generateHash(
