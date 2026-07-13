@@ -1,44 +1,6 @@
 [
   {
     "name": "MyMultiSigFactory",
-    "address": "0xd3A97Ac36cAC19f2dd2503DA540cD5593b0D7Ad8",
-    "network": "goerli",
-    "deployer": "0x45C36f4D95ab36758a87F293aB998d6F5736eCcc",
-    "deploymentDate": "Sun Feb 12 2023 09:06:01 GMT-0500 (Eastern Standard Time)",
-    "chainId": 5,
-    "blockHash": "",
-    "blockNumber": 0,
-    "tag": "",
-    "extra": {
-      "owners": [
-        "0x45C36f4D95ab36758a87F293aB998d6F5736eCcc",
-        "0x0811ec2Ec667Ecc9D86c8bEE327C23e4435edFA6",
-        "0xEa43Ae240bd259aAe6bd5558a1301E87B6D41a71"
-      ],
-      "threshold": 2
-    }
-  },
-  {
-    "name": "MyMultiSigFactory",
-    "address": "0x4Bd98dbB4911Fa6caEcaD8E430b8595380A1c084",
-    "network": "goerli",
-    "deployer": "0x45C36f4D95ab36758a87F293aB998d6F5736eCcc",
-    "deploymentDate": "Sun Mar 19 2023 22:05:50 GMT-0400 (Eastern Daylight Saving Time)",
-    "chainId": 5,
-    "blockHash": "",
-    "blockNumber": 0,
-    "tag": "",
-    "extra": {
-      "owners": [
-        "0x45C36f4D95ab36758a87F293aB998d6F5736eCcc",
-        "0x0811ec2Ec667Ecc9D86c8bEE327C23e4435edFA6",
-        "0xEa43Ae240bd259aAe6bd5558a1301E87B6D41a71"
-      ],
-      "threshold": 2
-    }
-  },
-  {
-    "name": "MyMultiSigFactory",
     "address": "0x2D254390e35b59fe87a31e538D5604346b017082",
     "network": "goerli",
     "deployer": "0x45C36f4D95ab36758a87F293aB998d6F5736eCcc",
