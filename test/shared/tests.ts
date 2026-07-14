@@ -152,7 +152,13 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
       ).to.be.false
     })
 
-    it('Contract return false if non-owners and owners sign a transaction and call isValidSignature', async function () {
+    it('Mixed signature blob: non-owners silently fail validation but do not block other valid votes', async function () {
+      // Three entries in the blob: owner01, user02 (NOT an owner), owner03.
+      // Threshold is 2. With the new design each vote is validated
+      // independently — the non-owner slot is silently dropped, and the
+      // remaining two real owners reach threshold. (Pre-0.2.0 this test
+      // expected `false` because the OLD per-chunk loop bailed on the first
+      // non-owner; the new semantics are more permissive and correct.)
       expect(
         await Helper.isValidSignature(
           contract,
@@ -163,7 +169,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
           contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
           Helper.DEFAULT_GAS,
         ),
-      ).to.be.false
+      ).to.be.true
     })
 
     it('Can add a new owner', async function () {
@@ -190,7 +196,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         [owner01, owner01, owner01],
         user01.address,
         Helper.DEFAULT_GAS,
-        Helper.errors.OWNER_ALREADY_SIGNED,
+        Helper.errors.INVALID_SIGNATURES,
       )
     })
 
@@ -525,7 +531,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         Helper.ZERO,
         data,
         Helper.DEFAULT_GAS,
-        Helper.errors.INVALID_OWNER,
+        Helper.errors.INVALID_SIGNATURES,
         undefined,
         signatures,
       )
@@ -958,7 +964,13 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       ).to.be.false
     })
 
-    it('Contract return false if non-owners and owners sign a transaction and call isValidSignature', async function () {
+    it('Mixed signature blob: non-owners silently fail validation but do not block other valid votes', async function () {
+      // Three entries in the blob: owner01, user02 (NOT an owner), owner03.
+      // Threshold is 2. With the new design each vote is validated
+      // independently — the non-owner slot is silently dropped, and the
+      // remaining two real owners reach threshold. (Pre-0.2.0 this test
+      // expected `false` because the OLD per-chunk loop bailed on the first
+      // non-owner; the new semantics are more permissive and correct.)
       expect(
         await Helper.isValidSignature(
           contract,
@@ -969,7 +981,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
           contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
           Helper.DEFAULT_GAS,
         ),
-      ).to.be.false
+      ).to.be.true
     })
 
     it('Can add a new owner', async function () {
@@ -996,7 +1008,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         [owner01, owner01, owner01],
         user01.address,
         Helper.DEFAULT_GAS,
-        Helper.errors.OWNER_ALREADY_SIGNED,
+        Helper.errors.INVALID_SIGNATURES,
       )
     })
 
@@ -1416,7 +1428,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         Helper.ZERO,
         data as `0x${string}`,
         Helper.DEFAULT_GAS,
-        Helper.errors.INVALID_OWNER,
+        Helper.errors.INVALID_SIGNATURES,
         undefined,
         signatures,
       )
@@ -1642,7 +1654,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         Helper.DEFAULT_GAS,
         nonce,
         signatures,
-        Helper.errors.OWNER_ALREADY_SIGNED,
+        Helper.errors.INVALID_SIGNATURES,
       )
     })
 
@@ -1697,7 +1709,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       expect(
         await contract
           .connect(owner01)
-          .isValidSignature(
+          ['isValidSignature(address,uint256,bytes,uint256,uint256,bytes)'](
             contract.address,
             Helper.ZERO,
             data,
@@ -1709,7 +1721,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       expect(
         await contract
           .connect(owner01)
-          .isValidSignature(
+          ['isValidSignature(address,uint256,bytes,uint256,uint256,bytes)'](
             contract.address,
             Helper.ZERO,
             data,
@@ -1718,6 +1730,336 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
             signatures,
           ),
       ).to.be.false
+    })
+
+    // Standard magic value used by `isValidSignature(bytes32,bytes)` per
+    // EIP-1271. Declared in the outer test scope so sibling `describe`
+    // blocks (EIP-1271 entry + Contract-owner voting) can both reuse it.
+    const MAGIC = '0x1626ba7e'
+
+    describe('EIP-1271 entry point', function () {
+
+      // Helper: a clean dummy tx whose EIP-712 hash the test will sign and feed
+      // to `isValidSignature(bytes32,bytes)`. Using a real EIP-712 hash keeps
+      // the test environment symmetric with `execTransaction`'s validation.
+      async function dummyTxHashFieldsAndHash(): Promise<{ fields: any; hash: string }> {
+        const fields = {
+          to: contract.address,
+          value: ethers.BigNumber.from(0),
+          data: '0x',
+          gas: ethers.BigNumber.from(Helper.DEFAULT_GAS),
+          nonce: ethers.BigNumber.from(0),
+        }
+        const hash = await contract.generateHash(
+          fields.to,
+          fields.value,
+          fields.data,
+          fields.gas,
+          fields.nonce,
+        )
+        return { fields, hash }
+      }
+
+      it('returns the EIP-1271 magic value when threshold is met via EOA ECDSA sigs', async function () {
+        const { fields, hash } = await dummyTxHashFieldsAndHash()
+        const sig1 = await Helper.signEip712Hash(contract, owner01, fields)
+        const sig2 = await Helper.signEip712Hash(contract, owner02, fields)
+        const blob = ethers.utils.defaultAbiCoder.encode(
+          ['tuple(address owner, bytes sig)[]'],
+          [
+            [
+              { owner: owner01.address, sig: sig1 },
+              { owner: owner02.address, sig: sig2 },
+            ],
+          ],
+        )
+        expect(await contract.connect(user01)['isValidSignature(bytes32,bytes)'](hash, blob)).to.equal(MAGIC)
+      })
+
+      it('returns a non-magic value when threshold is not met (1/2)', async function () {
+        const { fields, hash } = await dummyTxHashFieldsAndHash()
+        const sig1 = await Helper.signEip712Hash(contract, owner01, fields)
+        const blob = ethers.utils.defaultAbiCoder.encode(
+          ['tuple(address owner, bytes sig)[]'],
+          [[{ owner: owner01.address, sig: sig1 }]],
+        )
+        expect(await contract.connect(user01)['isValidSignature(bytes32,bytes)'](hash, blob)).to.equal('0xffffffff')
+      })
+
+      it('returns a non-magic value when one of the claimed signers is not an owner', async function () {
+        const { fields, hash } = await dummyTxHashFieldsAndHash()
+        // user02 has a key but is NOT a contract owner; we still pass a
+        // ECDSA sig over the hash from their key, but the blob claims
+        // `owner = user02` which fails `_owners[user02]`.
+        const sig1 = await Helper.signEip712Hash(contract, owner01, fields)
+        const sig2 = await Helper.signEip712Hash(contract, user02, fields)
+        const blob = ethers.utils.defaultAbiCoder.encode(
+          ['tuple(address owner, bytes sig)[]'],
+          [
+            [
+              { owner: owner01.address, sig: sig1 },
+              { owner: user02.address, sig: sig2 },
+            ],
+          ],
+        )
+        expect(await contract.connect(user01)['isValidSignature(bytes32,bytes)'](hash, blob)).to.equal('0xffffffff')
+      })
+
+      it('returns the magic value when one vote comes from a contract owner that itself returns the magic', async function () {
+        // Deploy an inner MyMultiSig as a nested owner with threshold 2.
+        const Inner = await ethers.getContractFactory(Helper.CONTRACT_NAME)
+        const inner = await Inner.deploy('Inner', [owner01.address, owner02.address], 2)
+        await inner.deployed()
+        // Add the inner wallet as the third owner of the outer wallet
+        // (now owners = [owner01, owner02, inner], threshold = 2).
+        await Helper.addOwner(contract, owner01, [owner01, owner02, owner03], inner.address)
+
+        const { hash } = await dummyTxHashFieldsAndHash()
+        // Inner wallet's ECDSA votes for `hash` — these go through
+        // `ecrecover(hash, ...)` inside the inner's `_validateVote`, so they
+        // must be raw 65-byte ECDSA sigs over `hash`, NOT EIP-712 typed
+        // data (which would wrap the hash with a different domain).
+        const innerSig1 = await Helper.signDigest(owner01, hash)
+        const innerSig2 = await Helper.signDigest(owner02, hash)
+        const innerBlob = ethers.utils.defaultAbiCoder.encode(
+          ['tuple(address owner, bytes sig)[]'],
+          [
+            [
+              { owner: owner01.address, sig: innerSig1 },
+              { owner: owner02.address, sig: innerSig2 },
+            ],
+          ],
+        )
+        // Sanity check: inner's own EIP-1271 entry returns the magic.
+        expect(await inner['isValidSignature(bytes32,bytes)'](hash, innerBlob)).to.equal(MAGIC)
+
+        // Outer blob: 1 contract-owner entry (inner) — alone that's only 1
+        // vote, threshold is 2 — so add another contract-owner via owner03.
+        const inner2 = await Inner.deploy('Inner2', [owner02.address, owner03.address], 2)
+        await inner2.deployed()
+        // Use only EOA wallets for the `owners` slot — the contract owners
+        // already on the wallet sign through their own ECDSA sigs, not as
+        // direct voters.
+        await Helper.addOwner(contract, owner01, [owner01, owner02], inner2.address)
+        const inner2Sig1 = await Helper.signDigest(owner02, hash)
+        const inner2Sig2 = await Helper.signDigest(owner03, hash)
+        const inner2Blob = ethers.utils.defaultAbiCoder.encode(
+          ['tuple(address owner, bytes sig)[]'],
+          [
+            [
+              { owner: owner02.address, sig: inner2Sig1 },
+              { owner: owner03.address, sig: inner2Sig2 },
+            ],
+          ],
+        )
+        const outerBlob = ethers.utils.defaultAbiCoder.encode(
+          ['tuple(address owner, bytes sig)[]'],
+          [
+            [
+              { owner: inner.address, sig: innerBlob },
+              { owner: inner2.address, sig: inner2Blob },
+            ],
+          ],
+        )
+        // Diagnostic: try with just inner (1 vote) — threshold is 2, should be non-magic.
+        const oneVoteBlob = ethers.utils.defaultAbiCoder.encode(
+          ['tuple(address owner, bytes sig)[]'],
+          [[{ owner: inner.address, sig: innerBlob }]],
+        )
+        expect(await contract.connect(user01)['isValidSignature(bytes32,bytes)'](hash, oneVoteBlob)).to.equal('0xffffffff')
+        // Diagnostic: try with just inner2 — same.
+        const oneVoteBlob2 = ethers.utils.defaultAbiCoder.encode(
+          ['tuple(address owner, bytes sig)[]'],
+          [[{ owner: inner2.address, sig: inner2Blob }]],
+        )
+        expect(await contract.connect(user01)['isValidSignature(bytes32,bytes)'](hash, oneVoteBlob2)).to.equal('0xffffffff')
+        // And the full blob — should be magic.
+        expect(await contract.connect(user01)['isValidSignature(bytes32,bytes)'](hash, outerBlob)).to.equal(MAGIC)
+      })
+
+      it('returns a non-magic value when a contract owner EIP-1271 entry fails its own threshold', async function () {
+        // Deploy an inner wallet whose threshold (2) is met but whose EIP-1271
+        // entry receives a wrong hash — so the inner ECDSA votes fail to
+        // recover and the inner `isValidSignature` returns non-magic.
+        const Inner = await ethers.getContractFactory(Helper.CONTRACT_NAME)
+        const inner = await Inner.deploy('InnerFail', [owner01.address, owner02.address], 2)
+        await inner.deployed()
+        await Helper.addOwner(contract, owner01, [owner01, owner02, owner03], inner.address)
+
+        const { hash } = await dummyTxHashFieldsAndHash()
+        const wrongHash = ethers.utils.hexlify(ethers.utils.randomBytes(32))
+        // Sign `hash` (the outer typed-data hash), but the wallet will be
+        // queried with `wrongHash`. The inner ECDSA sigs won't recover.
+        const sig1 = await Helper.signDigest(owner01, hash)
+        const sig2 = await Helper.signDigest(owner02, hash)
+        const innerBlob = ethers.utils.defaultAbiCoder.encode(
+          ['tuple(address owner, bytes sig)[]'],
+          [
+            [
+              { owner: owner01.address, sig: sig1 },
+              { owner: owner02.address, sig: sig2 },
+            ],
+          ],
+        )
+        const outerBlob = ethers.utils.defaultAbiCoder.encode(
+          ['tuple(address owner, bytes sig)[]'],
+          [[{ owner: inner.address, sig: innerBlob }]],
+        )
+        expect(
+          await contract.connect(user01)['isValidSignature(bytes32,bytes)'](wrongHash, outerBlob),
+        ).to.equal('0xffffffff')
+      })
+
+      it('does not mutate state: nonce / approvals unchanged across repeated calls', async function () {
+        const { fields, hash } = await dummyTxHashFieldsAndHash()
+        const sig1 = await Helper.signEip712Hash(contract, owner01, fields)
+        const sig2 = await Helper.signEip712Hash(contract, owner02, fields)
+        const blob = ethers.utils.defaultAbiCoder.encode(
+          ['tuple(address owner, bytes sig)[]'],
+          [
+            [
+              { owner: owner01.address, sig: sig1 },
+              { owner: owner02.address, sig: sig2 },
+            ],
+          ],
+        )
+        const nonceBefore = await contract.nonce()
+        for (let i = 0; i < 3; i++) {
+          expect(await contract.connect(user01)['isValidSignature(bytes32,bytes)'](hash, blob)).to.equal(MAGIC)
+        }
+        expect(await contract.nonce()).to.equal(nonceBefore)
+      })
+    })
+
+    describe('Contract-owner voting in execTransaction', function () {
+      // Helper: deploy an inner wallet and replace one EOA owner with it.
+      async function addContractOwner(innerOwners: any[], innerThreshold: number): Promise<any> {
+        const Inner = await ethers.getContractFactory(Helper.CONTRACT_NAME)
+        const inner = await Inner.deploy(
+          'Inner',
+          innerOwners.map((o) => o.address),
+          innerThreshold,
+        )
+        await inner.deployed()
+        // Replace owner03 with the inner wallet so the outer threshold stays
+        // at 2 and the test exercises a contract owner in the vote mix.
+        // Signature: replaceOwner(contract, submitter, owners, ownerToAdd, ownerToRemove).
+        await Helper.replaceOwner(
+          contract,
+          owner01,
+          [owner01, owner02, owner03],
+          inner.address,
+          owner03.address,
+        )
+        return inner
+      }
+
+      it('EOA + contract-owner votes reach threshold and execTransaction succeeds', async function () {
+        const inner = await addContractOwner([owner01, owner02], 2)
+        // Outer owners = [owner01, owner02, inner], threshold = 2.
+        const data = contract.interface.encodeFunctionData('addOwner(address)', [user01.address])
+        const nonce = await contract.nonce()
+        const txHash = await contract.generateHash(contract.address, Helper.ZERO, data, Helper.DEFAULT_GAS, nonce)
+        // EOA vote: owner01 signs the outer typed-data hash with their key.
+        const eoaSig = await Helper.signMultiSigTxn(
+          contract.address,
+          owner01,
+          contract.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          nonce,
+        )
+        // Inner wallet's EIP-1271 vote for `txHash` (raw ECDSA, no domain wrap).
+        const innerSig1 = await Helper.signDigest(owner01, txHash)
+        const innerSig2 = await Helper.signDigest(owner02, txHash)
+        const innerBlob = ethers.utils.defaultAbiCoder.encode(
+          ['tuple(address owner, bytes sig)[]'],
+          [
+            [
+              { owner: owner01.address, sig: innerSig1 },
+              { owner: owner02.address, sig: innerSig2 },
+            ],
+          ],
+        )
+        // Sanity: inner's isValidSignature confirms innerBlob is valid.
+        expect(await inner['isValidSignature(bytes32,bytes)'](txHash, innerBlob)).to.equal(MAGIC)
+
+        const outerBlob = ethers.utils.defaultAbiCoder.encode(
+          ['tuple(address owner, bytes sig)[]'],
+          [
+            [
+              { owner: owner01.address, sig: eoaSig },
+              { owner: inner.address, sig: innerBlob },
+            ],
+          ],
+        )
+        await Helper.execTransaction(
+          contract,
+          owner01,
+          [],
+          contract.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          undefined,
+          ['OwnerAdded'],
+          outerBlob,
+        )
+        expect(await contract.isOwner(user01.address)).to.be.true
+      })
+
+      it('contract-owner EIP-1271 returning non-magic causes execTransaction to revert with InvalidSignatures', async function () {
+        const inner = await addContractOwner([owner01, owner02], 2)
+        const data = contract.interface.encodeFunctionData('addOwner(address)', [user01.address])
+        const nonce = await contract.nonce()
+        const txHash = await contract.generateHash(contract.address, Helper.ZERO, data, Helper.DEFAULT_GAS, nonce)
+        // Build an inner blob that signs a *wrong* hash, so the inner
+        // isValidSignature(txHash, innerBlob) returns non-magic.
+        const wrongHash = ethers.utils.hexlify(ethers.utils.randomBytes(32))
+        const innerSig1 = await Helper.signDigest(owner01, wrongHash)
+        const innerSig2 = await Helper.signDigest(owner02, wrongHash)
+        const innerBlob = ethers.utils.defaultAbiCoder.encode(
+          ['tuple(address owner, bytes sig)[]'],
+          [
+            [
+              { owner: owner01.address, sig: innerSig1 },
+              { owner: owner02.address, sig: innerSig2 },
+            ],
+          ],
+        )
+        const eoaSig = await Helper.signMultiSigTxn(
+          contract.address,
+          owner01,
+          contract.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          nonce,
+        )
+        const outerBlob = ethers.utils.defaultAbiCoder.encode(
+          ['tuple(address owner, bytes sig)[]'],
+          [
+            [
+              { owner: owner01.address, sig: eoaSig },
+              { owner: inner.address, sig: innerBlob },
+            ],
+          ],
+        )
+        await Helper.execTransaction(
+          contract,
+          owner01,
+          [],
+          contract.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          Helper.errors.INVALID_SIGNATURES,
+          undefined,
+          outerBlob,
+        )
+        expect(await contract.isOwner(user01.address)).to.be.false
+      })
     })
 
   })
