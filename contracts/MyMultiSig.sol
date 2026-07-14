@@ -78,6 +78,11 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   ///         encodes `(to, value, data, gas, nonce)` so each approval is
   ///         bound to a single, fully-specified transaction.
   event ApproveHash(address indexed owner, bytes32 indexed hash);
+  /// @notice Emitted when an owner withdraws a previous on-chain approval
+  ///         via `revokeApproval`. The owner is removed from both the
+  ///         per-hash approval map and the per-hash owner list, so a later
+  ///         `execTransaction` for the same hash loses this owner's vote.
+  event RevokeApproval(address indexed owner, bytes32 indexed hash);
   /// @notice Emitted at the end of every `multiRequest` call, once per batch,
   ///         carrying the per-call outcome arrays so off-chain consumers and
   ///         indexers can audit partial failures without replaying the inner
@@ -98,6 +103,10 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   ///         path) so an `execTransaction` cannot execute a stale payload
   ///         even if it still collects enough votes.
   error SignatureExpired();
+  /// @notice Caller asked to revoke an approval they never recorded. Emitted
+  ///         by `revokeApproval(bytes32)` when the caller is an owner but
+  ///         has no entry in `_approvedHashes[hash]`.
+  error NotApproved();
   error NotOwner();
   error NotEnoughGas();
   error OwnerAlreadyExists();
@@ -192,7 +201,8 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @dev Idempotent per (owner, hash): calling twice with the same
   ///      arguments is a no-op (does not revert, does not double-count).
   ///      The owner's vote is stored until the matching transaction is
-  ///      executed or the nonce is invalidated via `markNonceAsUsed`.
+  ///      executed, the caller withdraws it via `revokeApproval`, or the
+  ///      nonce is invalidated via `markNonceAsUsed`.
   ///      Reverts with `NotOwner` if `msg.sender` is not a current owner.
   /// @param hash The EIP-712 transaction hash to approve.
   function approveHash(bytes32 hash) public virtual {
@@ -202,6 +212,52 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     _approvedOwners[hash].push(msg.sender);
     _recordOwnerApproval(msg.sender);
     emit ApproveHash(msg.sender, hash);
+  }
+
+  /// @notice Withdraws a previous `approveHash(hash)` vote. The caller is
+  ///         removed from `_approvedHashes[hash]` and `_approvedOwners[hash]`
+  ///         so any subsequent `execTransaction` for that hash loses this
+  ///         owner's vote. Use this to retract a vote before the matching
+  ///         transaction executes — the alternative is to bump the nonce
+  ///         (`incrementNonce` / `markNonceAsUsed`) which also clears every
+  ///         owner's approvals.
+  /// @dev    Self-only: an owner can only withdraw their OWN approval. We
+  ///      deliberately do NOT expose an admin-style revoke because the
+  ///      multisig has no privileged owner — every owner is equal.
+  ///      Idempotency: calling `revokeApproval` for a hash you never
+  ///      approved reverts with `NotApproved` (matches Safe's `disapproveHash`
+  ///      semantics and prevents silent double-revoke footguns).
+  ///      The owner's `lastAction` is NOT bumped — revoking is not a vote
+  ///      and should not reset inactivity timers (overridden in
+  ///      `MyMultiSigExtended`).
+  /// @param hash The EIP-712 transaction hash to revoke.
+  function revokeApproval(bytes32 hash) public virtual {
+    if (!_owners[msg.sender]) revert NotOwner();
+    if (!_approvedHashes[hash][msg.sender]) revert NotApproved();
+    _approvedHashes[hash][msg.sender] = false;
+    _removeApprovedOwner(hash, msg.sender);
+    emit RevokeApproval(msg.sender, hash);
+  }
+
+  /// @dev Removes `owner` from `_approvedOwners[hash]` using swap-and-pop —
+  ///      O(n) in the array length but `n <= ownerCount <= 65535`, and we
+  ///      avoid the storage-write cost of shifting every element. The
+  ///      caller has already cleared `_approvedHashes[hash][owner]`, so a
+  ///      no-op (owner not in the array) is impossible: the revert path in
+  ///      `revokeApproval` would have caught it.
+  function _removeApprovedOwner(bytes32 hash, address owner) private {
+    address[] storage arr = _approvedOwners[hash];
+    uint256 n = arr.length;
+    for (uint256 i = 0; i < n; ) {
+      unchecked {
+        if (arr[i] == owner) {
+          arr[i] = arr[n - 1];
+          arr.pop();
+          return;
+        }
+        ++i;
+      }
+    }
   }
 
   /// @notice Executes a transaction. Backwards-compatible entry point that

@@ -882,6 +882,105 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         expect(await contract.nonce()).to.be.equal(0)
       })
     })
+
+    describe('revokeApproval - withdraw a pre-approval', function () {
+      it('Owner can withdraw a previous approveHash and the owner is removed from getApprovedOwners', async function () {
+        const hash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes('test-revoke-1'))
+        expect(await contract.getApprovedOwners(hash)).to.have.lengthOf(0)
+        await Helper.approveHash(contract, owner01, hash)
+        expect(await contract.getApprovedOwners(hash)).to.have.lengthOf(1)
+        const tx = await contract.connect(owner01).revokeApproval(hash)
+        await tx.wait()
+        expect(await contract.getApprovedOwners(hash)).to.have.lengthOf(0)
+      })
+
+      it('revokeApproval emits RevokeApproval with (owner, hash)', async function () {
+        const hash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes('test-revoke-2'))
+        await Helper.approveHash(contract, owner01, hash)
+        const tx = await contract.connect(owner01).revokeApproval(hash)
+        const receipt = await tx.wait()
+        const parsed = receipt.logs
+          .map((log: any) => {
+            try {
+              return contract.interface.parseLog(log)
+            } catch (e) {
+              return
+            }
+          })
+          .find((e: any) => e && e.name === 'RevokeApproval')
+        expect(parsed, 'RevokeApproval event not found').to.not.equal(undefined)
+        expect(parsed!.args.owner).to.equal(owner01.address)
+        expect(parsed!.args.hash).to.equal(hash)
+      })
+
+      it('A second revokeApproval reverts with NotApproved', async function () {
+        const hash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes('test-revoke-3'))
+        await Helper.approveHash(contract, owner01, hash)
+        await contract.connect(owner01).revokeApproval(hash)
+        await expect(contract.connect(owner01).revokeApproval(hash)).to.be.revertedWithCustomError(
+          contract,
+          Helper.errors.NOT_APPROVED,
+        )
+      })
+
+      it('revokeApproval reverts when called by a non-owner', async function () {
+        const hash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes('test-revoke-4'))
+        await expect(contract.connect(user01).revokeApproval(hash)).to.be.revertedWithCustomError(
+          contract,
+          Helper.errors.NOT_OWNER,
+        )
+      })
+
+      it('An owner who never approved cannot revoke another owner approval (NotApproved)', async function () {
+        const hash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes('test-revoke-5'))
+        await Helper.approveHash(contract, owner01, hash)
+        await expect(contract.connect(owner02).revokeApproval(hash)).to.be.revertedWithCustomError(
+          contract,
+          Helper.errors.NOT_APPROVED,
+        )
+        // The original approval is still intact.
+        expect(await contract.getApprovedOwners(hash)).to.have.lengthOf(1)
+      })
+
+      it('After revoke, an execTransaction that relied solely on the revoked approval fails with InvalidSignatures', async function () {
+        const data = contract.interface.encodeFunctionData('addOwner(address)', [user01.address])
+        const hash = await contract.generateHash(
+          contract.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          ethers.BigNumber.from(0),
+          0,
+        )
+        await Helper.approveHash(contract, owner01, hash)
+        await contract.connect(owner01).revokeApproval(hash)
+        // Sign with only owner02 — the original approval (owner01) is gone,
+        // so the 1 ECDSA vote does not reach threshold (2).
+        const signatures = await Helper.prepareSignatures(
+          contract,
+          [owner02],
+          contract.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          ethers.BigNumber.from(0),
+          0,
+        )
+        await Helper.execTransaction(
+          contract,
+          owner02,
+          [owner02],
+          contract.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          Helper.errors.INVALID_SIGNATURES,
+          undefined,
+          signatures,
+        )
+        expect(await contract.isOwner(user01.address)).to.be.false
+      })
+    })
   })
 }
 

@@ -338,4 +338,97 @@ abstract contract TestBasic is Helper {
     assertFalse(myMultiSig.isOwner(NOT_OWNERS[0]));
     assertEq(myMultiSig.nonce(), 0);
   }
+
+  // ---------------------------------------------------------------------
+  // revokeApproval
+  // ---------------------------------------------------------------------
+
+  function testMyMultiSig_revokedApprovalRemovedFromList() public {
+    bytes32 hash = keccak256('test-hash');
+    vm.prank(OWNERS[0]);
+    myMultiSig.approveHash(hash);
+    assertEq(myMultiSig.getApprovedOwners(hash).length, 1);
+
+    vm.prank(OWNERS[0]);
+    myMultiSig.revokeApproval(hash);
+    assertEq(myMultiSig.getApprovedOwners(hash).length, 0);
+  }
+
+  function testMyMultiSig_revokedApprovalIsIdempotent() public {
+    bytes32 hash = keccak256('test-hash');
+    vm.prank(OWNERS[0]);
+    myMultiSig.approveHash(hash);
+    vm.prank(OWNERS[0]);
+    myMultiSig.revokeApproval(hash);
+    // Second revoke must revert with `NotApproved`.
+    vm.prank(OWNERS[0]);
+    verify_revertCall(Errors.RevertStatus.NotApproved);
+    myMultiSig.revokeApproval(hash);
+  }
+
+  function testMyMultiSig_revokedApprovalRevertsForNonOwner() public {
+    bytes32 hash = keccak256('test-hash');
+    vm.prank(NOT_OWNERS[0]);
+    verify_revertCall(Errors.RevertStatus.NotOwner);
+    myMultiSig.revokeApproval(hash);
+  }
+
+  function testMyMultiSig_revokedApprovalRevertsForUnrelatedOwner() public {
+    // OWNERS[0] approves. OWNERS[1] never approved, so OWNERS[1]'s revoke
+    // must revert with NotApproved.
+    bytes32 hash = keccak256('test-hash');
+    vm.prank(OWNERS[0]);
+    myMultiSig.approveHash(hash);
+    vm.prank(OWNERS[1]);
+    verify_revertCall(Errors.RevertStatus.NotApproved);
+    myMultiSig.revokeApproval(hash);
+  }
+
+  function testMyMultiSig_revokedApprovalBreaksExec() public {
+    // Approve, then revoke, then try to execute with only the revoked
+    // approval as the sole vote. Must revert with InvalidSignatures.
+    address to = address(myMultiSig);
+    uint256 value = 0;
+    bytes memory data = build_addOwner(NOT_OWNERS[0]);
+    uint256 gas = DEFAULT_GAS;
+    uint96 nonce = myMultiSig.nonce();
+    bytes32 hash = myMultiSig.generateHash(to, value, data, gas, nonce, 0);
+
+    vm.prank(OWNERS[0]);
+    myMultiSig.approveHash(hash);
+    vm.prank(OWNERS[0]);
+    myMultiSig.revokeApproval(hash);
+
+    // Only one other owner's signature is left — but the approval is gone,
+    // so threshold (2) is not reached. Helper signs with OWNERS_PK but
+    // OWNERS[0]'s vote was an approval (now revoked), so the only ECDSA
+    // votes are OWNERS[1..]. With threshold 2 and only OWNERS[1..4]
+    // signing (4 votes), it would actually pass. Drop to threshold 3 with
+    // a separate test.
+    // Simpler approach: sign with only ONE owner (OWNERS[1]) after the
+    // revoke. The approval is gone, so we have 1 ECDSA vote and threshold 2
+    // → InvalidSignatures.
+    bytes memory signatures = abi.encode(
+      abi.encodeWithSignature('revokeApproval placeholder'), // ignored; replaced below
+      uint256(0)
+    );
+    // Reuse build_signatures but with only one owner.
+    uint256[] memory singleOwnerPk = new uint256[](1);
+    singleOwnerPk[0] = OWNERS_PK[1];
+    bytes memory singleSig = build_signatures(myMultiSig, singleOwnerPk, to, value, data, gas, 0);
+
+    help_execTransaction(
+      myMultiSig,
+      OWNERS[1],
+      to,
+      value,
+      data,
+      gas,
+      0,
+      singleSig,
+      nonce,
+      Errors.RevertStatus.InvalidSignatures
+    );
+    assertFalse(myMultiSig.isOwner(NOT_OWNERS[0]));
+  }
 }
