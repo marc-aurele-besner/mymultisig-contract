@@ -64,12 +64,15 @@ export const prepareSignatures = async (
   gas = constants.DEFAULT_GAS as number,
   nonce = BigNumber.from(0)
 ) => {
-  let signatures = '0x'
+  // Build the per-owner ECDSA signatures first.
+  const votes: { owner: string; sig: string }[] = []
   for (var i = 0; i < owners.length; i++) {
     const sig = await signature.signMultiSigTxn(contract.address, owners[i], to, value, data, gas, nonce)
-    signatures += sig.substring(2)
+    votes.push({ owner: owners[i].address, sig })
   }
-  return signatures
+  // ABI-encode as a dynamic tuple array: abi.encode( (address owner, bytes sig)[] ).
+  // Solidity decodes this with `abi.decode(sig, (Vote[]))`.
+  return ethers.utils.defaultAbiCoder.encode(['tuple(address owner, bytes sig)[]'], [votes])
 }
 
 export const execTransaction = async (
@@ -148,13 +151,20 @@ export const isValidSignature = async (
   nonce = BigNumber.from(0),
   errorMsg?: string
 ) => {
-  const signatures = prepareSignatures(contract, owners, to, value, data, gas, nonce)
+  const signatures = await prepareSignatures(contract, owners, to, value, data, gas, nonce)
 
-  if (!errorMsg) return await contract.connect(submitter).isValidSignature(to, value, data, gas, nonce, signatures)
+  // ethers v5 can't disambiguate overloaded functions by name alone, so we
+  // pin the 6-arg overload via the explicit fragment selector. The new
+  // 2-arg `isValidSignature(bytes32,bytes)` (EIP-1271) is the only overload
+  // available without an address first.
+  const sixArg = 'isValidSignature(address,uint256,bytes,uint256,uint256,bytes)'
+
+  if (!errorMsg)
+    return await contract.connect(submitter)[sixArg](to, value, data, gas, nonce, signatures)
   else {
     const input = await contract
       .connect(submitter)
-      .populateTransaction.isValidSignature(to, value, data, gas, nonce, signatures)
+      .populateTransaction[sixArg](to, value, data, gas, nonce, signatures)
     await checkRawTxnResult(input, submitter, errorMsg, contract)
     return false
   }

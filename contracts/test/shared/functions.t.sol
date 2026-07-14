@@ -149,6 +149,15 @@ contract Functions is Constants, Signatures {
       );
   }
 
+  /// @dev Mirror of `MyMultiSig.Vote` used solely so we can encode an
+  ///      array-of-tuples that matches what `_decodeVotes` expects. The
+  ///      on-the-wire encoding must be that of an array of
+  ///      `(address owner, bytes sig)` tuples — NOT two parallel arrays.
+  struct Vote {
+    address owner;
+    bytes sig;
+  }
+
   function build_signatures(
     MyMultiSig multiSig_,
     uint256[] memory ownersPk_,
@@ -159,25 +168,24 @@ contract Functions is Constants, Signatures {
   ) public returns (bytes memory signatures) {
     uint256 nonce = multiSig_.nonce();
     bytes32 domainSeparator = build_domainSeparator(multiSig_, multiSig_.name());
+    bytes32 innerHash = keccak256(
+      abi.encode(
+        keccak256('Transaction(address to,uint256 value,bytes data,uint256 gas,uint96 nonce)'),
+        to_,
+        value_,
+        keccak256(data_),
+        txnGas_,
+        nonce
+      )
+    );
+    Vote[] memory votes = new Vote[](ownersPk_.length);
     for (uint256 i = 0; i < ownersPk_.length; i++) {
-      signatures = abi.encodePacked(
-        signatures,
-        signature_signHashed(
-          ownersPk_[i],
-          domainSeparator,
-          keccak256(
-            abi.encode(
-              keccak256('Transaction(address to,uint256 value,bytes data,uint256 gas,uint96 nonce)'),
-              to_,
-              value_,
-              keccak256(data_),
-              txnGas_,
-              nonce
-            )
-          )
-        )
-      );
+      votes[i] = Vote({
+        owner: vm.addr(ownersPk_[i]),
+        sig: signature_signHashed(ownersPk_[i], domainSeparator, innerHash)
+      });
     }
+    signatures = abi.encode(votes);
   }
 
   function build_multiRequest(

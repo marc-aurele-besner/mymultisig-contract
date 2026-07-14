@@ -89,29 +89,11 @@ contract MyMultiSigExtended is MyMultiSig {
     success = _execTransaction(to, value, data, txnGas, txnNonce, signatures);
   }
 
-  /// @notice Determines if the owner is valid
-  /// @param txHash The transaction hash.
-  /// @param signatures The signatures to be used for the transaction.
-  /// @param txnNonce The transaction nonce.
-  /// @param currentOwner The current owner address.
-  function _validateOwner(
-    bytes32 txHash,
-    bytes memory signatures,
-    uint256 txnNonce,
-    uint16 currentIndex
-  ) internal virtual override returns (address currentOwner) {
-    unchecked {
-      currentOwner = super._validateOwner(txHash, signatures, txnNonce, currentIndex);
-      _ownerSettings[currentOwner].lastAction = block.timestamp;
-    }
-  }
-
   /// @notice Bumps `lastAction` for the owner whenever their vote is recorded
-  ///         against a transaction — both when the vote arrives as an off-chain
-  ///         ECDSA signature inside `execTransaction` and when the owner
-  ///         pre-approves the transaction via `approveHash`. Without this
-  ///         override, on-chain approvals would silently bypass the inactivity
-  ///         tracking that `takeOverOwnership` relies on.
+  ///         against a transaction — whether via `approveHash`, an off-chain
+  ///         ECDSA signature, or an EIP-1271 contract-owner vote. Without this
+  ///         override, vote-driven activity would silently bypass the
+  ///         inactivity tracking that `takeOverOwnership` relies on.
   function _recordOwnerApproval(address owner) internal virtual override {
     _ownerSettings[owner].lastAction = block.timestamp;
   }

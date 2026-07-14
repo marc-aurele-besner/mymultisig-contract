@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 import '@openzeppelin/contracts/utils/cryptography/EIP712.sol';
+import '@openzeppelin/contracts/interfaces/IERC1271.sol';
 import '@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol';
 import '@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol';
 
@@ -24,6 +25,21 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
 
   bytes32 private constant _TRANSACTION_TYPEHASH =
     keccak256('Transaction(address to,uint256 value,bytes data,uint256 gas,uint96 nonce)');
+
+  /// @notice EIP-1271 magic value: `isValidSignature(bytes32,bytes)` must return
+  ///         this 4-byte value when the signature is valid. Equal to
+  ///         `IERC1271.isValidSignature.selector` (= `0x1626ba7e`). We cache it
+  ///         for use in `_isValidERC1271` (where we compare against the
+  ///         right-padded 32-byte staticcall return value).
+  bytes4 private constant _ERC1271_MAGIC = IERC1271.isValidSignature.selector;
+
+  /// @notice Gas forwarded to a contract owner's `isValidSignature` staticcall.
+  ///         200k matches Safe's typical `GAS_VALIDATION` budget and is enough
+  ///         for several `ecrecover` calls + storage reads + magic return
+  ///         inside the nested wallet, while still capping a hostile contract
+  ///         owner's grief vector. Tweak upward if integrating with on-chain
+  ///         KMS validators that need more.
+  uint256 private constant _ERC1271_GAS_STIPEND = 200_000;
 
   event OwnerAdded(address indexed owner);
   event OwnerRemoved(address indexed owner);
@@ -71,8 +87,6 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   error OnlyThisContract();
   error TooManyOwners();
   error InvalidSignatures();
-  error InvalidOwner();
-  error OwnerAlreadySigned();
   error NotOwner();
   error NotEnoughGas();
   error OwnerAlreadyExists();
@@ -111,7 +125,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @notice Retrieves the contract version
   /// @return The version as a string memory.
   function version() public pure virtual returns (string memory) {
-    return '0.1.3';
+    return '0.2.0';
   }
 
   /// @notice Retrieves the current threshold value
@@ -284,28 +298,45 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     emit MultiRequestExecuted(_txnNonce - 1, successes, returnData);
   }
 
-  /// @notice Return the current owner address from the full signature at the id position
-  /// @param txHash The transaction hash.
-  /// @param signatures The signatures to be used for the transaction.
-  /// @param id The id of the position of the owner in the full signature.
-  /// @return currentOwner The current owner address.
-  function _getCurrentOwner(
-    bytes32 txHash,
-    bytes memory signatures,
-    uint16 id
-  ) private pure returns (address currentOwner) {
-    unchecked {
-      uint8 v;
-      bytes32 r;
-      bytes32 s;
-      assembly {
-        let signaturePos := mul(0x41, id)
-        r := mload(add(signatures, add(signaturePos, 32)))
-        s := mload(add(signatures, add(signaturePos, 64)))
-        v := and(mload(add(signatures, add(signaturePos, 65))), 255)
+  /// @notice EIP-1271 entry point. Validates `signature` (an ABI-encoded
+  ///         `(address owner, bytes sig)[]` of owner votes) against `hash` and
+  ///         returns the standard magic value iff the count of valid votes
+  ///         reaches `threshold`. Pure: no state mutation, no nonce
+  ///         bookkeeping. A single contract signature may carry many owner
+  ///         votes — this is the path used when another Safe / multisig /
+  ///         SIWE verifier / NFT marketplace calls `isValidSignature` on this
+  ///         wallet.
+  /// @dev    The supplied `hash` is treated as opaque: the caller decides what
+  ///         is being signed. The wallet does NOT compute an EIP-712 hash here
+  ///         — the in-wallet `_validateSignature` path does that, but the
+  ///         EIP-1271 entry point is generic over the hash.
+  /// @param hash The hash the caller wants validated.
+  /// @param signature ABI-encoded `(address owner, bytes sig)[]` of owner votes.
+  /// @return magicValue `bytes4(0x1626ba7e)` on success, `bytes4(0xffffffff)` otherwise.
+  function isValidSignature(bytes32 hash, bytes memory signature) public view virtual returns (bytes4 magicValue) {
+    uint16 threshold_ = _threshold;
+    address[] storage approved = _approvedOwners[hash];
+    uint256 counted;
+    // On-chain `approveHash` approvals count as votes for this hash without
+    // any signature payload — but only if the approver is still an owner.
+    for (uint256 i; i < approved.length; ) {
+      unchecked {
+        if (!_owners[approved[i]]) return bytes4(0xffffffff);
+        ++counted;
+        ++i;
       }
-      currentOwner = ecrecover(txHash, v, r, s);
     }
+    if (counted >= threshold_) return _ERC1271_MAGIC;
+    // Decode the signature blob and validate each vote.
+    (address[] memory owners, bytes[] memory sigs) = _decodeVotes(signature);
+    for (uint256 i = 0; i < owners.length; ) {
+      unchecked {
+        if (counted >= threshold_) break;
+        if (_validateVote(hash, owners[i], sigs[i])) ++counted;
+        ++i;
+      }
+    }
+    return counted >= threshold_ ? _ERC1271_MAGIC : bytes4(0xffffffff);
   }
 
   /// @notice Determines if the signature is valid
@@ -327,61 +358,111 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     uint256 txnNonce,
     bytes memory signatures
   ) public view returns (bool valid) {
-    uint16 threshold_ = _threshold;
     bytes32 txHash = generateHash(to, value, data, txnGas, txnNonce);
-    // Count on-chain approvals first; they offset the number of ECDSA
-    // signatures required to reach `threshold_`. An approved owner that was
-    // later removed from the wallet, or one whose vote was already consumed
-    // for this nonce, fails the check below.
+    return _checkSignatures(txHash, txnNonce, signatures);
+  }
+
+  /// @notice Validates an ABI-encoded `(address owner, bytes sig)[]` of owner
+  ///         votes against `txHash` and reports whether they reach `threshold`.
+  ///         Pure (no state mutation, no nonce bookkeeping). Shared between
+  ///         the public EIP-1271 `isValidSignature(bytes32,bytes)` and the
+  ///         6-arg view `isValidSignature(address,...,bytes)`.
+  /// @dev    On-chain `approveHash` approvals count as votes for the matching
+  ///         tx hash without any signature payload. An approved owner that was
+  ///         later removed from the wallet fails the owner check.
+  function _checkSignatures(
+    bytes32 txHash,
+    uint256 txnNonce,
+    bytes memory signatures
+  ) internal view virtual returns (bool valid) {
+    uint16 threshold_ = _threshold;
     address[] storage approved = _approvedOwners[txHash];
-    uint256 ownerNonce;
     uint256 counted;
     for (uint256 i; i < approved.length; ) {
       unchecked {
-        address approvedOwner = approved[i];
-        if (!_owners[approvedOwner]) return false;
-        ownerNonce = uint256(uint96(txnNonce)) + uint256(uint160(approvedOwner) << 96);
-        if (_ownerNonceSigned[ownerNonce]) return false;
+        if (!_owners[approved[i]]) return false;
         ++counted;
         ++i;
       }
     }
-    // We only need enough signatures to bring the total up to `threshold_`.
-    uint256 requiredSigs = counted >= threshold_ ? 0 : uint256(threshold_) - counted;
-    if (signatures.length < 65 * requiredSigs) return false;
-    uint256 sigCount = signatures.length / 65;
-    for (uint256 i = 0; i < sigCount; ) {
+    if (counted >= threshold_) return true;
+    (address[] memory owners, bytes[] memory sigs) = _decodeVotes(signatures);
+    for (uint256 i = 0; i < owners.length; ) {
       unchecked {
         if (counted >= threshold_) break;
-        address currentOwner = _getCurrentOwner(txHash, signatures, uint16(i));
-        if (!_owners[currentOwner]) return false;
-        ownerNonce = uint256(uint96(txnNonce)) + uint256(uint160(currentOwner) << 96);
-        if (_ownerNonceSigned[ownerNonce]) return false;
-        ++counted;
+        if (_validateVote(txHash, owners[i], sigs[i])) ++counted;
         ++i;
       }
     }
     return counted >= threshold_;
   }
 
-  /// @notice Determines if the owner is valid
-  /// @param txHash The transaction hash.
-  /// @param signatures The signatures to be used for the transaction.
-  /// @param txnNonce The transaction nonce.
-  /// @param currentIndex The current owner index.
-  function _validateOwner(
+  /// @notice Validates one `(owner, sig)` pair against `txHash` and, on success,
+  ///         records the vote in `_ownerNonceSigned` and bumps the owner's
+  ///         `lastAction` via `_recordOwnerApproval`. Used by the mutating
+  ///         `_validateSignature` path that runs inside `execTransaction`.
+  /// @dev    Two signature shapes are accepted:
+  ///         - 65-byte ECDSA `r || s || v`: `ecrecover` derives the signer
+  ///           and we require `recovered == owner` AND `_owners[recovered]`.
+  ///           The recovered address is the source of truth — a malicious
+  ///           signer cannot lie about identity via ECDSA.
+  ///         - any other length from a contract owner: we static-call
+  ///           `IERC1271.isValidSignature(txHash, sig)` on `owner` (with a
+  ///           fixed gas stipend). The blob's `owner` field is authoritative
+  ///           here because there is no `ecrecover` equivalent for contracts.
+  ///         If neither branch succeeds, returns false.
+  function _validateVote(
     bytes32 txHash,
-    bytes memory signatures,
-    uint256 txnNonce,
-    uint16 currentIndex
-  ) internal virtual returns (address currentOwner) {
-    unchecked {
-      currentOwner = _getCurrentOwner(txHash, signatures, currentIndex);
-      uint256 currentOwnerNonce = uint256(uint96(txnNonce)) + uint256(uint160(currentOwner) << 96);
-      if (!_owners[currentOwner]) revert InvalidOwner();
-      if (_ownerNonceSigned[currentOwnerNonce]) revert OwnerAlreadySigned();
-      _ownerNonceSigned[currentOwnerNonce] = true;
+    address owner,
+    bytes memory sig
+  ) internal view virtual returns (bool) {
+    if (!_owners[owner]) return false;
+    if (sig.length == 65) {
+      // ECDSA branch — recover and require recovered == owner.
+      bytes32 r;
+      bytes32 s;
+      uint8 v;
+      assembly {
+        r := mload(add(sig, 32))
+        s := mload(add(sig, 64))
+        v := and(mload(add(sig, 65)), 255)
+      }
+      address recovered = ecrecover(txHash, v, r, s);
+      if (recovered != owner) {
+        // Fall through to EIP-1271 only if the owner has code. A bare EOA
+        // with a 65-byte payload that doesn't recover to it is a hostile /
+        // mis-typed vote — reject.
+        if (owner.code.length == 0) return false;
+        return _isValidERC1271(owner, txHash, sig);
+      }
+      // Recovered == owner. Note: a contract owner whose EOA operator signs
+      // with a 65-byte ECDSA passes through here. That is the simplest way
+      // for a contract operator to vote without implementing IERC1271.
+    } else if (owner.code.length > 0) {
+      // EIP-1271 branch — only contract owners can produce arbitrary-length
+      // signature blobs, so reject bare-EOA entries of unexpected length.
+      if (!_isValidERC1271(owner, txHash, sig)) return false;
+    } else {
+      // EOA owner, non-65-byte signature: not a valid vote shape.
+      return false;
     }
+    return true;
+  }
+
+  /// @notice Performs the bookkeeping that `_checkSignatures` skipped: marks
+  ///         the (nonce, owner) slot consumed and bumps `lastAction` via
+  ///         `_recordOwnerApproval`. Only called from `_validateSignature`.
+  ///         Returns whether the vote was valid (mirrors `_validateVote`).
+  function _recordVote(
+    bytes32 /* txHash */,
+    uint256 txnNonce,
+    address owner
+  ) internal virtual returns (bool) {
+    uint256 ownerNonce = uint256(uint96(txnNonce)) + uint256(uint160(owner) << 96);
+    if (_ownerNonceSigned[ownerNonce]) return false;
+    _ownerNonceSigned[ownerNonce] = true;
+    _recordOwnerApproval(owner);
+    return true;
   }
 
   /// @notice Determines if the signature is valid
@@ -404,50 +485,82 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   ) internal virtual returns (bool valid) {
     uint16 threshold_ = _threshold;
     bytes32 txHash = generateHash(to, value, data, txnGas, txnNonce);
-    // First count on-chain approvals for the transaction hash. Each approved
-    // owner is recorded in `_ownerNonceSigned` so that an ECDSA signature
-    // supplied for the same owner+nonce pair reverts with `OwnerAlreadySigned`
-    // in `_validateOwner` below instead of being double-counted.
+    // On-chain approvals count as votes and consume their (nonce, owner)
+    // slot. An approved owner that was later removed from the wallet fails
+    // the check and aborts the whole validation — no partial application.
     address[] storage approved = _approvedOwners[txHash];
-    uint256 ownerNonce;
     uint256 counted;
     for (uint256 i; i < approved.length; ) {
       unchecked {
         address approvedOwner = approved[i];
         if (!_owners[approvedOwner]) return false;
-        ownerNonce = uint256(uint96(txnNonce)) + uint256(uint160(approvedOwner) << 96);
-        if (_ownerNonceSigned[ownerNonce]) return false;
-        _ownerNonceSigned[ownerNonce] = true;
-        _recordOwnerApproval(approvedOwner);
+        if (!_recordVote(txHash, txnNonce, approvedOwner)) return false;
         ++counted;
         ++i;
       }
     }
-    // With `counted` slots already filled, the remaining signatures must
-    // bring the total up to `threshold_`. We only need to inspect that many
-    // 65-byte chunks; any extra bytes are ignored. `_validateOwner` retains
-    // the legacy `InvalidOwner` / `OwnerAlreadySigned` reverts so existing
-    // tests and integrations keep the same error semantics on the ECDSA path.
-    uint256 requiredSigs = counted >= threshold_ ? 0 : uint256(threshold_) - counted;
-    if (signatures.length < 65 * requiredSigs) return false;
-    uint256 sigCount = signatures.length / 65;
-    for (uint256 i = 0; i < sigCount; ) {
+    if (counted >= threshold_) return true;
+    (address[] memory owners, bytes[] memory sigs) = _decodeVotes(signatures);
+    for (uint256 i = 0; i < owners.length; ) {
       unchecked {
         if (counted >= threshold_) break;
-        _validateOwner(txHash, signatures, txnNonce, uint16(i));
-        ++counted;
+        if (_validateVote(txHash, owners[i], sigs[i]) && _recordVote(txHash, txnNonce, owners[i])) ++counted;
         ++i;
       }
     }
     return counted >= threshold_;
   }
 
+  /// @notice Decodes an ABI-encoded `(address owner, bytes sig)[]` blob into
+  ///         parallel `address[]` / `bytes[]` arrays. Centralized so the
+  ///         three callers (EIP-1271 entry, 6-arg `isValidSignature`, and
+  ///         `_validateSignature`) decode identically. Returns two empty
+  ///         arrays if the input is empty.
+  function _decodeVotes(bytes memory signatures) internal pure virtual returns (address[] memory, bytes[] memory) {
+    if (signatures.length == 0) return (new address[](0), new bytes[](0));
+    // Decode as an array of tuples. Solidity exposes the elements as fields
+    // on a single `Vote[]` memory value; we then split into parallel arrays.
+    Vote[] memory votes = abi.decode(signatures, (Vote[]));
+    uint256 n = votes.length;
+    address[] memory owners = new address[](n);
+    bytes[] memory sigs = new bytes[](n);
+    for (uint256 i = 0; i < n; ) {
+      unchecked {
+        owners[i] = votes[i].owner;
+        sigs[i] = votes[i].sig;
+        ++i;
+      }
+    }
+    return (owners, sigs);
+  }
+
+  /// @notice Storage-free tuple used solely to decode the per-vote signature
+  ///         blob. See `_decodeVotes`.
+  struct Vote {
+    address owner;
+    bytes sig;
+  }
+  ///         with a fixed gas stipend and returns whether the magic value
+  ///         came back. Returns false on any failure path: revert, OOG,
+  ///         short returndata, or non-matching magic.
+  function _isValidERC1271(
+    address signer,
+    bytes32 hash,
+    bytes memory sig
+  ) internal view virtual returns (bool) {
+    (bool success, bytes memory ret) = signer.staticcall{gas: _ERC1271_GAS_STIPEND}(
+      abi.encodeWithSelector(IERC1271.isValidSignature.selector, hash, sig)
+    );
+    return (success && ret.length >= 32 && abi.decode(ret, (bytes32)) == bytes32(_ERC1271_MAGIC));
+  }
+
   /// @notice Hook fired each time an owner's vote is recorded against a
-  ///         transaction via `approveHash`. The base implementation is a
-  ///         no-op; `MyMultiSigExtended` overrides this hook to bump
-  ///         `lastAction` for inactivity tracking. The ECDSA path already
-  ///         records `lastAction` through the `_validateOwner` override on
-  ///         `MyMultiSigExtended`.
+  ///         transaction — whether via `approveHash` or via `_recordVote`
+  ///         inside `_validateSignature`. The base implementation is a no-op;
+  ///         `MyMultiSigExtended` overrides this hook to bump `lastAction`
+  ///         for inactivity tracking. Because every vote source flows through
+  ///         this hook (on-chain approval, ECDSA vote, EIP-1271 contract-owner
+  ///         vote), the inactivity tracking works uniformly across all paths.
   function _recordOwnerApproval(address /* owner */) internal virtual {}
 
   /// @notice Adds an owner

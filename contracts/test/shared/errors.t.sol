@@ -20,8 +20,6 @@ contract Errors is Test {
     OnlyThisContract,
     TooManyOwners,
     InvalidSignatures,
-    InvalidOwners,
-    OwnerAlreadySigned,
     CannotRemoveOwnerBelowThreshold,
     ThresholdMustBeGreaterThanZero,
     ThresholdMustBeLessOrEqualThanNumberOfOwners,
@@ -37,8 +35,6 @@ contract Errors is Test {
     _errors[RevertStatus.OnlyThisContract] = MyMultiSig.OnlyThisContract.selector;
     _errors[RevertStatus.TooManyOwners] = MyMultiSig.TooManyOwners.selector;
     _errors[RevertStatus.InvalidSignatures] = MyMultiSig.InvalidSignatures.selector;
-    _errors[RevertStatus.InvalidOwners] = MyMultiSig.InvalidOwner.selector;
-    _errors[RevertStatus.OwnerAlreadySigned] = MyMultiSig.OwnerAlreadySigned.selector;
     _errors[RevertStatus.CannotRemoveOwnerBelowThreshold] = MyMultiSig.CannotRemoveOwnerBelowThreshold.selector;
     _errors[RevertStatus.ThresholdMustBeGreaterThanZero] = MyMultiSig.ThresholdMustBeGreaterThanZero.selector;
     _errors[
