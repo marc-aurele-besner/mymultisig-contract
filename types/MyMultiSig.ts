@@ -34,15 +34,17 @@ export interface MyMultiSigInterface extends utils.Interface {
     "approveHash(bytes32)": FunctionFragment;
     "changeThreshold(uint16)": FunctionFragment;
     "eip712Domain()": FunctionFragment;
+    "execTransaction(address,uint256,bytes,uint256,uint256,bytes)": FunctionFragment;
     "execTransaction(address,uint256,bytes,uint256,bytes)": FunctionFragment;
-    "generateHash(address,uint256,bytes,uint256,uint256)": FunctionFragment;
+    "generateHash(address,uint256,bytes,uint256,uint256,uint256)": FunctionFragment;
     "getApprovedOwners(bytes32)": FunctionFragment;
     "getThreshold(bytes32)": FunctionFragment;
     "incrementNonce()": FunctionFragment;
     "isOwner(address)": FunctionFragment;
     "isValidSignature(bytes32,bytes)": FunctionFragment;
-    "isValidSignature(address,uint256,bytes,uint256,uint256,bytes)": FunctionFragment;
+    "isValidSignature(address,uint256,bytes,uint256,uint256,uint256,bytes)": FunctionFragment;
     "multiRequest(address[],uint256[],bytes[],uint256[])": FunctionFragment;
+    "multiRequestStrict(address[],uint256[],bytes[],uint256[])": FunctionFragment;
     "name()": FunctionFragment;
     "nonce()": FunctionFragment;
     "onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)": FunctionFragment;
@@ -51,6 +53,7 @@ export interface MyMultiSigInterface extends utils.Interface {
     "ownerCount()": FunctionFragment;
     "removeOwner(address)": FunctionFragment;
     "replaceOwner(address,address)": FunctionFragment;
+    "revokeApproval(bytes32)": FunctionFragment;
     "supportsInterface(bytes4)": FunctionFragment;
     "threshold()": FunctionFragment;
     "version()": FunctionFragment;
@@ -62,15 +65,17 @@ export interface MyMultiSigInterface extends utils.Interface {
       | "approveHash"
       | "changeThreshold"
       | "eip712Domain"
-      | "execTransaction"
+      | "execTransaction(address,uint256,bytes,uint256,uint256,bytes)"
+      | "execTransaction(address,uint256,bytes,uint256,bytes)"
       | "generateHash"
       | "getApprovedOwners"
       | "getThreshold"
       | "incrementNonce"
       | "isOwner"
       | "isValidSignature(bytes32,bytes)"
-      | "isValidSignature(address,uint256,bytes,uint256,uint256,bytes)"
+      | "isValidSignature(address,uint256,bytes,uint256,uint256,uint256,bytes)"
       | "multiRequest"
+      | "multiRequestStrict"
       | "name"
       | "nonce"
       | "onERC1155BatchReceived"
@@ -79,6 +84,7 @@ export interface MyMultiSigInterface extends utils.Interface {
       | "ownerCount"
       | "removeOwner"
       | "replaceOwner"
+      | "revokeApproval"
       | "supportsInterface"
       | "threshold"
       | "version"
@@ -101,7 +107,18 @@ export interface MyMultiSigInterface extends utils.Interface {
     values?: undefined
   ): string;
   encodeFunctionData(
-    functionFragment: "execTransaction",
+    functionFragment: "execTransaction(address,uint256,bytes,uint256,uint256,bytes)",
+    values: [
+      PromiseOrValue<string>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BytesLike>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BytesLike>
+    ]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "execTransaction(address,uint256,bytes,uint256,bytes)",
     values: [
       PromiseOrValue<string>,
       PromiseOrValue<BigNumberish>,
@@ -116,6 +133,7 @@ export interface MyMultiSigInterface extends utils.Interface {
       PromiseOrValue<string>,
       PromiseOrValue<BigNumberish>,
       PromiseOrValue<BytesLike>,
+      PromiseOrValue<BigNumberish>,
       PromiseOrValue<BigNumberish>,
       PromiseOrValue<BigNumberish>
     ]
@@ -141,11 +159,12 @@ export interface MyMultiSigInterface extends utils.Interface {
     values: [PromiseOrValue<BytesLike>, PromiseOrValue<BytesLike>]
   ): string;
   encodeFunctionData(
-    functionFragment: "isValidSignature(address,uint256,bytes,uint256,uint256,bytes)",
+    functionFragment: "isValidSignature(address,uint256,bytes,uint256,uint256,uint256,bytes)",
     values: [
       PromiseOrValue<string>,
       PromiseOrValue<BigNumberish>,
       PromiseOrValue<BytesLike>,
+      PromiseOrValue<BigNumberish>,
       PromiseOrValue<BigNumberish>,
       PromiseOrValue<BigNumberish>,
       PromiseOrValue<BytesLike>
@@ -153,6 +172,15 @@ export interface MyMultiSigInterface extends utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "multiRequest",
+    values: [
+      PromiseOrValue<string>[],
+      PromiseOrValue<BigNumberish>[],
+      PromiseOrValue<BytesLike>[],
+      PromiseOrValue<BigNumberish>[]
+    ]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "multiRequestStrict",
     values: [
       PromiseOrValue<string>[],
       PromiseOrValue<BigNumberish>[],
@@ -204,6 +232,10 @@ export interface MyMultiSigInterface extends utils.Interface {
     values: [PromiseOrValue<string>, PromiseOrValue<string>]
   ): string;
   encodeFunctionData(
+    functionFragment: "revokeApproval",
+    values: [PromiseOrValue<BytesLike>]
+  ): string;
+  encodeFunctionData(
     functionFragment: "supportsInterface",
     values: [PromiseOrValue<BytesLike>]
   ): string;
@@ -224,7 +256,11 @@ export interface MyMultiSigInterface extends utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
-    functionFragment: "execTransaction",
+    functionFragment: "execTransaction(address,uint256,bytes,uint256,uint256,bytes)",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "execTransaction(address,uint256,bytes,uint256,bytes)",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -249,11 +285,15 @@ export interface MyMultiSigInterface extends utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
-    functionFragment: "isValidSignature(address,uint256,bytes,uint256,uint256,bytes)",
+    functionFragment: "isValidSignature(address,uint256,bytes,uint256,uint256,uint256,bytes)",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
     functionFragment: "multiRequest",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "multiRequestStrict",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "name", data: BytesLike): Result;
@@ -280,6 +320,10 @@ export interface MyMultiSigInterface extends utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "revokeApproval",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "supportsInterface",
     data: BytesLike
   ): Result;
@@ -293,6 +337,7 @@ export interface MyMultiSigInterface extends utils.Interface {
     "MultiRequestExecuted(uint256,bool[],bytes[])": EventFragment;
     "OwnerAdded(address)": EventFragment;
     "OwnerRemoved(address)": EventFragment;
+    "RevokeApproval(address,bytes32)": EventFragment;
     "ThresholdChanged(uint256)": EventFragment;
     "TransactionExecuted(address,address,uint256,bytes,uint256,uint256)": EventFragment;
     "TxFailure(address,address,uint256,bytes,uint256,uint256,bytes)": EventFragment;
@@ -304,6 +349,7 @@ export interface MyMultiSigInterface extends utils.Interface {
   getEvent(nameOrSignatureOrTopic: "MultiRequestExecuted"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "OwnerAdded"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "OwnerRemoved"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "RevokeApproval"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "ThresholdChanged"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "TransactionExecuted"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "TxFailure"): EventFragment;
@@ -366,6 +412,17 @@ export interface OwnerRemovedEventObject {
 export type OwnerRemovedEvent = TypedEvent<[string], OwnerRemovedEventObject>;
 
 export type OwnerRemovedEventFilter = TypedEventFilter<OwnerRemovedEvent>;
+
+export interface RevokeApprovalEventObject {
+  owner: string;
+  hash: string;
+}
+export type RevokeApprovalEvent = TypedEvent<
+  [string, string],
+  RevokeApprovalEventObject
+>;
+
+export type RevokeApprovalEventFilter = TypedEventFilter<RevokeApprovalEvent>;
 
 export interface ThresholdChangedEventObject {
   threshold: BigNumber;
@@ -466,7 +523,17 @@ export interface MyMultiSig extends BaseContract {
       }
     >;
 
-    execTransaction(
+    "execTransaction(address,uint256,bytes,uint256,uint256,bytes)"(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      validUntil: PromiseOrValue<BigNumberish>,
+      signatures: PromiseOrValue<BytesLike>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    "execTransaction(address,uint256,bytes,uint256,bytes)"(
       to: PromiseOrValue<string>,
       value: PromiseOrValue<BigNumberish>,
       data: PromiseOrValue<BytesLike>,
@@ -481,6 +548,7 @@ export interface MyMultiSig extends BaseContract {
       data: PromiseOrValue<BytesLike>,
       txnGas: PromiseOrValue<BigNumberish>,
       txnNonce: PromiseOrValue<BigNumberish>,
+      validUntil: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
     ): Promise<[string]>;
 
@@ -509,17 +577,26 @@ export interface MyMultiSig extends BaseContract {
       overrides?: CallOverrides
     ): Promise<[string] & { magicValue: string }>;
 
-    "isValidSignature(address,uint256,bytes,uint256,uint256,bytes)"(
+    "isValidSignature(address,uint256,bytes,uint256,uint256,uint256,bytes)"(
       to: PromiseOrValue<string>,
       value: PromiseOrValue<BigNumberish>,
       data: PromiseOrValue<BytesLike>,
       txnGas: PromiseOrValue<BigNumberish>,
       txnNonce: PromiseOrValue<BigNumberish>,
+      validUntil: PromiseOrValue<BigNumberish>,
       signatures: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<[boolean] & { valid: boolean }>;
 
     multiRequest(
+      to: PromiseOrValue<string>[],
+      value: PromiseOrValue<BigNumberish>[],
+      data: PromiseOrValue<BytesLike>[],
+      txGas: PromiseOrValue<BigNumberish>[],
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    multiRequestStrict(
       to: PromiseOrValue<string>[],
       value: PromiseOrValue<BigNumberish>[],
       data: PromiseOrValue<BytesLike>[],
@@ -570,6 +647,11 @@ export interface MyMultiSig extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
+    revokeApproval(
+      hash: PromiseOrValue<BytesLike>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
     supportsInterface(
       interfaceId: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
@@ -609,7 +691,17 @@ export interface MyMultiSig extends BaseContract {
     }
   >;
 
-  execTransaction(
+  "execTransaction(address,uint256,bytes,uint256,uint256,bytes)"(
+    to: PromiseOrValue<string>,
+    value: PromiseOrValue<BigNumberish>,
+    data: PromiseOrValue<BytesLike>,
+    txnGas: PromiseOrValue<BigNumberish>,
+    validUntil: PromiseOrValue<BigNumberish>,
+    signatures: PromiseOrValue<BytesLike>,
+    overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  "execTransaction(address,uint256,bytes,uint256,bytes)"(
     to: PromiseOrValue<string>,
     value: PromiseOrValue<BigNumberish>,
     data: PromiseOrValue<BytesLike>,
@@ -624,6 +716,7 @@ export interface MyMultiSig extends BaseContract {
     data: PromiseOrValue<BytesLike>,
     txnGas: PromiseOrValue<BigNumberish>,
     txnNonce: PromiseOrValue<BigNumberish>,
+    validUntil: PromiseOrValue<BigNumberish>,
     overrides?: CallOverrides
   ): Promise<string>;
 
@@ -652,17 +745,26 @@ export interface MyMultiSig extends BaseContract {
     overrides?: CallOverrides
   ): Promise<string>;
 
-  "isValidSignature(address,uint256,bytes,uint256,uint256,bytes)"(
+  "isValidSignature(address,uint256,bytes,uint256,uint256,uint256,bytes)"(
     to: PromiseOrValue<string>,
     value: PromiseOrValue<BigNumberish>,
     data: PromiseOrValue<BytesLike>,
     txnGas: PromiseOrValue<BigNumberish>,
     txnNonce: PromiseOrValue<BigNumberish>,
+    validUntil: PromiseOrValue<BigNumberish>,
     signatures: PromiseOrValue<BytesLike>,
     overrides?: CallOverrides
   ): Promise<boolean>;
 
   multiRequest(
+    to: PromiseOrValue<string>[],
+    value: PromiseOrValue<BigNumberish>[],
+    data: PromiseOrValue<BytesLike>[],
+    txGas: PromiseOrValue<BigNumberish>[],
+    overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  multiRequestStrict(
     to: PromiseOrValue<string>[],
     value: PromiseOrValue<BigNumberish>[],
     data: PromiseOrValue<BytesLike>[],
@@ -713,6 +815,11 @@ export interface MyMultiSig extends BaseContract {
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
+  revokeApproval(
+    hash: PromiseOrValue<BytesLike>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
   supportsInterface(
     interfaceId: PromiseOrValue<BytesLike>,
     overrides?: CallOverrides
@@ -752,7 +859,17 @@ export interface MyMultiSig extends BaseContract {
       }
     >;
 
-    execTransaction(
+    "execTransaction(address,uint256,bytes,uint256,uint256,bytes)"(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      validUntil: PromiseOrValue<BigNumberish>,
+      signatures: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<boolean>;
+
+    "execTransaction(address,uint256,bytes,uint256,bytes)"(
       to: PromiseOrValue<string>,
       value: PromiseOrValue<BigNumberish>,
       data: PromiseOrValue<BytesLike>,
@@ -767,6 +884,7 @@ export interface MyMultiSig extends BaseContract {
       data: PromiseOrValue<BytesLike>,
       txnGas: PromiseOrValue<BigNumberish>,
       txnNonce: PromiseOrValue<BigNumberish>,
+      validUntil: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
     ): Promise<string>;
 
@@ -793,12 +911,13 @@ export interface MyMultiSig extends BaseContract {
       overrides?: CallOverrides
     ): Promise<string>;
 
-    "isValidSignature(address,uint256,bytes,uint256,uint256,bytes)"(
+    "isValidSignature(address,uint256,bytes,uint256,uint256,uint256,bytes)"(
       to: PromiseOrValue<string>,
       value: PromiseOrValue<BigNumberish>,
       data: PromiseOrValue<BytesLike>,
       txnGas: PromiseOrValue<BigNumberish>,
       txnNonce: PromiseOrValue<BigNumberish>,
+      validUntil: PromiseOrValue<BigNumberish>,
       signatures: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<boolean>;
@@ -812,6 +931,14 @@ export interface MyMultiSig extends BaseContract {
     ): Promise<
       [boolean[], string[]] & { successes: boolean[]; returnData: string[] }
     >;
+
+    multiRequestStrict(
+      to: PromiseOrValue<string>[],
+      value: PromiseOrValue<BigNumberish>[],
+      data: PromiseOrValue<BytesLike>[],
+      txGas: PromiseOrValue<BigNumberish>[],
+      overrides?: CallOverrides
+    ): Promise<void>;
 
     name(overrides?: CallOverrides): Promise<string>;
 
@@ -853,6 +980,11 @@ export interface MyMultiSig extends BaseContract {
     replaceOwner(
       oldOwner: PromiseOrValue<string>,
       newOwner: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    revokeApproval(
+      hash: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<void>;
 
@@ -908,6 +1040,15 @@ export interface MyMultiSig extends BaseContract {
     OwnerRemoved(
       owner?: PromiseOrValue<string> | null
     ): OwnerRemovedEventFilter;
+
+    "RevokeApproval(address,bytes32)"(
+      owner?: PromiseOrValue<string> | null,
+      hash?: PromiseOrValue<BytesLike> | null
+    ): RevokeApprovalEventFilter;
+    RevokeApproval(
+      owner?: PromiseOrValue<string> | null,
+      hash?: PromiseOrValue<BytesLike> | null
+    ): RevokeApprovalEventFilter;
 
     "ThresholdChanged(uint256)"(
       threshold?: PromiseOrValue<BigNumberish> | null
@@ -971,7 +1112,17 @@ export interface MyMultiSig extends BaseContract {
 
     eip712Domain(overrides?: CallOverrides): Promise<BigNumber>;
 
-    execTransaction(
+    "execTransaction(address,uint256,bytes,uint256,uint256,bytes)"(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      validUntil: PromiseOrValue<BigNumberish>,
+      signatures: PromiseOrValue<BytesLike>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    "execTransaction(address,uint256,bytes,uint256,bytes)"(
       to: PromiseOrValue<string>,
       value: PromiseOrValue<BigNumberish>,
       data: PromiseOrValue<BytesLike>,
@@ -986,6 +1137,7 @@ export interface MyMultiSig extends BaseContract {
       data: PromiseOrValue<BytesLike>,
       txnGas: PromiseOrValue<BigNumberish>,
       txnNonce: PromiseOrValue<BigNumberish>,
+      validUntil: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
@@ -1014,17 +1166,26 @@ export interface MyMultiSig extends BaseContract {
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
-    "isValidSignature(address,uint256,bytes,uint256,uint256,bytes)"(
+    "isValidSignature(address,uint256,bytes,uint256,uint256,uint256,bytes)"(
       to: PromiseOrValue<string>,
       value: PromiseOrValue<BigNumberish>,
       data: PromiseOrValue<BytesLike>,
       txnGas: PromiseOrValue<BigNumberish>,
       txnNonce: PromiseOrValue<BigNumberish>,
+      validUntil: PromiseOrValue<BigNumberish>,
       signatures: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
     multiRequest(
+      to: PromiseOrValue<string>[],
+      value: PromiseOrValue<BigNumberish>[],
+      data: PromiseOrValue<BytesLike>[],
+      txGas: PromiseOrValue<BigNumberish>[],
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    multiRequestStrict(
       to: PromiseOrValue<string>[],
       value: PromiseOrValue<BigNumberish>[],
       data: PromiseOrValue<BytesLike>[],
@@ -1075,6 +1236,11 @@ export interface MyMultiSig extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
+    revokeApproval(
+      hash: PromiseOrValue<BytesLike>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
     supportsInterface(
       interfaceId: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
@@ -1103,7 +1269,17 @@ export interface MyMultiSig extends BaseContract {
 
     eip712Domain(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
-    execTransaction(
+    "execTransaction(address,uint256,bytes,uint256,uint256,bytes)"(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      validUntil: PromiseOrValue<BigNumberish>,
+      signatures: PromiseOrValue<BytesLike>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    "execTransaction(address,uint256,bytes,uint256,bytes)"(
       to: PromiseOrValue<string>,
       value: PromiseOrValue<BigNumberish>,
       data: PromiseOrValue<BytesLike>,
@@ -1118,6 +1294,7 @@ export interface MyMultiSig extends BaseContract {
       data: PromiseOrValue<BytesLike>,
       txnGas: PromiseOrValue<BigNumberish>,
       txnNonce: PromiseOrValue<BigNumberish>,
+      validUntil: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
@@ -1146,17 +1323,26 @@ export interface MyMultiSig extends BaseContract {
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
-    "isValidSignature(address,uint256,bytes,uint256,uint256,bytes)"(
+    "isValidSignature(address,uint256,bytes,uint256,uint256,uint256,bytes)"(
       to: PromiseOrValue<string>,
       value: PromiseOrValue<BigNumberish>,
       data: PromiseOrValue<BytesLike>,
       txnGas: PromiseOrValue<BigNumberish>,
       txnNonce: PromiseOrValue<BigNumberish>,
+      validUntil: PromiseOrValue<BigNumberish>,
       signatures: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
     multiRequest(
+      to: PromiseOrValue<string>[],
+      value: PromiseOrValue<BigNumberish>[],
+      data: PromiseOrValue<BytesLike>[],
+      txGas: PromiseOrValue<BigNumberish>[],
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    multiRequestStrict(
       to: PromiseOrValue<string>[],
       value: PromiseOrValue<BigNumberish>[],
       data: PromiseOrValue<BytesLike>[],
@@ -1204,6 +1390,11 @@ export interface MyMultiSig extends BaseContract {
     replaceOwner(
       oldOwner: PromiseOrValue<string>,
       newOwner: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    revokeApproval(
+      hash: PromiseOrValue<BytesLike>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
