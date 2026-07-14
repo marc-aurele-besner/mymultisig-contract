@@ -14,6 +14,16 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
 
   mapping(address => bool) private _owners;
   mapping(uint256 => bool) private _ownerNonceSigned;
+  /// @notice Enumerable owner list. `_ownerList[i]` is one of the current owners
+  ///         and `_ownerIndex[owner]` is that owner's position in `_ownerList`,
+  ///         or zero if `owner` is not an owner. Zero is a sentinel because
+  ///         address(0) can never be an owner (see `NewOwnerMustNotBeZero`),
+  ///         so the "owner not present" case is unambiguous. Removes use a
+  ///         swap-and-pop (swap with the last element, pop) so the list stays
+  ///         contiguous and `getOwners` is O(n) to read; iteration order is
+  ///         not guaranteed to match owner-add order.
+  address[] private _ownerList;
+  mapping(address => uint256) private _ownerIndex;
   /// @notice Per-hash set of owners who have pre-approved the transaction
   ///         via `approveHash`. Keyed by the 32-byte EIP-712 transaction hash.
   mapping(bytes32 => mapping(address => bool)) private _approvedHashes;
@@ -111,7 +121,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @notice Retrieves the contract version
   /// @return The version as a string memory.
   function version() public pure virtual returns (string memory) {
-    return '0.1.3';
+    return '0.1.4';
   }
 
   /// @notice Retrieves the current threshold value
@@ -137,6 +147,18 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @return True if the address is the owner, false otherwise.
   function isOwner(address owner) public view virtual returns (bool) {
     return _owners[owner];
+  }
+
+  /// @notice Returns the current list of owners so off-chain consumers
+  ///         (front-ends, indexers, governance dashboards) can enumerate the
+  ///         wallet's signers without scraping `OwnerAdded` / `OwnerRemoved`
+  ///         events. The returned array always has length `ownerCount` and
+  ///         contains each current owner exactly once. Iteration order is not
+  ///         stable across owner adds/removes (remove uses swap-and-pop); if
+  ///         a stable order is required, sort the result off-chain.
+  /// @return The current owners as `address[]`.
+  function getOwners() public view virtual returns (address[] memory) {
+    return _ownerList;
   }
 
   /// @notice Returns the owners who have pre-approved the given hash via
@@ -457,6 +479,8 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     if (_owners[owner]) revert OwnerAlreadyExists();
     _owners[owner] = true;
     ++_ownerCount;
+    _ownerIndex[owner] = _ownerList.length;
+    _ownerList.push(owner);
     emit OwnerAdded(owner);
   }
 
@@ -476,6 +500,19 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     if (_ownerCount <= _threshold) revert CannotRemoveOwnerBelowThreshold();
     _owners[owner] = false;
     --_ownerCount;
+    // Swap-and-pop: move the last owner into the removed slot, then pop.
+    // This keeps `_ownerList` contiguous (O(1) per remove) at the cost of
+    // not preserving insertion order. `_ownerIndex[owner]` is cleared so a
+    // future re-add of the same address is treated as a fresh insert.
+    uint256 removedIndex = _ownerIndex[owner];
+    uint256 lastIndex = _ownerList.length - 1;
+    if (removedIndex != lastIndex) {
+      address lastOwner = _ownerList[lastIndex];
+      _ownerList[removedIndex] = lastOwner;
+      _ownerIndex[lastOwner] = removedIndex;
+    }
+    delete _ownerIndex[owner];
+    _ownerList.pop();
     emit OwnerRemoved(owner);
   }
 
@@ -521,6 +558,14 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     if (newOwner == address(0)) revert NewOwnerMustNotBeZero();
     _owners[oldOwner] = false;
     _owners[newOwner] = true;
+    // Keep the enumerable list in sync: reuse `oldOwner`'s slot for
+    // `newOwner` so the list stays the same length and every caller holding
+    // a stable index (e.g. an off-chain indexer keyed on `_ownerList[i]`)
+    // keeps pointing at a valid owner across the replace.
+    uint256 slot = _ownerIndex[oldOwner];
+    _ownerList[slot] = newOwner;
+    _ownerIndex[newOwner] = slot;
+    delete _ownerIndex[oldOwner];
     emit OwnerRemoved(oldOwner);
     emit OwnerAdded(newOwner);
   }

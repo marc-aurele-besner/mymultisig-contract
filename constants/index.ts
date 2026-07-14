@@ -10,9 +10,16 @@ export default {
   CONTRACT_FACTORY_NAME: 'MyMultiSigFactory',
   CONTRACT_FACTORY_VERSION: '0.1.1',
   CONTRACT_NAME: 'MyMultiSig',
-  CONTRACT_VERSION: '0.1.3',
+  CONTRACT_VERSION: '0.1.4',
   CONTRACT_NAME_EXTENDED: 'MyMultiSigExtended',
   DEFAULT_THRESHOLD: 2,
-  DEFAULT_GAS: 75000,
+  // Inner-call gas budget passed to `execTransaction` / `multiRequest` by
+  // the test helpers. Bumped from 75_000 to 200_000 so the per-call budget
+  // accommodates the additional storage writes that `getOwners()` needs to
+  // maintain an enumerable owner list (`_ownerList` + `_ownerIndex`) on
+  // every `addOwner` / `removeOwner` / `replaceOwner`. With 75_000 a single
+  // `addOwner` consumes ~73,000 gas in `MyMultiSigExtended` and the
+  // `NotEnoughGas` check trips because the budget is checked with `>=`.
+  DEFAULT_GAS: 200000,
   DEFAULT_ALLOW_ONLY_OWNER: true,
 }

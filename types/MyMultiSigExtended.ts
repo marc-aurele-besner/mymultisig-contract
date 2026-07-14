@@ -53,6 +53,7 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     "execTransaction(address,uint256,bytes,uint256,bytes)": FunctionFragment;
     "generateHash(address,uint256,bytes,uint256,uint256)": FunctionFragment;
     "getApprovedOwners(bytes32)": FunctionFragment;
+    "getOwners()": FunctionFragment;
     "getThreshold(bytes32)": FunctionFragment;
     "incrementNonce()": FunctionFragment;
     "isNonceUsed(uint256)": FunctionFragment;
@@ -90,6 +91,7 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
       | "execTransaction(address,uint256,bytes,uint256,bytes)"
       | "generateHash"
       | "getApprovedOwners"
+      | "getOwners"
       | "getThreshold"
       | "incrementNonce"
       | "isNonceUsed"
@@ -171,6 +173,7 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     functionFragment: "getApprovedOwners",
     values: [PromiseOrValue<BytesLike>]
   ): string;
+  encodeFunctionData(functionFragment: "getOwners", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "getThreshold",
     values: [PromiseOrValue<BytesLike>]
@@ -322,6 +325,7 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     functionFragment: "getApprovedOwners",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(functionFragment: "getOwners", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "getThreshold",
     data: BytesLike
@@ -616,6 +620,8 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: CallOverrides
     ): Promise<[string[]]>;
 
+    getOwners(overrides?: CallOverrides): Promise<[string[]]>;
+
     getThreshold(
       arg0: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
@@ -806,6 +812,8 @@ export interface MyMultiSigExtended extends BaseContract {
     overrides?: CallOverrides
   ): Promise<string[]>;
 
+  getOwners(overrides?: CallOverrides): Promise<string[]>;
+
   getThreshold(
     arg0: PromiseOrValue<BytesLike>,
     overrides?: CallOverrides
@@ -995,6 +1003,8 @@ export interface MyMultiSigExtended extends BaseContract {
       hash: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<string[]>;
+
+    getOwners(overrides?: CallOverrides): Promise<string[]>;
 
     getThreshold(
       arg0: PromiseOrValue<BytesLike>,
@@ -1262,6 +1272,8 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
+    getOwners(overrides?: CallOverrides): Promise<BigNumber>;
+
     getThreshold(
       arg0: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
@@ -1442,6 +1454,8 @@ export interface MyMultiSigExtended extends BaseContract {
       hash: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
+
+    getOwners(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     getThreshold(
       arg0: PromiseOrValue<BytesLike>,

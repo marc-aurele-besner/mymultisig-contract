@@ -96,6 +96,83 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
       expect(await contract.isOwner(user03.address)).to.be.false
     })
 
+    it('getOwners returns the constructor owner set, length matches ownerCount, and excludes non-owners', async function () {
+      const owners = await contract.getOwners()
+      // Length must equal ownerCount exactly — every entry is a current owner,
+      // no duplicates, and no entries that were added then removed can linger.
+      expect(owners.length).to.equal(await contract.ownerCount())
+      expect(owners.length).to.equal(ownerCount)
+      // Every original owner is present, and every non-owner is absent. Use a
+      // sorted-set check (have.members) because getOwners is not required to
+      // preserve insertion order — the contract uses swap-and-pop on remove.
+      expect(owners).to.have.members([owner01.address, owner02.address, owner03.address])
+      for (const u of [user01, user02, user03]) {
+        expect(owners).to.not.include(u.address)
+      }
+    })
+
+    it('getOwners reflects addOwner and removeOwner (swap-and-pop stays contiguous)', async function () {
+      // After adding user01 the new owner must appear, the existing three
+      // must still be there, and length must equal ownerCount.
+      await Helper.addOwner(contract, owner01, [owner01, owner02, owner03], user01.address, undefined, undefined, [
+        'OwnerAdded',
+      ])
+      let owners = await contract.getOwners()
+      expect(owners.length).to.equal(await contract.ownerCount())
+      expect(owners).to.have.members([owner01.address, owner02.address, owner03.address, user01.address])
+
+      // Removing owner02 must leave the others — no duplicates, no stale slots.
+      // We don't assert the index owner02 occupied because the contract uses
+      // swap-and-pop, which intentionally reorders the array.
+      await Helper.removeOwner(contract, owner01, [owner01, owner02, owner03], owner02.address, undefined, undefined, [
+        'OwnerRemoved',
+      ])
+      owners = await contract.getOwners()
+      expect(owners.length).to.equal(await contract.ownerCount())
+      expect(owners).to.have.members([owner01.address, owner03.address, user01.address])
+      expect(owners).to.not.include(owner02.address)
+      // Length must stay equal across every transition (no leaked entries).
+      expect(owners.length).to.equal(3)
+    })
+
+    it('getOwners reflects replaceOwner (slot is reused, length unchanged)', async function () {
+      // Replacing owner01 -> user01 must keep the list at the same length and
+      // move user01 into the slot owner01 occupied. We can't assert the slot
+      // off-chain because it depends on prior state, but we can assert the
+      // list is a permutation of the expected set and length is unchanged.
+      await Helper.replaceOwner(
+        contract,
+        owner01,
+        [owner01, owner02, owner03],
+        user01.address,
+        owner01.address,
+        undefined,
+        undefined,
+        ['OwnerRemoved', 'OwnerAdded'],
+      )
+      const owners = await contract.getOwners()
+      expect(owners.length).to.equal(await contract.ownerCount())
+      expect(owners.length).to.equal(ownerCount) // unchanged: 3 -> 3
+      expect(owners).to.have.members([user01.address, owner02.address, owner03.address])
+      expect(owners).to.not.include(owner01.address)
+    })
+
+    it('Removing then re-adding an owner does not leave a stale index entry', async function () {
+      // Drop owner02, then re-add the same address. The list must contain
+      // the address exactly once — a stale _ownerIndex entry would surface
+      // here as either a duplicate (if we pushed without checking) or an
+      // out-of-bounds read inside _removeOwner.
+      await Helper.removeOwner(contract, owner01, [owner01, owner02, owner03], owner02.address, undefined, undefined, [
+        'OwnerRemoved',
+      ])
+      await Helper.addOwner(contract, owner01, [owner01, owner03], owner02.address, undefined, undefined, ['OwnerAdded'])
+      const owners = await contract.getOwners()
+      expect(owners.length).to.equal(await contract.ownerCount())
+      // owner02 must appear exactly once.
+      expect(owners.filter((a: string) => a === owner02.address).length).to.equal(1)
+      expect(owners).to.have.members([owner01.address, owner03.address, owner02.address])
+    })
+
     it('Contract return false if owners (1/2) sign a transaction and call isValidSignature', async function () {
       expect(
         await Helper.isValidSignature(
@@ -900,6 +977,83 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       expect(await contract.isOwner(user01.address)).to.be.false
       expect(await contract.isOwner(user02.address)).to.be.false
       expect(await contract.isOwner(user03.address)).to.be.false
+    })
+
+    it('getOwners returns the constructor owner set, length matches ownerCount, and excludes non-owners', async function () {
+      const owners = await contract.getOwners()
+      // Length must equal ownerCount exactly — every entry is a current owner,
+      // no duplicates, and no entries that were added then removed can linger.
+      expect(owners.length).to.equal(await contract.ownerCount())
+      expect(owners.length).to.equal(ownerCount)
+      // Every original owner is present, and every non-owner is absent. Use a
+      // sorted-set check (have.members) because getOwners is not required to
+      // preserve insertion order — the contract uses swap-and-pop on remove.
+      expect(owners).to.have.members([owner01.address, owner02.address, owner03.address])
+      for (const u of [user01, user02, user03]) {
+        expect(owners).to.not.include(u.address)
+      }
+    })
+
+    it('getOwners reflects addOwner and removeOwner (swap-and-pop stays contiguous)', async function () {
+      // After adding user01 the new owner must appear, the existing three
+      // must still be there, and length must equal ownerCount.
+      await Helper.addOwner(contract, owner01, [owner01, owner02, owner03], user01.address, undefined, undefined, [
+        'OwnerAdded',
+      ])
+      let owners = await contract.getOwners()
+      expect(owners.length).to.equal(await contract.ownerCount())
+      expect(owners).to.have.members([owner01.address, owner02.address, owner03.address, user01.address])
+
+      // Removing owner02 must leave the others — no duplicates, no stale slots.
+      // We don't assert the index owner02 occupied because the contract uses
+      // swap-and-pop, which intentionally reorders the array.
+      await Helper.removeOwner(contract, owner01, [owner01, owner02, owner03], owner02.address, undefined, undefined, [
+        'OwnerRemoved',
+      ])
+      owners = await contract.getOwners()
+      expect(owners.length).to.equal(await contract.ownerCount())
+      expect(owners).to.have.members([owner01.address, owner03.address, user01.address])
+      expect(owners).to.not.include(owner02.address)
+      // Length must stay equal across every transition (no leaked entries).
+      expect(owners.length).to.equal(3)
+    })
+
+    it('getOwners reflects replaceOwner (slot is reused, length unchanged)', async function () {
+      // Replacing owner01 -> user01 must keep the list at the same length and
+      // move user01 into the slot owner01 occupied. We can't assert the slot
+      // off-chain because it depends on prior state, but we can assert the
+      // list is a permutation of the expected set and length is unchanged.
+      await Helper.replaceOwner(
+        contract,
+        owner01,
+        [owner01, owner02, owner03],
+        user01.address,
+        owner01.address,
+        undefined,
+        undefined,
+        ['OwnerRemoved', 'OwnerAdded'],
+      )
+      const owners = await contract.getOwners()
+      expect(owners.length).to.equal(await contract.ownerCount())
+      expect(owners.length).to.equal(ownerCount) // unchanged: 3 -> 3
+      expect(owners).to.have.members([user01.address, owner02.address, owner03.address])
+      expect(owners).to.not.include(owner01.address)
+    })
+
+    it('Removing then re-adding an owner does not leave a stale index entry', async function () {
+      // Drop owner02, then re-add the same address. The list must contain
+      // the address exactly once — a stale _ownerIndex entry would surface
+      // here as either a duplicate (if we pushed without checking) or an
+      // out-of-bounds read inside _removeOwner.
+      await Helper.removeOwner(contract, owner01, [owner01, owner02, owner03], owner02.address, undefined, undefined, [
+        'OwnerRemoved',
+      ])
+      await Helper.addOwner(contract, owner01, [owner01, owner03], owner02.address, undefined, undefined, ['OwnerAdded'])
+      const owners = await contract.getOwners()
+      expect(owners.length).to.equal(await contract.ownerCount())
+      // owner02 must appear exactly once.
+      expect(owners.filter((a: string) => a === owner02.address).length).to.equal(1)
+      expect(owners).to.have.members([owner01.address, owner03.address, owner02.address])
     })
 
     it('Contract return false if owners (1/2) sign a transaction and call isValidSignature', async function () {
