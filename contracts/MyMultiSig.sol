@@ -107,6 +107,13 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   ///         by `revokeApproval(bytes32)` when the caller is an owner but
   ///         has no entry in `_approvedHashes[hash]`.
   error NotApproved();
+  /// @notice Emitted by `multiRequestStrict` when an inner call reverts.
+  ///         `index` is the 0-based position of the failing call in the
+  ///         batch; `reason` is the raw return data of that call so
+  ///         front-ends can decode the inner revert reason. The whole
+  ///         outer `execTransaction` reverts — no side effects from the
+  ///         batch persist.
+  error BatchCallFailed(uint256 index, bytes reason);
   error NotOwner();
   error NotEnoughGas();
   error OwnerAlreadyExists();
@@ -335,8 +342,19 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
       mstore(0x40, add(add(returnData, 0x20), and(add(size, 0x1f), not(0x1f))))
     }
     if (gasBefore - gasleft() >= txnGas) revert NotEnoughGas();
-    if (success) emit TransactionExecuted(msg.sender, to, value, data, txnGas, txnNonce);
-    else emit TxFailure(msg.sender, to, value, data, txnGas, txnNonce, returnData);
+    if (success) {
+      emit TransactionExecuted(msg.sender, to, value, data, txnGas, txnNonce);
+    } else if (returnData.length > 0) {
+      // The inner call reverted with a payload (e.g. a custom error such as
+      // `multiRequestStrict`'s BatchCallFailed). Bubble the revert so the
+      // caller can decode the actual reason — emitting TxFailure here would
+      // hide the structured error inside an opaque bytes blob.
+      assembly {
+        revert(add(returnData, 0x20), mload(returnData))
+      }
+    } else {
+      emit TxFailure(msg.sender, to, value, data, txnGas, txnNonce, returnData);
+    }
   }
 
   /// @notice Prepare multiple transactions
@@ -393,6 +411,57 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     // `_txnNonce` has already been bumped in `_execTransaction` before this
     // function is reached, so the outer transaction's nonce is one less.
     emit MultiRequestExecuted(_txnNonce - 1, successes, returnData);
+  }
+
+  /// @notice Atomic variant of `multiRequest`: executes the batch of inner
+  ///         calls in order and reverts the entire transaction on the FIRST
+  ///         failure. Use this when the batch must be all-or-nothing —
+  ///         typical for treasury operations where the second call depends
+  ///         on the first one's side effect (e.g. approve-then-swap).
+  /// @dev    Differs from `multiRequest` in three ways:
+  ///         1. On any inner-call failure the outer tx reverts. No
+  ///            `MultiRequestExecuted` event is emitted and no inner call's
+  ///            side effects persist (the EVM rolls back the whole tx).
+  ///         2. The failure path bubbles up `BatchCallFailed(index, reason)`
+  ///            where `index` is the position of the failing call and
+  ///            `reason` is its raw return data.
+  ///         3. Does NOT return `(successes, returnData)` because the
+  ///            success path is identical to a normal tx receipt.
+  ///         Like `multiRequest`, callable only via the wallet itself
+  ///         (the `onlyThis` modifier), so callers must route through
+  ///         `execTransaction` (and gather enough signatures).
+  /// @param to The address to call for each inner transaction. (array)
+  /// @param value The ETH value to forward for each inner call. (array)
+  /// @param data The calldata for each inner call. (array)
+  /// @param txGas The gas limit for each inner call. (array)
+  function multiRequestStrict(
+    address[] memory to,
+    uint256[] memory value,
+    bytes[] memory data,
+    uint256[] memory txGas
+  ) public payable virtual onlyThis {
+    uint256 qty = to.length;
+    for (uint256 i; i < qty; ) {
+      address to_ = to[i];
+      uint256 value_ = value[i];
+      bytes memory data_ = data[i];
+      uint256 txGas_ = txGas[i];
+      bool ok;
+      bytes memory returnData;
+      assembly {
+        ok := call(txGas_, to_, value_, add(data_, 0x20), mload(data_), 0, 0)
+        let size := returndatasize()
+        returnData := mload(0x40)
+        mstore(returnData, size)
+        returndatacopy(add(returnData, 0x20), 0, size)
+        // round size up to the next 32-byte word for the free-memory pointer
+        mstore(0x40, add(add(returnData, 0x20), and(add(size, 0x1f), not(0x1f))))
+      }
+      if (!ok) revert BatchCallFailed(i, returnData);
+      unchecked {
+        ++i;
+      }
+    }
   }
 
   /// @notice EIP-1271 entry point. Validates `signature` (an ABI-encoded

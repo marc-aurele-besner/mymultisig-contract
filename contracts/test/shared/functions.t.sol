@@ -212,6 +212,25 @@ contract Functions is Constants, Signatures {
     return abi.encodeWithSignature('multiRequest(address[],uint256[],bytes[],uint256[])', to_, value_, data_, txGas_);
   }
 
+  /// @notice Encodes the calldata for the atomic-batch entry point
+  ///         `multiRequestStrict(address[],uint256[],bytes[],uint256[])` —
+  ///         the strict variant that reverts on first inner-call failure.
+  function build_multiRequestStrict(
+    address[] memory to_,
+    uint256[] memory value_,
+    bytes[] memory data_,
+    uint256[] memory txGas_
+  ) internal pure returns (bytes memory) {
+    return
+      abi.encodeWithSignature(
+        'multiRequestStrict(address[],uint256[],bytes[],uint256[])',
+        to_,
+        value_,
+        data_,
+        txGas_
+      );
+  }
+
   function build_addOwner(address owner) internal pure returns (bytes memory) {
     return abi.encodeWithSignature('addOwner(address)', owner);
   }

@@ -3,6 +3,8 @@ pragma solidity 0.8.24;
 
 import { Helper } from './helper.t.sol';
 import { Errors } from './errors.t.sol';
+import { MyMultiSig } from '../../MyMultiSig.sol';
+import { MyMultiSigExtended } from '../../MyMultiSigExtended.sol';
 
 abstract contract TestBasic is Helper {
   address[] buildTo;
@@ -430,5 +432,101 @@ abstract contract TestBasic is Helper {
       Errors.RevertStatus.InvalidSignatures
     );
     assertFalse(myMultiSig.isOwner(NOT_OWNERS[0]));
+  }
+
+  // ---------------------------------------------------------------------
+  // multiRequestStrict (atomic batch)
+  // ---------------------------------------------------------------------
+
+  function testMyMultiSig_multiRequestStrict_allSucceed() public {
+    // Three addOwner calls in one strict batch — all succeed.
+    address[] memory to_ = new address[](3);
+    uint256[] memory value_ = new uint256[](3);
+    bytes[] memory data_ = new bytes[](3);
+    uint256[] memory txGas_ = new uint256[](3);
+    for (uint256 i = 0; i < 3; i++) {
+      to_[i] = address(myMultiSig);
+      value_[i] = 0;
+      data_[i] = build_addOwner(NOT_OWNERS[i]);
+      txGas_[i] = DEFAULT_GAS;
+    }
+
+    address to = address(myMultiSig);
+    uint256 value = 0;
+    bytes memory data = build_multiRequestStrict(to_, value_, data_, txGas_);
+    uint256 gas = DEFAULT_GAS * 3;
+    help_execTransaction(
+      myMultiSig,
+      OWNERS[0],
+      to,
+      value,
+      data,
+      gas,
+      0,
+      build_signatures(myMultiSig, OWNERS_PK, to, value, data, gas, 0),
+      myMultiSig.nonce(),
+      Errors.RevertStatus.Success
+    );
+    for (uint256 i = 0; i < 3; i++) {
+      assertTrue(myMultiSig.isOwner(NOT_OWNERS[i]));
+    }
+  }
+
+  function testMyMultiSig_multiRequestStrict_revertsOnFirstFailure() public {
+    // First call is a valid addOwner. Second call forwards 1 wei to an EOA
+    // — the wallet has no balance so it reverts. The strict batch must
+    // revert the WHOLE transaction: NOT_OWNERS[0] must NOT be an owner
+    // (its addOwner side effect was rolled back), and the nonce must NOT
+    // advance.
+    address[] memory to_ = new address[](2);
+    uint256[] memory value_ = new uint256[](2);
+    bytes[] memory data_ = new bytes[](2);
+    uint256[] memory txGas_ = new uint256[](2);
+
+    to_[0] = address(myMultiSig);
+    value_[0] = 0;
+    data_[0] = build_addOwner(NOT_OWNERS[0]);
+    txGas_[0] = DEFAULT_GAS;
+
+    to_[1] = NOT_OWNERS[0];
+    value_[1] = 1; // wallet has 0 ETH → call reverts
+    data_[1] = '';
+    txGas_[1] = DEFAULT_GAS;
+
+    address to = address(myMultiSig);
+    uint256 value = 0;
+    bytes memory data = build_multiRequestStrict(to_, value_, data_, txGas_);
+    uint256 gas = DEFAULT_GAS * 2;
+    uint96 nonceBefore = myMultiSig.nonce();
+    bytes memory signatures = build_signatures(myMultiSig, OWNERS_PK, to, value, data, gas, 0);
+
+    // `BatchCallFailed` is a parameterized error — `verify_revertCall` only
+    // matches parameterless selectors, so we stage the expect inline.
+    // `isExtended` is a staticcall that may revert on the base wallet —
+    // it MUST run before `vm.expectRevert` so its revert doesn't get
+    // matched against the expected error.
+    bool extended = isExtended(myMultiSig);
+    vm.prank(OWNERS[0]);
+    vm.expectRevert(
+      abi.encodeWithSelector(MyMultiSig.BatchCallFailed.selector, uint256(1), bytes(''))
+    );
+    if (extended) {
+      MyMultiSigExtended(payable(address(myMultiSig))).execTransaction(
+        to,
+        value,
+        data,
+        gas,
+        nonceBefore,
+        0,
+        signatures
+      );
+    } else {
+      myMultiSig.execTransaction(to, value, data, gas, 0, signatures);
+    }
+
+    // Side effect of the FIRST call must NOT persist.
+    assertFalse(myMultiSig.isOwner(NOT_OWNERS[0]));
+    // Nonce must NOT advance — the whole tx was rolled back.
+    assertEq(myMultiSig.nonce(), nonceBefore);
   }
 }

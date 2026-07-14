@@ -28,7 +28,8 @@ contract Errors is Test {
     ThresholdMustBeLessOrEqualThanNumberOfOwners,
     OldOwnerMustBeOwner,
     NewOwnerMustNotBeOwner,
-    NewOwnerMustNotBeZero
+    NewOwnerMustNotBeZero,
+    BatchCallFailed
   }
 
   mapping(RevertStatus => bytes4) private _errors;
@@ -49,6 +50,7 @@ contract Errors is Test {
     _errors[RevertStatus.OldOwnerMustBeOwner] = MyMultiSig.OldOwnerMustBeOwner.selector;
     _errors[RevertStatus.NewOwnerMustNotBeOwner] = MyMultiSig.NewOwnerMustNotBeOwner.selector;
     _errors[RevertStatus.NewOwnerMustNotBeZero] = MyMultiSig.NewOwnerMustNotBeZero.selector;
+    _errors[RevertStatus.BatchCallFailed] = MyMultiSig.BatchCallFailed.selector;
   }
 
   function _verify_revertCall(RevertStatus revertType_) internal view returns (bytes4) {

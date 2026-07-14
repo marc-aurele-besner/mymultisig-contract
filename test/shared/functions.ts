@@ -287,7 +287,7 @@ export const removeOwner = async (
     ZERO,
     data,
     gas,
-    undefined,
+    errorMsg,
     extraEvents
   )
 
@@ -402,8 +402,7 @@ export const setTransferInactiveOwnershipAfter = async (
     extraEvents
   )
 
-  if (!errorMsg && (!extraEvents || !extraEvents.find((e) => e === 'TxFailure')))
-    expect(await contract.minimumTransferInactiveOwnershipAfter()).to.be.equal(transferInactiveOwnershipAfter)
+  if (!errorMsg) expect(await contract.minimumTransferInactiveOwnershipAfter()).to.be.equal(transferInactiveOwnershipAfter)
 }
 
 export const markNonceAsUsed = async (
@@ -430,8 +429,7 @@ export const markNonceAsUsed = async (
   )
   expect(await contract.isNonceUsed(nonce)).to.be.true
 
-  if (!errorMsg && (!extraEvents || !extraEvents.find((e) => e === 'TxFailure')))
-    expect(await contract.isNonceUsed(nonce)).to.be.false
+  if (!errorMsg) expect(await contract.isNonceUsed(nonce)).to.be.false
 }
 
 export const setOwnerSettings = async (
@@ -462,7 +460,7 @@ export const setOwnerSettings = async (
     extraEvents
   )
 
-  if (!errorMsg && (!extraEvents || !extraEvents.includes('TxFailure'))) {
+  if (!errorMsg) {
     const ownerSettings = await contract.ownerSettings(ownerToConfigure)
     expect(ownerSettings.lastAction).to.be.greaterThan(0)
     expect(ownerSettings.transferInactiveOwnershipAfter).to.be.equal(transferInactiveOwnershipAfter)

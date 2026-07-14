@@ -981,6 +981,83 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         expect(await contract.isOwner(user01.address)).to.be.false
       })
     })
+
+    describe('multiRequestStrict - atomic batch', function () {
+      it('All inner calls succeed → outer tx emits TransactionExecuted', async function () {
+        const to_ = [contract.address as `0x${string}`, contract.address as `0x${string}`, contract.address as `0x${string}`]
+        const value_ = [Helper.ZERO, Helper.ZERO, Helper.ZERO]
+        const data_ = [
+          contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
+          contract.interface.encodeFunctionData('addOwner(address)', [user02.address]),
+          contract.interface.encodeFunctionData('addOwner(address)', [user03.address]),
+        ]
+        const gas_ = [Helper.DEFAULT_GAS, Helper.DEFAULT_GAS, Helper.DEFAULT_GAS]
+
+        const innerData = contract.interface.encodeFunctionData('multiRequestStrict', [
+          to_,
+          value_,
+          data_,
+          gas_,
+        ]) as `0x${string}`
+
+        let gas = 0
+        for (const g of gas_) gas += g
+
+        await Helper.execTransaction(
+          contract,
+          owner01,
+          [owner01, owner02, owner03],
+          contract.address as `0x${string}`,
+          Helper.ZERO,
+          innerData,
+          gas,
+          undefined,
+          ['OwnerAdded', 'OwnerAdded', 'OwnerAdded'],
+        )
+        expect(await contract.isOwner(user01.address)).to.be.true
+        expect(await contract.isOwner(user02.address)).to.be.true
+        expect(await contract.isOwner(user03.address)).to.be.true
+      })
+
+      it('A failing inner call reverts the whole batch with BatchCallFailed; no side effects persist', async function () {
+        const to_ = [
+          contract.address as `0x${string}`,
+          user01.address as `0x${string}`, // forwarding 1 wei to an EOA — wallet has 0 ETH → revert
+        ]
+        const value_ = [Helper.ZERO, ethers.BigNumber.from(1)]
+        const data_ = [
+          contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
+          '0x',
+        ]
+        const gas_ = [Helper.DEFAULT_GAS, Helper.DEFAULT_GAS]
+
+        const innerData = contract.interface.encodeFunctionData('multiRequestStrict', [
+          to_,
+          value_,
+          data_,
+          gas_,
+        ]) as `0x${string}`
+
+        const gas = gas_.reduce((a, b) => a + b, 0)
+        const nonceBefore = await contract.nonce()
+
+        await Helper.execTransaction(
+          contract,
+          owner01,
+          [owner01, owner02, owner03],
+          contract.address as `0x${string}`,
+          Helper.ZERO,
+          innerData,
+          gas,
+          'BatchCallFailed',
+          undefined,
+        )
+        // Side effect of the FIRST call must NOT persist.
+        expect(await contract.isOwner(user01.address)).to.be.false
+        // Nonce must NOT advance — the whole tx was rolled back.
+        expect(await contract.nonce()).to.equal(nonceBefore)
+      })
+    })
   })
 }
 
@@ -1255,8 +1332,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         [owner01, owner02, owner03],
         ethers.BigNumber.from(60).mul(60).mul(24),
         Helper.DEFAULT_GAS,
-        undefined,
-        ['TxFailure'],
+        Helper.errors.OWNER_SETTINGS_TRANSFER_INACTIVE_TOO_SHORT,
       )
     })
 
@@ -1314,8 +1390,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         [owner01, owner02, owner03],
         ethers.BigNumber.from(60).mul(60).mul(24).mul(5),
         user03.address,
-        undefined,
-        ['TxFailure'],
+        Helper.errors.OWNER_SETTINGS_MUST_BE_GREATER_THAN_MINIMUM,
       )
     })
 
@@ -1327,8 +1402,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         [owner01, owner02, owner03],
         ethers.BigNumber.from(60).mul(60).mul(24).mul(31),
         owner02.address,
-        undefined,
-        ['TxFailure'],
+        Helper.errors.OWNER_SETTINGS_DELEGATEE_MUST_NOT_BE_OWNER,
       )
     })
 
@@ -1346,8 +1420,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         [owner01, owner02, owner03],
         ethers.BigNumber.from(60).mul(60).mul(24).mul(5),
         owner03.address,
-        undefined,
-        ['TxFailure'],
+        Helper.errors.OWNER_SETTINGS_MUST_BE_GREATER_THAN_MINIMUM,
       )
     })
 
@@ -1436,8 +1509,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         [owner01, owner02, owner03],
         ethers.BigNumber.from(60).mul(60).mul(24).mul(8),
         user03.address,
-        undefined,
-        ['TxFailure'],
+        Helper.errors.OWNER_SETTINGS_OWNER_MUST_BE_OWNER,
       )
     })
 
