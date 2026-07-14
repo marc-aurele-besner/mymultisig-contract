@@ -40,6 +40,7 @@ export interface MyMultiSigInterface extends utils.Interface {
     "getThreshold(bytes32)": FunctionFragment;
     "incrementNonce()": FunctionFragment;
     "isOwner(address)": FunctionFragment;
+    "isValidSignature(bytes32,bytes)": FunctionFragment;
     "isValidSignature(address,uint256,bytes,uint256,uint256,bytes)": FunctionFragment;
     "multiRequest(address[],uint256[],bytes[],uint256[])": FunctionFragment;
     "name()": FunctionFragment;
@@ -67,7 +68,8 @@ export interface MyMultiSigInterface extends utils.Interface {
       | "getThreshold"
       | "incrementNonce"
       | "isOwner"
-      | "isValidSignature"
+      | "isValidSignature(bytes32,bytes)"
+      | "isValidSignature(address,uint256,bytes,uint256,uint256,bytes)"
       | "multiRequest"
       | "name"
       | "nonce"
@@ -135,7 +137,11 @@ export interface MyMultiSigInterface extends utils.Interface {
     values: [PromiseOrValue<string>]
   ): string;
   encodeFunctionData(
-    functionFragment: "isValidSignature",
+    functionFragment: "isValidSignature(bytes32,bytes)",
+    values: [PromiseOrValue<BytesLike>, PromiseOrValue<BytesLike>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "isValidSignature(address,uint256,bytes,uint256,uint256,bytes)",
     values: [
       PromiseOrValue<string>,
       PromiseOrValue<BigNumberish>,
@@ -239,7 +245,11 @@ export interface MyMultiSigInterface extends utils.Interface {
   ): Result;
   decodeFunctionResult(functionFragment: "isOwner", data: BytesLike): Result;
   decodeFunctionResult(
-    functionFragment: "isValidSignature",
+    functionFragment: "isValidSignature(bytes32,bytes)",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "isValidSignature(address,uint256,bytes,uint256,uint256,bytes)",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -493,7 +503,13 @@ export interface MyMultiSig extends BaseContract {
       overrides?: CallOverrides
     ): Promise<[boolean]>;
 
-    isValidSignature(
+    "isValidSignature(bytes32,bytes)"(
+      hash: PromiseOrValue<BytesLike>,
+      signature: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<[string] & { magicValue: string }>;
+
+    "isValidSignature(address,uint256,bytes,uint256,uint256,bytes)"(
       to: PromiseOrValue<string>,
       value: PromiseOrValue<BigNumberish>,
       data: PromiseOrValue<BytesLike>,
@@ -630,7 +646,13 @@ export interface MyMultiSig extends BaseContract {
     overrides?: CallOverrides
   ): Promise<boolean>;
 
-  isValidSignature(
+  "isValidSignature(bytes32,bytes)"(
+    hash: PromiseOrValue<BytesLike>,
+    signature: PromiseOrValue<BytesLike>,
+    overrides?: CallOverrides
+  ): Promise<string>;
+
+  "isValidSignature(address,uint256,bytes,uint256,uint256,bytes)"(
     to: PromiseOrValue<string>,
     value: PromiseOrValue<BigNumberish>,
     data: PromiseOrValue<BytesLike>,
@@ -765,7 +787,13 @@ export interface MyMultiSig extends BaseContract {
       overrides?: CallOverrides
     ): Promise<boolean>;
 
-    isValidSignature(
+    "isValidSignature(bytes32,bytes)"(
+      hash: PromiseOrValue<BytesLike>,
+      signature: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<string>;
+
+    "isValidSignature(address,uint256,bytes,uint256,uint256,bytes)"(
       to: PromiseOrValue<string>,
       value: PromiseOrValue<BigNumberish>,
       data: PromiseOrValue<BytesLike>,
@@ -980,7 +1008,13 @@ export interface MyMultiSig extends BaseContract {
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
-    isValidSignature(
+    "isValidSignature(bytes32,bytes)"(
+      hash: PromiseOrValue<BytesLike>,
+      signature: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    "isValidSignature(address,uint256,bytes,uint256,uint256,bytes)"(
       to: PromiseOrValue<string>,
       value: PromiseOrValue<BigNumberish>,
       data: PromiseOrValue<BytesLike>,
@@ -1106,7 +1140,13 @@ export interface MyMultiSig extends BaseContract {
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
-    isValidSignature(
+    "isValidSignature(bytes32,bytes)"(
+      hash: PromiseOrValue<BytesLike>,
+      signature: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    "isValidSignature(address,uint256,bytes,uint256,uint256,bytes)"(
       to: PromiseOrValue<string>,
       value: PromiseOrValue<BigNumberish>,
       data: PromiseOrValue<BytesLike>,

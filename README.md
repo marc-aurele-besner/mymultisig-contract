@@ -6,7 +6,9 @@ A minimalistic Solidity smart contract designed for secure and streamlined trans
 
 🔥 This smart contract is a multi-signature wallet, which means that a certain number of owners need to sign off on a transaction before it's executed. 💰
 
-💻 The code is written in Solidity and uses two external libraries, ReentrancyGuard and EIP712, for added security. 🔒
+💻 The code is written in Solidity and uses three external libraries, ReentrancyGuard, EIP712 and IERC1271, for added security and interop. 🔒
+
+✨ EIP-1271 support: the wallet exposes the standard `isValidSignature(bytes32,bytes)` entry point so it can act as a signer for other Safe / multisig instances, SIWE verifiers, NFT marketplaces, etc. Contract owners ("nested wallets") can also vote on the wallet's transactions via their own EIP-1271 entry — the wallet's signature validation is agnostic to whether each vote is an EOA ECDSA signature or a contract-owned EIP-1271 blob.
 
 📈 The contract keeps track of various important details, like the name of the contract, the transaction nonce, the number of owners, and who the owners are. 📝
 
@@ -29,6 +31,29 @@ A minimalistic Solidity smart contract designed for secure and streamlined trans
 4. **Transparency:** 🔍 All transactions executed by the multisig contract are recorded on the Ethereum blockchain, providing a transparent and auditable trail of all transactions.
 
 _Note: This smart contract is currently in beta, use at your own risk._
+
+## 🔌 EIP-1271
+
+The wallet implements the [EIP-1271](https://eips.ethereum.org/EIPS/eip-1271) standard:
+
+```solidity
+function isValidSignature(bytes32 hash, bytes calldata signature)
+    external view returns (bytes4 magicValue);
+```
+
+`signature` is an ABI-encoded `(address owner, bytes sig)[]` of owner votes. For each entry the wallet either `ecrecover`s a 65-byte ECDSA signature (EOA owner) or `staticcall`s `isValidSignature(hash, sig)` on the owner with a 200k gas stipend (contract owner). If the count of valid votes reaches `threshold`, returns the magic value `0x1626ba7e`; otherwise `0xffffffff`.
+
+Off-chain, building the signature blob is one line:
+
+```ts
+import { ethers } from 'ethers'
+const blob = ethers.utils.defaultAbiCoder.encode(
+  ['tuple(address owner, bytes sig)[]'],
+  [[{ owner: owner1, sig: sig1 }, { owner: owner2, sig: sig2 }]],
+)
+```
+
+The same encoding is used by `execTransaction` and `isValidSignature(address,...,bytes)`. The pre-0.2.0 flat 65-byte chunk format is no longer supported — this is a breaking change documented in the v0.2.0 release notes.
 
 ## 🔧 Install Dependencies
 
