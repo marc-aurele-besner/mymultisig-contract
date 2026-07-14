@@ -265,4 +265,77 @@ abstract contract TestBasic is Helper {
     assertEq(returnData[1].length, 0);
     assertEq(returnData[2].length, 0);
   }
+
+  // ---------------------------------------------------------------------
+  // validUntil (EIP-712 deadline)
+  // ---------------------------------------------------------------------
+
+  function testMyMultiSig_validUntil_zeroAllowsExecution() public {
+    // Sign with validUntil = 0 ("no expiry"). Warp far into the future and
+    // confirm the tx still executes.
+    address to = address(myMultiSig);
+    uint256 value = 0;
+    bytes memory data = build_addOwner(NOT_OWNERS[0]);
+    uint256 gas = DEFAULT_GAS;
+    vm.warp(block.timestamp + 365 days);
+    help_execTransaction(
+      myMultiSig,
+      OWNERS[0],
+      to,
+      value,
+      data,
+      gas,
+      0,
+      build_signatures(myMultiSig, OWNERS_PK, to, value, data, gas, 0),
+      myMultiSig.nonce(),
+      Errors.RevertStatus.Success
+    );
+    assertTrue(myMultiSig.isOwner(NOT_OWNERS[0]));
+  }
+
+  function testMyMultiSig_validUntil_inFutureExecutes() public {
+    // validUntil in the future must allow execution.
+    address to = address(myMultiSig);
+    uint256 value = 0;
+    bytes memory data = build_addOwner(NOT_OWNERS[0]);
+    uint256 gas = DEFAULT_GAS;
+    uint256 validUntil = block.timestamp + 1 days;
+    help_execTransaction(
+      myMultiSig,
+      OWNERS[0],
+      to,
+      value,
+      data,
+      gas,
+      validUntil,
+      build_signatures(myMultiSig, OWNERS_PK, to, value, data, gas, validUntil),
+      myMultiSig.nonce(),
+      Errors.RevertStatus.Success
+    );
+    assertTrue(myMultiSig.isOwner(NOT_OWNERS[0]));
+  }
+
+  function testMyMultiSig_validUntil_inPastReverts() public {
+    // validUntil in the past must revert with `SignatureExpired`. The nonce
+    // must NOT advance — the tx was rejected before recording any votes.
+    address to = address(myMultiSig);
+    uint256 value = 0;
+    bytes memory data = build_addOwner(NOT_OWNERS[0]);
+    uint256 gas = DEFAULT_GAS;
+    uint256 validUntil = block.timestamp - 1;
+    help_execTransaction(
+      myMultiSig,
+      OWNERS[0],
+      to,
+      value,
+      data,
+      gas,
+      validUntil,
+      build_signatures(myMultiSig, OWNERS_PK, to, value, data, gas, validUntil),
+      myMultiSig.nonce(),
+      Errors.RevertStatus.SignatureExpired
+    );
+    assertFalse(myMultiSig.isOwner(NOT_OWNERS[0]));
+    assertEq(myMultiSig.nonce(), 0);
+  }
 }

@@ -164,18 +164,20 @@ contract Functions is Constants, Signatures {
     address to_,
     uint256 value_,
     bytes memory data_,
-    uint256 txnGas_
+    uint256 txnGas_,
+    uint256 validUntil_
   ) public returns (bytes memory signatures) {
     uint256 nonce = multiSig_.nonce();
     bytes32 domainSeparator = build_domainSeparator(multiSig_, multiSig_.name());
     bytes32 innerHash = keccak256(
       abi.encode(
-        keccak256('Transaction(address to,uint256 value,bytes data,uint256 gas,uint96 nonce)'),
+        keccak256('Transaction(address to,uint256 value,bytes data,uint256 gas,uint96 nonce,uint256 validUntil)'),
         to_,
         value_,
         keccak256(data_),
         txnGas_,
-        nonce
+        nonce,
+        validUntil_
       )
     );
     Vote[] memory votes = new Vote[](ownersPk_.length);
@@ -186,6 +188,19 @@ contract Functions is Constants, Signatures {
       });
     }
     signatures = abi.encode(votes);
+  }
+
+  /// @dev Overload with `validUntil_ = 0` for callers that don't care about
+  ///      expiry. Mirrors the TS helper's default param.
+  function build_signatures(
+    MyMultiSig multiSig_,
+    uint256[] memory ownersPk_,
+    address to_,
+    uint256 value_,
+    bytes memory data_,
+    uint256 txnGas_
+  ) public returns (bytes memory signatures) {
+    return build_signatures(multiSig_, ownersPk_, to_, value_, data_, txnGas_, 0);
   }
 
   function build_multiRequest(
@@ -227,16 +242,52 @@ contract Functions is Constants, Signatures {
     vm.prank(prank_);
     verify_revertCall(revertType_);
 
+    // Only emit the `TransactionExecuted` event expectation on success. For
+    // custom-error reverts (`InvalidSignatures`, `SignatureExpired`, …) no
+    // event is emitted and `vm.expectRevert` from `verify_revertCall`
+    // already enforces the failure path. Asserting a `TxFailure` emit on
+    // top of an `expectRevert` would leave the expect dangling when the
+    // outer call reverts before reaching the inner `call`.
     if (revertType_ == Errors.RevertStatus.Success) {
       vm.expectEmit(true, true, true, false);
       emit TransactionExecuted(prank_, to_, value_, data_, txnGas_, nonce_);
-    } else {
-      vm.expectEmit(true, true, true, false);
-      emit TxFailure(prank_, to_, value_, data_, txnGas_, nonce_, '');
     }
     multiSig_.execTransaction(to_, value_, data_, txnGas_, signatures_);
+  }
 
-    if (revertType_ == Errors.RevertStatus.Success) {}
+  /// @notice Overload that threads `validUntil_` through the 6-arg
+  ///         `execTransaction` overload (or the 7-arg Extended overload).
+  ///         Selects the right arity based on whether `multiSig_` is the
+  ///         base wallet or the Extended variant.
+  function help_execTransaction(
+    MyMultiSig multiSig_,
+    address prank_,
+    address to_,
+    uint256 value_,
+    bytes memory data_,
+    uint256 txnGas_,
+    uint256 validUntil_,
+    bytes memory signatures_,
+    uint256 nonce_,
+    Errors.RevertStatus revertType_
+  ) internal {
+    // `isExtended` is a staticcall — it must run BEFORE `vm.prank`,
+    // otherwise the prank is consumed by the staticcall instead of the
+    // real `execTransaction` below.
+    bool extended = isExtended(multiSig_);
+    vm.prank(prank_);
+    verify_revertCall(revertType_);
+
+    if (revertType_ == Errors.RevertStatus.Success) {
+      vm.expectEmit(true, true, true, false);
+      emit TransactionExecuted(prank_, to_, value_, data_, txnGas_, nonce_);
+    }
+    if (extended) {
+      MyMultiSigExtended extended_ = MyMultiSigExtended(payable(address(multiSig_)));
+      extended_.execTransaction(to_, value_, data_, txnGas_, nonce_, validUntil_, signatures_);
+    } else {
+      multiSig_.execTransaction(to_, value_, data_, txnGas_, validUntil_, signatures_);
+    }
   }
 
   function help_execTransaction(
@@ -262,6 +313,17 @@ contract Functions is Constants, Signatures {
     bytes memory signatures_
   ) internal {
     help_execTransaction(multiSig_, prank_, to_, value_, data_, txnGas_, signatures_, Errors.RevertStatus.Success);
+  }
+
+  /// @dev True iff `multiSig_` is a `MyMultiSigExtended` instance. We sniff
+  ///      via the `allowOnlyOwnerRequest()` accessor that only Extended
+  ///      exposes; this keeps the helper generic over both wallets without
+  ///      a runtime type import.
+  function isExtended(MyMultiSig multiSig_) internal view returns (bool) {
+    (bool ok, bytes memory ret) = address(multiSig_).staticcall(
+      abi.encodeWithSignature('allowOnlyOwnerRequest()')
+    );
+    return ok && ret.length >= 32;
   }
 
   function help_addOwner(

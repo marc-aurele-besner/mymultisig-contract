@@ -709,6 +709,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
           contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
           Helper.DEFAULT_GAS,
           nonce,
+          0,
         )
 
       it('Owner can pre-approve a hash via approveHash and the event is emitted', async function () {
@@ -809,6 +810,76 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
           ['OwnerRemoved', 'OwnerAdded'],
         )
         await Helper.approveHash(contract, owner01, hash, Helper.errors.NOT_OWNER)
+      })
+    })
+
+    describe('validUntil - EIP-712 deadline', function () {
+      const data = () => contract.interface.encodeFunctionData('addOwner(address)', [user01.address])
+      const buildSignatures = (validUntil: number) =>
+        Helper.prepareSignatures(
+          contract,
+          [owner01, owner02],
+          contract.address,
+          Helper.ZERO,
+          data(),
+          Helper.DEFAULT_GAS,
+          ethers.BigNumber.from(0),
+          validUntil,
+        )
+
+      it('validUntil = 0 disables the deadline and the tx executes far in the future', async function () {
+        await time.increase(60 * 60 * 24 * 365)
+        await Helper.execTransaction(
+          contract,
+          owner01,
+          [owner01, owner02],
+          contract.address,
+          Helper.ZERO,
+          data(),
+          Helper.DEFAULT_GAS,
+          undefined,
+          ['OwnerAdded'],
+          buildSignatures(0),
+          0,
+        )
+        expect(await contract.isOwner(user01.address)).to.be.true
+      })
+
+      it('validUntil in the future allows execution', async function () {
+        const future = (await time.latest()) + 60 * 60 * 24 // +1 day
+        await Helper.execTransaction(
+          contract,
+          owner01,
+          [owner01, owner02],
+          contract.address,
+          Helper.ZERO,
+          data(),
+          Helper.DEFAULT_GAS,
+          undefined,
+          ['OwnerAdded'],
+          buildSignatures(future),
+          future,
+        )
+        expect(await contract.isOwner(user01.address)).to.be.true
+      })
+
+      it('validUntil in the past reverts with SignatureExpired and the nonce does not advance', async function () {
+        const past = (await time.latest()) - 1
+        await Helper.execTransaction(
+          contract,
+          owner01,
+          [owner01, owner02],
+          contract.address,
+          Helper.ZERO,
+          data(),
+          Helper.DEFAULT_GAS,
+          Helper.errors.SIGNATURE_EXPIRED,
+          undefined,
+          buildSignatures(past),
+          past,
+        )
+        expect(await contract.isOwner(user01.address)).to.be.false
+        expect(await contract.nonce()).to.be.equal(0)
       })
     })
   })
@@ -1611,6 +1682,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         data as `0x${string}`,
         Helper.DEFAULT_GAS,
         futureNonce,
+        0,
         signatures,
       )
       expect(await contract.isOwner(user01.address)).to.be.true
@@ -1653,6 +1725,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         data as `0x${string}`,
         Helper.DEFAULT_GAS,
         nonce,
+        0,
         signatures,
         Helper.errors.INVALID_SIGNATURES,
       )
@@ -1686,6 +1759,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         data as `0x${string}`,
         Helper.DEFAULT_GAS,
         futureNonce,
+        0,
         signatures,
         Helper.errors.NONCE_ALREADY_USED,
       )
@@ -1709,24 +1783,26 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       expect(
         await contract
           .connect(owner01)
-          ['isValidSignature(address,uint256,bytes,uint256,uint256,bytes)'](
+          ['isValidSignature(address,uint256,bytes,uint256,uint256,uint256,bytes)'](
             contract.address,
             Helper.ZERO,
             data,
             Helper.DEFAULT_GAS,
             ethers.BigNumber.from(99),
+            0,
             signatures,
           ),
       ).to.be.true
       expect(
         await contract
           .connect(owner01)
-          ['isValidSignature(address,uint256,bytes,uint256,uint256,bytes)'](
+          ['isValidSignature(address,uint256,bytes,uint256,uint256,uint256,bytes)'](
             contract.address,
             Helper.ZERO,
             data,
             Helper.DEFAULT_GAS,
             ethers.BigNumber.from(0),
+            0,
             signatures,
           ),
       ).to.be.false
@@ -1749,6 +1825,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
           data: '0x',
           gas: ethers.BigNumber.from(Helper.DEFAULT_GAS),
           nonce: ethers.BigNumber.from(0),
+          validUntil: 0,
         }
         const hash = await contract.generateHash(
           fields.to,
@@ -1756,6 +1833,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
           fields.data,
           fields.gas,
           fields.nonce,
+          0,
         )
         return { fields, hash }
       }
@@ -1959,7 +2037,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         // Outer owners = [owner01, owner02, inner], threshold = 2.
         const data = contract.interface.encodeFunctionData('addOwner(address)', [user01.address])
         const nonce = await contract.nonce()
-        const txHash = await contract.generateHash(contract.address, Helper.ZERO, data, Helper.DEFAULT_GAS, nonce)
+        const txHash = await contract.generateHash(contract.address, Helper.ZERO, data, Helper.DEFAULT_GAS, nonce, 0)
         // EOA vote: owner01 signs the outer typed-data hash with their key.
         const eoaSig = await Helper.signMultiSigTxn(
           contract.address,
@@ -2013,7 +2091,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         const inner = await addContractOwner([owner01, owner02], 2)
         const data = contract.interface.encodeFunctionData('addOwner(address)', [user01.address])
         const nonce = await contract.nonce()
-        const txHash = await contract.generateHash(contract.address, Helper.ZERO, data, Helper.DEFAULT_GAS, nonce)
+        const txHash = await contract.generateHash(contract.address, Helper.ZERO, data, Helper.DEFAULT_GAS, nonce, 0)
         // Build an inner blob that signs a *wrong* hash, so the inner
         // isValidSignature(txHash, innerBlob) returns non-magic.
         const wrongHash = ethers.utils.hexlify(ethers.utils.randomBytes(32))

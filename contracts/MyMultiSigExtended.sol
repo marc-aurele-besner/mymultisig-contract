@@ -77,6 +77,8 @@ contract MyMultiSigExtended is MyMultiSig {
   ///        so the tx can be replayed later by anyone holding the signatures.
   ///        Reverts if `txnNonce` has already been marked as used via
   ///        `markNonceAsUsed`.
+  /// @param validUntil Unix timestamp after which the signature is invalid;
+  ///        `0` disables the deadline check.
   /// @param signatures The signatures to be used for the transaction.
   function execTransaction(
     address to,
@@ -84,9 +86,10 @@ contract MyMultiSigExtended is MyMultiSig {
     bytes memory data,
     uint256 txnGas,
     uint256 txnNonce,
+    uint256 validUntil,
     bytes memory signatures
   ) public payable virtual nonReentrant returns (bool success) {
-    success = _execTransaction(to, value, data, txnGas, txnNonce, signatures);
+    success = _execTransaction(to, value, data, txnGas, txnNonce, validUntil, signatures);
   }
 
   /// @notice Bumps `lastAction` for the owner whenever their vote is recorded
@@ -108,10 +111,11 @@ contract MyMultiSigExtended is MyMultiSig {
     bytes memory data,
     uint256 txnGas,
     uint256 txnNonce,
+    uint256 validUntil,
     bytes memory signatures
   ) internal virtual override returns (bool valid) {
     if (_noncesUsed[txnNonce]) revert NonceAlreadyUsed();
-    return super._validateSignature(to, value, data, txnGas, txnNonce, signatures);
+    return super._validateSignature(to, value, data, txnGas, txnNonce, validUntil, signatures);
   }
 
   /// @notice Adds an owner
