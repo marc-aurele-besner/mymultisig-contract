@@ -111,10 +111,10 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   error InvalidModuleOperation(uint256 operation);
 
   // --- v0.5.0 custom errors ---
-  error InvalidOperationV2_5(uint8 operation);
+  error InvalidOperation(uint8 operation);
   error NotEntryPoint();
-  error InvalidNonceV2_5(uint256 expected, uint256 got);
-  error V2_5RequiresOperationByte();
+  error InvalidNonce(uint256 expected, uint256 got);
+  error RequiresOperationByte();
 
   // --- v0.4.0 events (v0.3.0 events live in MyMultiSig.sol) ---
 
@@ -173,7 +173,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     _sensitiveSelectors[bytes4(keccak256('disableModule(address,address)'))] = true;
     _sensitiveSelectors[bytes4(keccak256('setTimelockDelay(uint256)'))] = true;
 
-    if (entryPoint_ == address(0)) revert InvalidOperationV2_5(0);
+    if (entryPoint_ == address(0)) revert InvalidOperation(0);
     ENTRY_POINT = IEntryPoint(entryPoint_);
   }
 
@@ -233,7 +233,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   ///         the EIP-712 payload; callers must use one of the new
   ///         6/7/8-arg overloads at the bottom of this contract that
   ///         include `operation`. Reverts with
-  ///         `V2_5RequiresOperationByte()`.
+  ///         `RequiresOperationByte()`.
   function execTransaction(
     address /* to */,
     uint256 /* value */,
@@ -247,7 +247,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     // v0.4.0 7-arg overload (with `txnNonce + validUntil` but no
     // `operation`) is unreachable; callers must use one of the new
     // overloads at the bottom of this contract.
-    revert V2_5RequiresOperationByte();
+    revert RequiresOperationByte();
   }
 
   // ---------------------------------------------------------------------------
@@ -966,7 +966,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   ///         signature, so the same `(to, value, data, gas, nonce,
   ///         validUntil)` payload with different `operation` values
   ///         produces different hashes and won't cross-validate.
-  bytes32 private constant _TRANSACTION_TYPEHASH_V2_5 =
+  bytes32 private constant _TRANSACTION_TYPEHASH_OP =
     keccak256(
       'Transaction(address to,uint256 value,bytes data,uint256 gas,uint96 nonce,uint256 validUntil,uint8 operation)'
     );
@@ -982,7 +982,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   ///         v0.5.0 path so existing indexers keep working; these v0.5.0
   ///         events carry the `operation` byte so off-chain consumers
   ///         can distinguish CALL vs DELEGATECALL.
-  event TransactionExecutedV2_5(
+  event TransactionExecutedOp(
     address indexed sender,
     address indexed to,
     uint256 indexed value,
@@ -991,7 +991,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     uint256 txnNonce,
     uint8 operation
   );
-  event TxFailureV2_5(
+  event TxFailureOp(
     address indexed sender,
     address indexed to,
     uint256 indexed value,
@@ -1060,7 +1060,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     uint256 /* txnGas */,
     bytes memory /* signatures */
   ) public payable virtual override returns (bool /* success */) {
-    revert V2_5RequiresOperationByte();
+    revert RequiresOperationByte();
   }
 
   /// @notice Disabled override of the v0.4.0 6-arg overload (with
@@ -1073,7 +1073,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     uint256 /* validUntil */,
     bytes memory /* signatures */
   ) public payable virtual override returns (bool /* success */) {
-    revert V2_5RequiresOperationByte();
+    revert RequiresOperationByte();
   }
 
   /// @notice Disabled override of the v0.4.0 7-arg overload (with
@@ -1087,7 +1087,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   /// @notice v0.5.0 EIP-712 typed-data hash. The 7-field hash binds
   ///         `operation` so signatures against the v0.4.0 6-field hash
   ///         do NOT validate here.
-  function generateHashV2_5(
+  function generateHashOp(
     address to,
     uint256 value,
     bytes memory data,
@@ -1100,7 +1100,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
       _hashTypedDataV4(
         keccak256(
           abi.encode(
-            _TRANSACTION_TYPEHASH_V2_5,
+            _TRANSACTION_TYPEHASH_OP,
             to,
             value,
             keccak256(data),
@@ -1125,8 +1125,8 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     uint8 operation,
     bytes memory signatures
   ) public view returns (bool valid) {
-    bytes32 txHash = generateHashV2_5(to, value, data, txnGas, txnNonce, validUntil, operation);
-    return _checkSignaturesV2_5(txHash, txnNonce, validUntil, signatures);
+    bytes32 txHash = generateHashOp(to, value, data, txnGas, txnNonce, validUntil, operation);
+    return _checkSignaturesOp(txHash, txnNonce, validUntil, signatures);
   }
 
   /// @notice View-side signature check that mirrors `_checkSignatures`
@@ -1135,7 +1135,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   ///         public accessors (`threshold`, `isOwner`,
   ///         `getApprovedOwners`) because the base's storage vars are
   ///         `private`.
-  function _checkSignaturesV2_5(
+  function _checkSignaturesOp(
     bytes32 txHash,
     uint256 txnNonce,
     uint256 validUntil,
@@ -1167,7 +1167,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
 
   /// @notice Mutating-side validator that records the per-`(nonce, owner)`
   ///         slot consumed (mirrors the v0.4.0 `_validateSignature`).
-  function _validateSignatureV2_5(
+  function _validateSignatureOp(
     bytes32 txHash,
     uint256 txnNonce,
     uint256 validUntil,
@@ -1219,11 +1219,11 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     bytes memory signatures
   ) internal virtual returns (bool success) {
     if (validUntil != 0 && block.timestamp > validUntil) revert SignatureExpired();
-    if (operation > 1) revert InvalidOperationV2_5(operation);
-    if (operation == 1 && to != address(this)) revert InvalidOperationV2_5(operation);
+    if (operation > 1) revert InvalidOperation(operation);
+    if (operation == 1 && to != address(this)) revert InvalidOperation(operation);
 
-    bytes32 txHash = generateHashV2_5(to, value, data, txnGas, txnNonce, validUntil, operation);
-    if (!_validateSignatureV2_5(txHash, txnNonce, validUntil, signatures)) revert InvalidSignatures();
+    bytes32 txHash = generateHashOp(to, value, data, txnGas, txnNonce, validUntil, operation);
+    if (!_validateSignatureOp(txHash, txnNonce, validUntil, signatures)) revert InvalidSignatures();
 
     incrementNonce();
 
@@ -1237,14 +1237,14 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     if (gasBefore - gasleft() >= txnGas) revert NotEnoughGas();
     if (success) {
       emit TransactionExecuted(msg.sender, to, value, data, txnGas, txnNonce);
-      emit TransactionExecutedV2_5(msg.sender, to, value, data, txnGas, txnNonce, operation);
+      emit TransactionExecutedOp(msg.sender, to, value, data, txnGas, txnNonce, operation);
     } else if (returnData.length > 0) {
       assembly {
         revert(add(returnData, 0x20), mload(returnData))
       }
     } else {
       emit TxFailure(msg.sender, to, value, data, txnGas, txnNonce, returnData);
-      emit TxFailureV2_5(msg.sender, to, value, data, txnGas, txnNonce, operation, returnData);
+      emit TxFailureOp(msg.sender, to, value, data, txnGas, txnNonce, operation, returnData);
     }
   }
 
@@ -1299,23 +1299,23 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   ///           touch wallet storage in ways the bundler cannot
   ///           anticipate — gate behind CALL for safety),
   ///         - `userOp.nonce == current _txnNonce`,
-  ///         - threshold reached via `_checkSignaturesV2_5`.
+  ///         - threshold reached via `_checkSignaturesOp`.
   function validateUserOp(
     PackedUserOperation calldata userOp,
     bytes32 /* userOpHash */,
     uint256 /* missingAccountFunds */
   ) external view override returns (uint256 validationData) {
     if (msg.sender != address(ENTRY_POINT)) revert NotEntryPoint();
-    if (userOp.sender != address(this)) revert InvalidNonceV2_5(uint256(uint160(address(this))), uint256(uint160(userOp.sender)));
+    if (userOp.sender != address(this)) revert InvalidNonce(uint256(uint160(address(this))), uint256(uint160(userOp.sender)));
 
     (address to, uint256 value, bytes memory data, uint256 txnGas, uint256 validUntil, uint8 operation) =
       _decodeUserOpCallData(userOp.callData);
 
-    if (operation != 0) revert InvalidOperationV2_5(operation);
+    if (operation != 0) revert InvalidOperation(operation);
     uint256 expectedNonce = nonce();
-    if (userOp.nonce != expectedNonce) revert InvalidNonceV2_5(expectedNonce, userOp.nonce);
-    bytes32 txHash = generateHashV2_5(to, value, data, txnGas, expectedNonce, validUntil, operation);
-    if (!_checkSignaturesV2_5(txHash, expectedNonce, validUntil, userOp.signature)) {
+    if (userOp.nonce != expectedNonce) revert InvalidNonce(expectedNonce, userOp.nonce);
+    bytes32 txHash = generateHashOp(to, value, data, txnGas, expectedNonce, validUntil, operation);
+    if (!_checkSignaturesOp(txHash, expectedNonce, validUntil, userOp.signature)) {
       return _SIG_VALIDATION_FAILED;
     }
     return _SIG_VALIDATION_SUCCESS;

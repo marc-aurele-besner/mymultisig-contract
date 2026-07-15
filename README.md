@@ -153,7 +153,7 @@ bool isExtended(address wallet);    // true for Extended + Advanced
 
 ## 🚀 v0.5.0 — DELEGATECALL op + ERC-4337 rolled into `MyMultiSigExtended`
 
-> ⚠️ **v0.5.0 ships the new wallet features as additions to the existing `MyMultiSigExtended` class — there is no separate `MyMultiSigV2_5` wallet contract.** All wallets deployed through the factory after this release are `MyMultiSigExtended` instances that now also expose the `operation` byte and the `IAccount` surface.
+> ⚠️ **v0.5.0 ships the new wallet features as additions to the existing `MyMultiSigExtended` class — there is no separate wallet contract beyond `MyMultiSigExtended`.** All wallets deployed through the factory after this release are `MyMultiSigExtended` instances that now also expose the `operation` byte and the `IAccount` surface.
 
 `MyMultiSigExtended` v0.5.0 adds three forward-looking capabilities on top of the existing v0.4.0 features (timelock, guard, allowance, modules):
 
@@ -167,9 +167,9 @@ execTransaction(to, value, data, gas, validUntil, operation, signatures) -> succ
 execTransaction(to, value, data, gas, txnNonce, validUntil, operation, signatures) -> success
 ```
 
-`operation == 0` (default) → standard CALL. `operation == 1` → DELEGATECALL into `to`, gated to **`to == address(this)`** (mirrors the same gating already used by `MyMultiSigExtended.execTransactionFromModule`). Anything else reverts with the new custom error `InvalidOperationV2_5(uint8 op)`.
+`operation == 0` (default) → standard CALL. `operation == 1` → DELEGATECALL into `to`, gated to **`to == address(this)`** (mirrors the same gating already used by `MyMultiSigExtended.execTransactionFromModule`). Anything else reverts with the new custom error `InvalidOperation(uint8 op)`.
 
-⚠️ **Breaking**: the pre-existing 5/6/7-arg `execTransaction` overloads on `MyMultiSigExtended` are **disabled** — they now revert with `V2_5RequiresOperationByte()`. All frontends must switch to the new overloads that include `operation`. The base `MyMultiSig` wallet is **untouched** and continues to expose the old 5/6-arg signatures against the v0.4.0 typehash.
+⚠️ **Breaking**: the pre-existing 5/6/7-arg `execTransaction` overloads on `MyMultiSigExtended` are **disabled** — they now revert with `RequiresOperationByte()`. All frontends must switch to the new overloads that include `operation`. The base `MyMultiSig` wallet is **untouched** and continues to expose the old 5/6-arg signatures against the v0.4.0 typehash.
 
 ⚠️ **EIP-712 footer changed.** The new typehash binds `operation`:
 ```
@@ -195,7 +195,7 @@ The original v0.5.0 plan called for a CREATE2-based factory path (`Clones.cloneD
 
 When CREATE2 ships, the plan is:
 - Make `MyMultiSigExtended` `Initializable`; `MyMultiSigExtendedDeployer` calls `new MyMultiSigExtendedProxy()` followed by `initialize(name, owners, threshold, isOnlyOwnerRequest, entryPoint)`.
-- The factory holds an immutable `myMultiSigV2_5Impl` (the wallet implementation used as a `Clones.cloneDeterministic` target) and uses `OZ Clones.cloneDeterministic(salt, myMultiSigV2_5Impl)` to deploy.
+- The factory holds an immutable `myMultiSigExtendedImpl` (the wallet implementation used as a `Clones.cloneDeterministic` target) and uses `OZ Clones.cloneDeterministic(salt, myMultiSigExtendedImpl)` to deploy.
 
 ### Migration story
 
@@ -206,7 +206,7 @@ Existing v0.4.0 `MyMultiSig` and `MyMultiSigExtended` wallets stay frozen at v0.
 - `MyMultiSigFactorable.version()` bumped `'0.1.1'` → `'0.2.0'`. `MyMultiSigExtended.version()` bumped `'0.4.0'` → `'0.5.0'`. `package.json` bumped `'0.2.0'` → `'0.5.0'`. Done in lock-step with the constructor signature change so the on-chain identity and the artifact registry stay aligned.
 - `MyMultiSigExtendedDeployer.deployMyMultiSigExtended(...)` and `MyMultiSigAdvancedDeployer.deployMyMultiSigAdvanced(...)` now take an `entryPoint` argument and forward it through.
 - `MyMultiSigFactorable.createMyMultiSigExtended(...)` and `createMyMultiSigAdvanced(...)` now take an `entryPoint` and forward it.
-- New custom errors: `InvalidOperationV2_5(uint8)`, `NotEntryPoint()`, `InvalidNonceV2_5(expected, got)`, `V2_5RequiresOperationByte()`. New events: `TransactionExecutedV2_5(...)`, `TxFailureV2_5(...)`, `UserOpExecuted(bytes32 userOpHash, uint256 nonce)`.
+- New custom errors: `InvalidOperation(uint8)`, `NotEntryPoint()`, `InvalidNonce(expected, got)`, `RequiresOperationByte()`. New events: `TransactionExecutedOp(...)`, `TxFailureOp(...)`, `UserOpExecuted(bytes32 userOpHash, uint256 nonce)`.
 
 ## 🔧 Install Dependencies
 

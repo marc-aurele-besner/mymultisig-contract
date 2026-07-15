@@ -5,16 +5,16 @@ import { Helper } from './shared/helper.t.sol';
 import { MyMultiSigExtended } from '../MyMultiSigExtended.sol';
 import './shared/mocks/MockEntryPoint.t.sol';
 
-/// @title MyMultiSigExtendedV2_5 Foundry tests
+/// @title MyMultiSigExtended Foundry tests
 /// @notice v0.5.0 surface on the existing `MyMultiSigExtended` wallet:
 ///         1. `version()` returns `'0.5.0'`.
 ///         2. The `operation` byte on the EIP-712 payload + the
 ///            new execTransaction overloads.
 ///         3. The disabled legacy overloads revert with
-///            `V2_5RequiresOperationByte()`.
+///            `RequiresOperationByte()`.
 ///         4. ERC-4337 `validateUserOp` rejects non-EntryPoint
 ///            callers and approves honest ones.
-contract MyMultiSigExtendedV2_5Test is Helper {
+contract MyMultiSigExtendedTest is Helper {
   MyMultiSigExtended internal wallet;
   MockEntryPoint internal mockEntryPoint;
 
@@ -27,7 +27,7 @@ contract MyMultiSigExtendedV2_5Test is Helper {
 
     mockEntryPoint = new MockEntryPoint();
     wallet = new MyMultiSigExtended(
-      'V2_5_Wallet',
+      'V05Wallet',
       owners,
       2,
       ONLY_OWNERS_REQUEST,
@@ -58,7 +58,7 @@ contract MyMultiSigExtendedV2_5Test is Helper {
     );
     (bool ok, bytes memory reason) = address(wallet).call(data);
     assertFalse(ok, '5-arg execTransaction must revert on v0.5.0');
-    bytes memory expected = abi.encodeWithSignature('V2_5RequiresOperationByte()');
+    bytes memory expected = abi.encodeWithSignature('RequiresOperationByte()');
     assertEq(reason, expected, 'should bubble the v0.5.0 error');
   }
 
@@ -106,7 +106,7 @@ contract MyMultiSigExtendedV2_5Test is Helper {
     );
     (bool ok, bytes memory reason) = address(wallet).call(data);
     assertFalse(ok);
-    bytes memory expected = abi.encodeWithSignature('InvalidOperationV2_5(uint8)', uint8(2));
+    bytes memory expected = abi.encodeWithSignature('InvalidOperation(uint8)', uint8(2));
     assertEq(reason, expected);
   }
 
@@ -122,7 +122,7 @@ contract MyMultiSigExtendedV2_5Test is Helper {
     );
     (bool ok, bytes memory reason) = address(wallet).call(data);
     assertFalse(ok);
-    bytes memory expected = abi.encodeWithSignature('InvalidOperationV2_5(uint8)', uint8(1));
+    bytes memory expected = abi.encodeWithSignature('InvalidOperation(uint8)', uint8(1));
     assertEq(reason, expected);
   }
 }

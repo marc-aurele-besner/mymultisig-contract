@@ -16,7 +16,7 @@ import { MyMultiSigAdvancedDeployer } from '../../MyMultiSigAdvancedDeployer.sol
 
 contract Functions is Constants, Signatures {
   // Canonical v0.7 EntryPoint address used by the Foundry test sandbox.
-  // Production deployments ship this in `constants/v2_5.ts`; tests use
+  // Production deployments ship this in `constants/extended.ts`; tests use
   // a fixed sentinel because the address is the same on every chain.
   // Wrapped in `bytes20` to bypass Solidity's strict address-literal
   // checksum check (the canonical casing
@@ -353,7 +353,7 @@ contract Functions is Constants, Signatures {
       MyMultiSigExtended extended_ = MyMultiSigExtended(payable(address(multiSig_)));
       // v0.5.0 — 8-arg overload with explicit `operation` byte. The
       // disabled v0.4.0 7-arg overload reverts with
-      // `V2_5RequiresOperationByte()`.
+      // `RequiresOperationByte()`.
       extended_.execTransaction(to_, value_, data_, txnGas_, nonce_, validUntil_, 0, signatures_);
     } else {
       multiSig_.execTransaction(to_, value_, data_, txnGas_, validUntil_, signatures_);

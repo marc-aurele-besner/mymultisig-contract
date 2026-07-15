@@ -73,7 +73,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
       // their original v0.4.0 typehash so they return `'0.4.0'` here.
       const expected =
         typeof (contract as any).allowOnlyOwnerRequest === 'function'
-          ? Helper.CONTRACT_VERSION_V2_5
+          ? Helper.CONTRACT_VERSION_EXTENDED
           : Helper.CONTRACT_VERSION
       expect(await contract.version()).to.be.equal(expected)
     })
@@ -1136,7 +1136,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       // their original v0.4.0 typehash so they return `'0.4.0'` here.
       const expected =
         typeof (contract as any).allowOnlyOwnerRequest === 'function'
-          ? Helper.CONTRACT_VERSION_V2_5
+          ? Helper.CONTRACT_VERSION_EXTENDED
           : Helper.CONTRACT_VERSION
       expect(await contract.version()).to.be.equal(expected)
     })

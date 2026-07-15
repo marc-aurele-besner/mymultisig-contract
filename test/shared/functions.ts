@@ -102,7 +102,7 @@ export const execTransaction = async (
   //   whenever a non-zero deadline is supplied. Base has NO `operation`.
   // - `MyMultiSigExtended` (v0.5.0) uses the 8-arg overload with
   //   `txnNonce + validUntil + operation`, since the v0.4.0 7-arg
-  //   overload is disabled (`V2_5RequiresOperationByte`).
+  //   overload is disabled (`RequiresOperationByte`).
   // We detect the Extended variant by the presence of its
   // `allowOnlyOwnerRequest()` accessor (the base wallet doesn't have it).
   const isExtended = typeof (contract as any).allowOnlyOwnerRequest === 'function'

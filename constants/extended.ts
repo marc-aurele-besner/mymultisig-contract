@@ -1,21 +1,19 @@
-// v0.5.0 deployment constants. Held in a dedicated file so the v0.4.0
-// constants/index.ts stays untouched (it is published to npm and the
-// frontend pins the v0.4.0 lines).
+// Extended-wallet deployment constants. Held in a dedicated file so
+// `constants/index.ts` (the npm-published artifact) keeps a stable shape
+// for downstream consumers.
 //
-// `FACTORY_SALT` is the hard-coded 32-byte salt fed into OpenZeppelin's
-// canonical CREATE2 deployer at
-// `0x4e59b44847b379578588920cA78FbF26c0B4956C`. The same salt on every
-// chain deterministically yields the same factory address — this is the
-// whole point of the v0.5.0 release.
+// `FACTORY_SALT` and `CHAIN_AGNOSTIC_KEY_DEFAULT` are reserved for the
+// upcoming CREATE2 path (deferred to a follow-up because it requires
+// making `MyMultiSigExtended` `Initializable`).
 //
 // `ENTRY_POINT_V07_ADDRESS` is the canonical EntryPoint v0.7 address,
-// which is identical on every chain.
+// which is identical on every chain. Active as of v0.5.0.
 import { hexlify, zeroPad } from 'ethers/lib/utils'
 
-// 32-byte salt for the v0.5.0 factory proxy deploy. `keccak256` of a
-// stable human-readable string — the salt itself becomes part of the
-// address on every chain, so changing it requires re-deploying the
-// factory proxy across all chains.
+// 32-byte salt reserved for the v0.5.0+ factory proxy deploy (CREATE2
+// follow-up). The salt itself becomes part of the address on every
+// chain, so changing it requires re-deploying the factory proxy across
+// all chains.
 const SALT_SEED = Buffer.from(hexlify(Buffer.from('mymultisig.app/v0.5.0')).slice(2).slice(0, 60), 'hex')
 
 export default {
@@ -32,4 +30,3 @@ export default {
     32,
   ),
 }
-

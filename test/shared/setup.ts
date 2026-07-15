@@ -72,7 +72,7 @@ const setupContract = async (
       ContractFactory = await ethers.getContractFactory(contractName + 'Extended')
       // v0.5.0 `MyMultiSigExtended` constructor adds an `entryPoint_`
       // arg; pass the canonical EntryPoint v0.7 address so the
-      // constructor's `InvalidOperationV2_5` check accepts it. The
+      // constructor's `InvalidOperation` check accepts it. The
       // address is the same on every EVM chain.
       contract = await ContractFactory.deploy(
         contractName,

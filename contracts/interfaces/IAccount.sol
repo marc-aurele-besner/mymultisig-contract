@@ -3,7 +3,7 @@
 // `IAccount` is the marker interface every account must implement to be
 // usable through EntryPoint.handleOps. Only `validateUserOp` is required
 // to gate how the bundler is allowed to relay operations; `executeUserOp`
-// is a wallet-private helper that `MyMultiSigV2_5` exposes for completeness.
+// is a wallet-private helper that `MyMultiSigExtended` exposes for completeness.
 pragma solidity ^0.8.0;
 
 import './PackedUserOperation.sol';

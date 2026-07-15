@@ -34,7 +34,7 @@ export default {
       return sourceWallet._signTypedData(
         {
           name: constants.CONTRACT_NAME,
-          version: constants.CONTRACT_VERSION_V2_5,
+          version: constants.CONTRACT_VERSION_EXTENDED,
           chainId: network.config.chainId,
           verifyingContract: contractAddress,
         },
@@ -80,7 +80,7 @@ export default {
       return owner._signTypedData(
         {
           name: constants.CONTRACT_NAME,
-          version: constants.CONTRACT_VERSION_V2_5,
+          version: constants.CONTRACT_VERSION_EXTENDED,
           chainId: network.config.chainId,
           verifyingContract: contract.address,
         },

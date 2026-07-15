@@ -14,7 +14,7 @@ import './abstracts/MyMultiSigFactorable.sol';
 ///           place.
 ///
 /// @dev    v0.5.0 simplified the factory back to the v0.4.0 constructor
-///         shape — there is no separate `MyMultiSigV2_5` deployer /
+///         shape — there is no separate `MyMultiSigExtended` deployer /
 ///         implementation slot. `MyMultiSigExtended` is now the
 ///         v0.5.0 wallet; the same `MyMultiSigExtendedDeployer` deploys
 ///         it (now taking an `entryPoint_` argument). The factory

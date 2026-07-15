@@ -172,7 +172,7 @@ abstract contract MyMultiSigFactorable {
   ///         factory's caller is responsible for passing the canonical
   ///         v0.7 EntryPoint (or zero to disable 4337; see notes).
   /// @param entryPoint Canonical EntryPoint v0.7 address. Required to
-  ///        be non-zero so the wallet constructor's `InvalidOperationV2_5`
+  ///        be non-zero so the wallet constructor's `InvalidOperation`
   ///        check passes; pass the constant
   ///        `0x0000000071727De22E5E9d8BDe0dFeC0CEB6a7d7` (same on every
   ///        chain) for the typical case.
