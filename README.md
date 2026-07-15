@@ -203,7 +203,7 @@ Existing v0.4.0 wallets (deployed before this release) stay frozen at their orig
 
 ### Cleanups bundled with v0.5.0
 
-- **Single canonical version `0.5.0` across every contract.** `MyMultiSig.version()`, `MyMultiSigExtended.version()`, `MyMultiSigFactorable.version()`, `MyMultiSigFactory.version()` (inherited), `package.json`, and the TS constants (`CONTRACT_VERSION`, `CONTRACT_FACTORY_VERSION`) all return `'0.5.0'`. The EIP-712 domain separator is therefore shared across the whole wallet family; only the typehash differs.
+- **Single canonical version `0.5.0` across every contract.** `MyMultiSig.version()`, `MyMultiSigExtended.version()`, `MyMultiSigFactorable.version()`, `MyMultiSigFactory.version()` (inherited), `package.json`, and the `CONTRACT_VERSION` TS constant all return `'0.5.0'`. The EIP-712 domain separator is therefore shared across the whole wallet family; only the typehash differs.
 - `MyMultiSigExtendedDeployer.deployMyMultiSigExtended(...)` and `MyMultiSigAdvancedDeployer.deployMyMultiSigAdvanced(...)` now take an `entryPoint` argument and forward it through.
 - `MyMultiSigFactorable.createMyMultiSigExtended(...)` and `createMyMultiSigAdvanced(...)` now take an `entryPoint` and forward it.
 - New custom errors: `InvalidOperation(uint8)`, `NotEntryPoint()`, `InvalidNonce(expected, got)`, `RequiresOperationByte()`. New events: `TransactionExecutedOp(...)`, `TxFailureOp(...)`, `UserOpExecuted(bytes32 userOpHash, uint256 nonce)`.

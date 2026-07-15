@@ -88,7 +88,6 @@ const setupContract = async (
     contractName === constants.CONTRACT_FACTORY_NAME
       ? {
           factoryName: constants.CONTRACT_FACTORY_NAME,
-          factoryVersion: constants.CONTRACT_FACTORY_VERSION,
         }
       : {}
 

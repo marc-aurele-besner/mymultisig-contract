@@ -6,7 +6,6 @@ import { Errors } from './errors.t.sol';
 contract Constants is Errors {
   // Constants value specific to the contracts we are testing.
   string constant CONTRACT_FACTORY_NAME = 'MyMultiSigFactory';
-  string constant CONTRACT_FACTORY_VERSION = '0.5.0';
   string constant CONTRACT_NAME = 'MyMultiSig';
   string constant CONTRACT_VERSION = '0.5.0';
 
