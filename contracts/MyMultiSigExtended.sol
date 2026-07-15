@@ -552,7 +552,9 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   ) public payable virtual nonReentrant returns (bool success) {
     if (signatures.length != 65) revert AllowanceRequiresSingleSigner();
     uint96 currentNonce = nonce();
-    bytes32 txHash = generateHash(to, value, data, txnGas, currentNonce, validUntil);
+    // v0.5.0 — Extended wallets bind `operation` into the EIP-712 typehash;
+    // the allowance path uses the new 7-field typehash with operation = 0.
+    bytes32 txHash = generateHashOp(to, value, data, txnGas, currentNonce, validUntil, 0);
     address recovered = _recoverSigner(signatures, txHash);
     if (recovered != msg.sender || !isOwner(recovered)) revert AllowanceRequiresSingleSigner();
     uint256 cap = _dailyLimitPerOwner[recovered];
@@ -1048,6 +1050,21 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   }
 
   // --------- EIP-712 hash + signature helpers ---------
+
+  /// @notice Override of the v0.4.0 6-arg `generateHash` so callers that
+  ///         use the legacy signature shape (without an explicit
+  ///         `operation` byte) still produce a hash that matches the
+  ///         v0.5.0 wallet's typehash with operation = 0.
+  function generateHash(
+    address to,
+    uint256 value,
+    bytes memory data,
+    uint256 txnGas,
+    uint256 txnNonce,
+    uint256 validUntil
+  ) public view virtual override returns (bytes32) {
+    return generateHashOp(to, value, data, txnGas, txnNonce, validUntil, 0);
+  }
 
   /// @notice EIP-712 typed-data hash. 7-field, binds `operation`.
   function generateHashOp(

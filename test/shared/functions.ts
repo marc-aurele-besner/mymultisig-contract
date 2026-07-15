@@ -199,17 +199,15 @@ export const isValidSignature = async (
 ) => {
   const signatures = await prepareSignatures(contract, owners, to, value, data, gas, nonce, validUntil, operation)
 
-  // EIP-1271 helper normalizes the wallet's bytes4 return value into
-  // a JS boolean (magic = true, non-magic = false). Pin the overload via
-  // the explicit fragment selector since ethers v5 can't disambiguate
-  // overloaded functions by name alone. Extended wallets additionally
-  // expose 8-arg `isValidSignature(...)` overloads binding `operation`.
   const MAGIC = '0x1626ba7e'
   const isExtended = typeof (contract as any).allowOnlyOwnerRequest === 'function'
 
   if (!isExtended) {
     // Base wallet: only the canonical 2-arg `isValidSignature(bytes32,bytes)`
-    // exists for this shape; pass the typed-data hash we sign over.
+    // exists; it returns bytes4 (`MAGIC` on success). Pass the typed-data
+    // hash we sign over so the wallet's ecrecover matches the typed-data
+    // hash used by `signMultiSigTxn` (which is the BASE 6-field typehash
+    // for non-extended wallets).
     if (errorMsg) throw new Error('errorMsg not supported on base isValidSignature helper')
     const result = await contract
       .connect(submitter)
@@ -220,19 +218,12 @@ export const isValidSignature = async (
     return result === MAGIC
   }
 
+  // v0.5.0 — Extended wallets expose an 8-arg `isValidSignature(...)`
+  // overload that binds `operation` into the EIP-712 typehash; the
+  // function returns `bool valid` (true on magic, false otherwise).
   const eightArg = 'isValidSignature(address,uint256,bytes,uint256,uint256,uint256,uint8,bytes)'
   if (!errorMsg) {
-    const result = await contract.connect(submitter)[eightArg](
-      to,
-      value,
-      data,
-      gas,
-      nonce,
-      validUntil,
-      operation,
-      signatures,
-    )
-    return result === MAGIC
+    return await contract.connect(submitter)[eightArg](to, value, data, gas, nonce, validUntil, operation, signatures)
   }
   const input = await contract
     .connect(submitter)

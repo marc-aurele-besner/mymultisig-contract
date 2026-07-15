@@ -23,40 +23,37 @@ import type {
   PromiseOrValue,
 } from "../common";
 
-export interface MyMultiSigExtendedDeployerInterface extends utils.Interface {
+export interface IMyMultiSigV2_5DeployerInterface extends utils.Interface {
   functions: {
-    "deployMyMultiSigExtended(string,address[],uint16,bool,address)": FunctionFragment;
+    "deployMyMultiSigV2_5(string,address[],uint16,address)": FunctionFragment;
   };
 
-  getFunction(
-    nameOrSignatureOrTopic: "deployMyMultiSigExtended"
-  ): FunctionFragment;
+  getFunction(nameOrSignatureOrTopic: "deployMyMultiSigV2_5"): FunctionFragment;
 
   encodeFunctionData(
-    functionFragment: "deployMyMultiSigExtended",
+    functionFragment: "deployMyMultiSigV2_5",
     values: [
       PromiseOrValue<string>,
       PromiseOrValue<string>[],
       PromiseOrValue<BigNumberish>,
-      PromiseOrValue<boolean>,
       PromiseOrValue<string>
     ]
   ): string;
 
   decodeFunctionResult(
-    functionFragment: "deployMyMultiSigExtended",
+    functionFragment: "deployMyMultiSigV2_5",
     data: BytesLike
   ): Result;
 
   events: {};
 }
 
-export interface MyMultiSigExtendedDeployer extends BaseContract {
+export interface IMyMultiSigV2_5Deployer extends BaseContract {
   connect(signerOrProvider: Signer | Provider | string): this;
   attach(addressOrName: string): this;
   deployed(): Promise<this>;
 
-  interface: MyMultiSigExtendedDeployerInterface;
+  interface: IMyMultiSigV2_5DeployerInterface;
 
   queryFilter<TEvent extends TypedEvent>(
     event: TypedEventFilter<TEvent>,
@@ -78,31 +75,28 @@ export interface MyMultiSigExtendedDeployer extends BaseContract {
   removeListener: OnEvent<this>;
 
   functions: {
-    deployMyMultiSigExtended(
+    deployMyMultiSigV2_5(
       contractName_: PromiseOrValue<string>,
       owners_: PromiseOrValue<string>[],
       threshold_: PromiseOrValue<BigNumberish>,
-      isOnlyOwnerRequest_: PromiseOrValue<boolean>,
       entryPoint_: PromiseOrValue<string>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
   };
 
-  deployMyMultiSigExtended(
+  deployMyMultiSigV2_5(
     contractName_: PromiseOrValue<string>,
     owners_: PromiseOrValue<string>[],
     threshold_: PromiseOrValue<BigNumberish>,
-    isOnlyOwnerRequest_: PromiseOrValue<boolean>,
     entryPoint_: PromiseOrValue<string>,
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
   callStatic: {
-    deployMyMultiSigExtended(
+    deployMyMultiSigV2_5(
       contractName_: PromiseOrValue<string>,
       owners_: PromiseOrValue<string>[],
       threshold_: PromiseOrValue<BigNumberish>,
-      isOnlyOwnerRequest_: PromiseOrValue<boolean>,
       entryPoint_: PromiseOrValue<string>,
       overrides?: CallOverrides
     ): Promise<string>;
@@ -111,22 +105,20 @@ export interface MyMultiSigExtendedDeployer extends BaseContract {
   filters: {};
 
   estimateGas: {
-    deployMyMultiSigExtended(
+    deployMyMultiSigV2_5(
       contractName_: PromiseOrValue<string>,
       owners_: PromiseOrValue<string>[],
       threshold_: PromiseOrValue<BigNumberish>,
-      isOnlyOwnerRequest_: PromiseOrValue<boolean>,
       entryPoint_: PromiseOrValue<string>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
   };
 
   populateTransaction: {
-    deployMyMultiSigExtended(
+    deployMyMultiSigV2_5(
       contractName_: PromiseOrValue<string>,
       owners_: PromiseOrValue<string>[],
       threshold_: PromiseOrValue<BigNumberish>,
-      isOnlyOwnerRequest_: PromiseOrValue<boolean>,
       entryPoint_: PromiseOrValue<string>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;

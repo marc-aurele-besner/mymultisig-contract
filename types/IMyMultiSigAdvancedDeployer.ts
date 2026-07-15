@@ -25,7 +25,7 @@ import type {
 
 export interface IMyMultiSigAdvancedDeployerInterface extends utils.Interface {
   functions: {
-    "deployMyMultiSigAdvanced(string,address[],uint16,bool)": FunctionFragment;
+    "deployMyMultiSigAdvanced(string,address[],uint16,bool,address)": FunctionFragment;
   };
 
   getFunction(
@@ -38,7 +38,8 @@ export interface IMyMultiSigAdvancedDeployerInterface extends utils.Interface {
       PromiseOrValue<string>,
       PromiseOrValue<string>[],
       PromiseOrValue<BigNumberish>,
-      PromiseOrValue<boolean>
+      PromiseOrValue<boolean>,
+      PromiseOrValue<string>
     ]
   ): string;
 
@@ -82,6 +83,7 @@ export interface IMyMultiSigAdvancedDeployer extends BaseContract {
       owners_: PromiseOrValue<string>[],
       threshold_: PromiseOrValue<BigNumberish>,
       isOnlyOwnerRequest_: PromiseOrValue<boolean>,
+      entryPoint_: PromiseOrValue<string>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
   };
@@ -91,6 +93,7 @@ export interface IMyMultiSigAdvancedDeployer extends BaseContract {
     owners_: PromiseOrValue<string>[],
     threshold_: PromiseOrValue<BigNumberish>,
     isOnlyOwnerRequest_: PromiseOrValue<boolean>,
+    entryPoint_: PromiseOrValue<string>,
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
@@ -100,6 +103,7 @@ export interface IMyMultiSigAdvancedDeployer extends BaseContract {
       owners_: PromiseOrValue<string>[],
       threshold_: PromiseOrValue<BigNumberish>,
       isOnlyOwnerRequest_: PromiseOrValue<boolean>,
+      entryPoint_: PromiseOrValue<string>,
       overrides?: CallOverrides
     ): Promise<string>;
   };
@@ -112,6 +116,7 @@ export interface IMyMultiSigAdvancedDeployer extends BaseContract {
       owners_: PromiseOrValue<string>[],
       threshold_: PromiseOrValue<BigNumberish>,
       isOnlyOwnerRequest_: PromiseOrValue<boolean>,
+      entryPoint_: PromiseOrValue<string>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
   };
@@ -122,6 +127,7 @@ export interface IMyMultiSigAdvancedDeployer extends BaseContract {
       owners_: PromiseOrValue<string>[],
       threshold_: PromiseOrValue<BigNumberish>,
       isOnlyOwnerRequest_: PromiseOrValue<boolean>,
+      entryPoint_: PromiseOrValue<string>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
   };
