@@ -149,10 +149,13 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     return _name;
   }
 
-  /// @notice Retrieves the contract version
-  /// @return The version as a string memory.
+  /// @notice Wallet version. Bumped to `'0.4.0'` for the four advanced
+  ///         features (timelock, guard, allowance, modules) added in
+  ///         `MyMultiSigExtended`. The EIP-712 domain separator is fixed
+  ///         at deploy time, so this only affects newly-deployed wallets;
+  ///         pre-existing wallets keep the version they were deployed with.
   function version() public pure virtual returns (string memory) {
-    return '0.3.0';
+    return '0.4.0';
   }
 
   /// @notice Retrieves the current threshold value
@@ -791,6 +794,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     if (newThreshold == 0) revert ThresholdMustBeGreaterThanZero();
     if (newThreshold > _ownerCount) revert ThresholdMustBeLessOrEqualToOwnerCount();
     _threshold = newThreshold;
+    emit ThresholdChanged(newThreshold);
   }
 
   /// @notice Replaces an owner with a new owner
@@ -848,12 +852,6 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
           )
         )
       );
-  }
-
-  /// @notice Returns the current transaction nonce
-  /// @return The current transaction nonce.
-  function verifyNonce(uint256 nonce_) internal view virtual returns (bool) {
-    return nonce_ == _txnNonce;
   }
 
   /// @notice Increments the transaction nonce, can be use to invalidate previous signatures

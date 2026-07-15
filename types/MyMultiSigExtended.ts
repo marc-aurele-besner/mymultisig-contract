@@ -45,23 +45,39 @@ export declare namespace MyMultiSigExtended {
 export interface MyMultiSigExtendedInterface extends utils.Interface {
   functions: {
     "addOwner(address)": FunctionFragment;
+    "advancedFeaturesEnabled()": FunctionFragment;
     "allowOnlyOwnerRequest()": FunctionFragment;
+    "allowedTargets(address)": FunctionFragment;
+    "allowedTargetsEnabled()": FunctionFragment;
     "approveHash(bytes32)": FunctionFragment;
+    "cancelScheduled(address,uint256,bytes,uint256,uint256,uint256)": FunctionFragment;
     "changeThreshold(uint16)": FunctionFragment;
+    "dailySpendingLimit(address)": FunctionFragment;
+    "disableModule(address,address)": FunctionFragment;
     "eip712Domain()": FunctionFragment;
+    "enableModule(address)": FunctionFragment;
     "execTransaction(address,uint256,bytes,uint256,uint256,bytes)": FunctionFragment;
     "execTransaction(address,uint256,bytes,uint256,bytes)": FunctionFragment;
     "execTransaction(address,uint256,bytes,uint256,uint256,uint256,bytes)": FunctionFragment;
+    "execTransactionFromModule(address,uint256,bytes,uint256)": FunctionFragment;
+    "execTransactionWithSpendingAllowance(address,uint256,bytes,uint256,uint256,bytes)": FunctionFragment;
+    "executeScheduled(address,uint256,bytes,uint256,uint256,uint256,bytes)": FunctionFragment;
     "generateHash(address,uint256,bytes,uint256,uint256,uint256)": FunctionFragment;
     "getApprovedOwners(bytes32)": FunctionFragment;
+    "getModules()": FunctionFragment;
     "getThreshold(bytes32)": FunctionFragment;
+    "guard()": FunctionFragment;
     "incrementNonce()": FunctionFragment;
+    "isModule(address)": FunctionFragment;
     "isNonceUsed(uint256)": FunctionFragment;
     "isOwner(address)": FunctionFragment;
+    "isSensitiveSelector(bytes4)": FunctionFragment;
     "isValidSignature(bytes32,bytes)": FunctionFragment;
     "isValidSignature(address,uint256,bytes,uint256,uint256,uint256,bytes)": FunctionFragment;
     "markNonceAsUsed(uint256)": FunctionFragment;
     "minimumTransferInactiveOwnershipAfter()": FunctionFragment;
+    "moduleNext(address)": FunctionFragment;
+    "modulesHead()": FunctionFragment;
     "multiRequest(address[],uint256[],bytes[],uint256[])": FunctionFragment;
     "multiRequestStrict(address[],uint256[],bytes[],uint256[])": FunctionFragment;
     "name()": FunctionFragment;
@@ -74,35 +90,63 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     "removeOwner(address)": FunctionFragment;
     "replaceOwner(address,address)": FunctionFragment;
     "revokeApproval(bytes32)": FunctionFragment;
+    "scheduleTransaction(address,uint256,bytes,uint256,uint256,uint256,bytes)": FunctionFragment;
+    "scheduledReadyAt(bytes32)": FunctionFragment;
+    "scheduledValidUntil(bytes32)": FunctionFragment;
+    "sensitiveValueThreshold()": FunctionFragment;
+    "setAllowedTarget(address,bool)": FunctionFragment;
+    "setDailySpendingLimit(address,uint256)": FunctionFragment;
+    "setGuard(address)": FunctionFragment;
     "setOnlyOwnerRequest(bool)": FunctionFragment;
     "setOwnerSettings(address,uint256,address)": FunctionFragment;
+    "setSensitiveSelector(bytes4,bool)": FunctionFragment;
+    "setSensitiveValueThreshold(uint256)": FunctionFragment;
+    "setTimelockDelay(uint256)": FunctionFragment;
     "setTransferInactiveOwnershipAfter(uint256)": FunctionFragment;
+    "spendingLimitRemaining(address)": FunctionFragment;
     "supportsInterface(bytes4)": FunctionFragment;
     "takeOverOwnership(address)": FunctionFragment;
     "threshold()": FunctionFragment;
+    "timelockDelay()": FunctionFragment;
     "version()": FunctionFragment;
   };
 
   getFunction(
     nameOrSignatureOrTopic:
       | "addOwner"
+      | "advancedFeaturesEnabled"
       | "allowOnlyOwnerRequest"
+      | "allowedTargets"
+      | "allowedTargetsEnabled"
       | "approveHash"
+      | "cancelScheduled"
       | "changeThreshold"
+      | "dailySpendingLimit"
+      | "disableModule"
       | "eip712Domain"
+      | "enableModule"
       | "execTransaction(address,uint256,bytes,uint256,uint256,bytes)"
       | "execTransaction(address,uint256,bytes,uint256,bytes)"
       | "execTransaction(address,uint256,bytes,uint256,uint256,uint256,bytes)"
+      | "execTransactionFromModule"
+      | "execTransactionWithSpendingAllowance"
+      | "executeScheduled"
       | "generateHash"
       | "getApprovedOwners"
+      | "getModules"
       | "getThreshold"
+      | "guard"
       | "incrementNonce"
+      | "isModule"
       | "isNonceUsed"
       | "isOwner"
+      | "isSensitiveSelector"
       | "isValidSignature(bytes32,bytes)"
       | "isValidSignature(address,uint256,bytes,uint256,uint256,uint256,bytes)"
       | "markNonceAsUsed"
       | "minimumTransferInactiveOwnershipAfter"
+      | "moduleNext"
+      | "modulesHead"
       | "multiRequest"
       | "multiRequestStrict"
       | "name"
@@ -115,12 +159,24 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
       | "removeOwner"
       | "replaceOwner"
       | "revokeApproval"
+      | "scheduleTransaction"
+      | "scheduledReadyAt"
+      | "scheduledValidUntil"
+      | "sensitiveValueThreshold"
+      | "setAllowedTarget"
+      | "setDailySpendingLimit"
+      | "setGuard"
       | "setOnlyOwnerRequest"
       | "setOwnerSettings"
+      | "setSensitiveSelector"
+      | "setSensitiveValueThreshold"
+      | "setTimelockDelay"
       | "setTransferInactiveOwnershipAfter"
+      | "spendingLimitRemaining"
       | "supportsInterface"
       | "takeOverOwnership"
       | "threshold"
+      | "timelockDelay"
       | "version"
   ): FunctionFragment;
 
@@ -129,7 +185,19 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     values: [PromiseOrValue<string>]
   ): string;
   encodeFunctionData(
+    functionFragment: "advancedFeaturesEnabled",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
     functionFragment: "allowOnlyOwnerRequest",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "allowedTargets",
+    values: [PromiseOrValue<string>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "allowedTargetsEnabled",
     values?: undefined
   ): string;
   encodeFunctionData(
@@ -137,12 +205,35 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     values: [PromiseOrValue<BytesLike>]
   ): string;
   encodeFunctionData(
+    functionFragment: "cancelScheduled",
+    values: [
+      PromiseOrValue<string>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BytesLike>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BigNumberish>
+    ]
+  ): string;
+  encodeFunctionData(
     functionFragment: "changeThreshold",
     values: [PromiseOrValue<BigNumberish>]
   ): string;
   encodeFunctionData(
+    functionFragment: "dailySpendingLimit",
+    values: [PromiseOrValue<string>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "disableModule",
+    values: [PromiseOrValue<string>, PromiseOrValue<string>]
+  ): string;
+  encodeFunctionData(
     functionFragment: "eip712Domain",
     values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "enableModule",
+    values: [PromiseOrValue<string>]
   ): string;
   encodeFunctionData(
     functionFragment: "execTransaction(address,uint256,bytes,uint256,uint256,bytes)",
@@ -178,6 +269,38 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     ]
   ): string;
   encodeFunctionData(
+    functionFragment: "execTransactionFromModule",
+    values: [
+      PromiseOrValue<string>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BytesLike>,
+      PromiseOrValue<BigNumberish>
+    ]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "execTransactionWithSpendingAllowance",
+    values: [
+      PromiseOrValue<string>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BytesLike>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BytesLike>
+    ]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "executeScheduled",
+    values: [
+      PromiseOrValue<string>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BytesLike>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BytesLike>
+    ]
+  ): string;
+  encodeFunctionData(
     functionFragment: "generateHash",
     values: [
       PromiseOrValue<string>,
@@ -193,12 +316,21 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     values: [PromiseOrValue<BytesLike>]
   ): string;
   encodeFunctionData(
+    functionFragment: "getModules",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
     functionFragment: "getThreshold",
     values: [PromiseOrValue<BytesLike>]
   ): string;
+  encodeFunctionData(functionFragment: "guard", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "incrementNonce",
     values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "isModule",
+    values: [PromiseOrValue<string>]
   ): string;
   encodeFunctionData(
     functionFragment: "isNonceUsed",
@@ -207,6 +339,10 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
   encodeFunctionData(
     functionFragment: "isOwner",
     values: [PromiseOrValue<string>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "isSensitiveSelector",
+    values: [PromiseOrValue<BytesLike>]
   ): string;
   encodeFunctionData(
     functionFragment: "isValidSignature(bytes32,bytes)",
@@ -230,6 +366,14 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "minimumTransferInactiveOwnershipAfter",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "moduleNext",
+    values: [PromiseOrValue<string>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "modulesHead",
     values?: undefined
   ): string;
   encodeFunctionData(
@@ -302,6 +446,42 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     values: [PromiseOrValue<BytesLike>]
   ): string;
   encodeFunctionData(
+    functionFragment: "scheduleTransaction",
+    values: [
+      PromiseOrValue<string>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BytesLike>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BytesLike>
+    ]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "scheduledReadyAt",
+    values: [PromiseOrValue<BytesLike>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "scheduledValidUntil",
+    values: [PromiseOrValue<BytesLike>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "sensitiveValueThreshold",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "setAllowedTarget",
+    values: [PromiseOrValue<string>, PromiseOrValue<boolean>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "setDailySpendingLimit",
+    values: [PromiseOrValue<string>, PromiseOrValue<BigNumberish>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "setGuard",
+    values: [PromiseOrValue<string>]
+  ): string;
+  encodeFunctionData(
     functionFragment: "setOnlyOwnerRequest",
     values: [PromiseOrValue<boolean>]
   ): string;
@@ -314,8 +494,24 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     ]
   ): string;
   encodeFunctionData(
+    functionFragment: "setSensitiveSelector",
+    values: [PromiseOrValue<BytesLike>, PromiseOrValue<boolean>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "setSensitiveValueThreshold",
+    values: [PromiseOrValue<BigNumberish>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "setTimelockDelay",
+    values: [PromiseOrValue<BigNumberish>]
+  ): string;
+  encodeFunctionData(
     functionFragment: "setTransferInactiveOwnershipAfter",
     values: [PromiseOrValue<BigNumberish>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "spendingLimitRemaining",
+    values: [PromiseOrValue<string>]
   ): string;
   encodeFunctionData(
     functionFragment: "supportsInterface",
@@ -326,11 +522,27 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     values: [PromiseOrValue<string>]
   ): string;
   encodeFunctionData(functionFragment: "threshold", values?: undefined): string;
+  encodeFunctionData(
+    functionFragment: "timelockDelay",
+    values?: undefined
+  ): string;
   encodeFunctionData(functionFragment: "version", values?: undefined): string;
 
   decodeFunctionResult(functionFragment: "addOwner", data: BytesLike): Result;
   decodeFunctionResult(
+    functionFragment: "advancedFeaturesEnabled",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "allowOnlyOwnerRequest",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "allowedTargets",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "allowedTargetsEnabled",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -338,11 +550,27 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "cancelScheduled",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "changeThreshold",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "dailySpendingLimit",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "disableModule",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "eip712Domain",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "enableModule",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -358,6 +586,18 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "execTransactionFromModule",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "execTransactionWithSpendingAllowance",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "executeScheduled",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "generateHash",
     data: BytesLike
   ): Result;
@@ -365,19 +605,26 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     functionFragment: "getApprovedOwners",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(functionFragment: "getModules", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "getThreshold",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(functionFragment: "guard", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "incrementNonce",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(functionFragment: "isModule", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "isNonceUsed",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "isOwner", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "isSensitiveSelector",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "isValidSignature(bytes32,bytes)",
     data: BytesLike
@@ -392,6 +639,11 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "minimumTransferInactiveOwnershipAfter",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(functionFragment: "moduleNext", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "modulesHead",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -434,6 +686,31 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "scheduleTransaction",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "scheduledReadyAt",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "scheduledValidUntil",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "sensitiveValueThreshold",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "setAllowedTarget",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "setDailySpendingLimit",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(functionFragment: "setGuard", data: BytesLike): Result;
+  decodeFunctionResult(
     functionFragment: "setOnlyOwnerRequest",
     data: BytesLike
   ): Result;
@@ -442,7 +719,23 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "setSensitiveSelector",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "setSensitiveValueThreshold",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "setTimelockDelay",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "setTransferInactiveOwnershipAfter",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "spendingLimitRemaining",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -454,32 +747,78 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "threshold", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "timelockDelay",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "version", data: BytesLike): Result;
 
   events: {
+    "AllowedTargetSet(address,bool)": EventFragment;
     "ApproveHash(address,bytes32)": EventFragment;
     "ContractEndOfLife(uint256)": EventFragment;
+    "DailySpendingLimitSet(address,uint256)": EventFragment;
     "EIP712DomainChanged()": EventFragment;
+    "GuardSet(address)": EventFragment;
+    "ModuleDisabled(address)": EventFragment;
+    "ModuleEnabled(address)": EventFragment;
+    "ModuleTransactionExecuted(address,address,uint256,bytes,uint256,bool)": EventFragment;
     "MultiRequestExecuted(uint256,bool[],bytes[])": EventFragment;
     "OwnerAdded(address)": EventFragment;
     "OwnerRemoved(address)": EventFragment;
+    "PostExecutionGuardFailed(address,bytes)": EventFragment;
     "RevokeApproval(address,bytes32)": EventFragment;
+    "ScheduledTransactionCancelled(bytes32,address)": EventFragment;
+    "ScheduledTransactionExecuted(bytes32,address)": EventFragment;
+    "SensitiveSelectorSet(bytes4,bool)": EventFragment;
+    "SensitiveValueThresholdSet(uint256)": EventFragment;
     "ThresholdChanged(uint256)": EventFragment;
+    "TimelockDelaySet(uint256)": EventFragment;
     "TransactionExecuted(address,address,uint256,bytes,uint256,uint256)": EventFragment;
+    "TransactionScheduled(bytes32,uint256,address)": EventFragment;
     "TxFailure(address,address,uint256,bytes,uint256,uint256,bytes)": EventFragment;
   };
 
+  getEvent(nameOrSignatureOrTopic: "AllowedTargetSet"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "ApproveHash"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "ContractEndOfLife"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "DailySpendingLimitSet"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "EIP712DomainChanged"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "GuardSet"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "ModuleDisabled"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "ModuleEnabled"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "ModuleTransactionExecuted"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "MultiRequestExecuted"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "OwnerAdded"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "OwnerRemoved"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "PostExecutionGuardFailed"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "RevokeApproval"): EventFragment;
+  getEvent(
+    nameOrSignatureOrTopic: "ScheduledTransactionCancelled"
+  ): EventFragment;
+  getEvent(
+    nameOrSignatureOrTopic: "ScheduledTransactionExecuted"
+  ): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "SensitiveSelectorSet"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "SensitiveValueThresholdSet"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "ThresholdChanged"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "TimelockDelaySet"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "TransactionExecuted"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "TransactionScheduled"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "TxFailure"): EventFragment;
 }
+
+export interface AllowedTargetSetEventObject {
+  target: string;
+  allowed: boolean;
+}
+export type AllowedTargetSetEvent = TypedEvent<
+  [string, boolean],
+  AllowedTargetSetEventObject
+>;
+
+export type AllowedTargetSetEventFilter =
+  TypedEventFilter<AllowedTargetSetEvent>;
 
 export interface ApproveHashEventObject {
   owner: string;
@@ -503,6 +842,18 @@ export type ContractEndOfLifeEvent = TypedEvent<
 export type ContractEndOfLifeEventFilter =
   TypedEventFilter<ContractEndOfLifeEvent>;
 
+export interface DailySpendingLimitSetEventObject {
+  owner: string;
+  limit: BigNumber;
+}
+export type DailySpendingLimitSetEvent = TypedEvent<
+  [string, BigNumber],
+  DailySpendingLimitSetEventObject
+>;
+
+export type DailySpendingLimitSetEventFilter =
+  TypedEventFilter<DailySpendingLimitSetEvent>;
+
 export interface EIP712DomainChangedEventObject {}
 export type EIP712DomainChangedEvent = TypedEvent<
   [],
@@ -511,6 +862,46 @@ export type EIP712DomainChangedEvent = TypedEvent<
 
 export type EIP712DomainChangedEventFilter =
   TypedEventFilter<EIP712DomainChangedEvent>;
+
+export interface GuardSetEventObject {
+  guard: string;
+}
+export type GuardSetEvent = TypedEvent<[string], GuardSetEventObject>;
+
+export type GuardSetEventFilter = TypedEventFilter<GuardSetEvent>;
+
+export interface ModuleDisabledEventObject {
+  module: string;
+}
+export type ModuleDisabledEvent = TypedEvent<
+  [string],
+  ModuleDisabledEventObject
+>;
+
+export type ModuleDisabledEventFilter = TypedEventFilter<ModuleDisabledEvent>;
+
+export interface ModuleEnabledEventObject {
+  module: string;
+}
+export type ModuleEnabledEvent = TypedEvent<[string], ModuleEnabledEventObject>;
+
+export type ModuleEnabledEventFilter = TypedEventFilter<ModuleEnabledEvent>;
+
+export interface ModuleTransactionExecutedEventObject {
+  module: string;
+  to: string;
+  value: BigNumber;
+  data: string;
+  operation: BigNumber;
+  success: boolean;
+}
+export type ModuleTransactionExecutedEvent = TypedEvent<
+  [string, string, BigNumber, string, BigNumber, boolean],
+  ModuleTransactionExecutedEventObject
+>;
+
+export type ModuleTransactionExecutedEventFilter =
+  TypedEventFilter<ModuleTransactionExecutedEvent>;
 
 export interface MultiRequestExecutedEventObject {
   txNonce: BigNumber;
@@ -539,6 +930,18 @@ export type OwnerRemovedEvent = TypedEvent<[string], OwnerRemovedEventObject>;
 
 export type OwnerRemovedEventFilter = TypedEventFilter<OwnerRemovedEvent>;
 
+export interface PostExecutionGuardFailedEventObject {
+  guard: string;
+  reason: string;
+}
+export type PostExecutionGuardFailedEvent = TypedEvent<
+  [string, string],
+  PostExecutionGuardFailedEventObject
+>;
+
+export type PostExecutionGuardFailedEventFilter =
+  TypedEventFilter<PostExecutionGuardFailedEvent>;
+
 export interface RevokeApprovalEventObject {
   owner: string;
   hash: string;
@@ -550,6 +953,53 @@ export type RevokeApprovalEvent = TypedEvent<
 
 export type RevokeApprovalEventFilter = TypedEventFilter<RevokeApprovalEvent>;
 
+export interface ScheduledTransactionCancelledEventObject {
+  txHash: string;
+  canceller: string;
+}
+export type ScheduledTransactionCancelledEvent = TypedEvent<
+  [string, string],
+  ScheduledTransactionCancelledEventObject
+>;
+
+export type ScheduledTransactionCancelledEventFilter =
+  TypedEventFilter<ScheduledTransactionCancelledEvent>;
+
+export interface ScheduledTransactionExecutedEventObject {
+  txHash: string;
+  submitter: string;
+}
+export type ScheduledTransactionExecutedEvent = TypedEvent<
+  [string, string],
+  ScheduledTransactionExecutedEventObject
+>;
+
+export type ScheduledTransactionExecutedEventFilter =
+  TypedEventFilter<ScheduledTransactionExecutedEvent>;
+
+export interface SensitiveSelectorSetEventObject {
+  selector: string;
+  isSensitive: boolean;
+}
+export type SensitiveSelectorSetEvent = TypedEvent<
+  [string, boolean],
+  SensitiveSelectorSetEventObject
+>;
+
+export type SensitiveSelectorSetEventFilter =
+  TypedEventFilter<SensitiveSelectorSetEvent>;
+
+export interface SensitiveValueThresholdSetEventObject {
+  threshold: BigNumber;
+}
+export type SensitiveValueThresholdSetEvent = TypedEvent<
+  [BigNumber],
+  SensitiveValueThresholdSetEventObject
+>;
+
+export type SensitiveValueThresholdSetEventFilter =
+  TypedEventFilter<SensitiveValueThresholdSetEvent>;
+
 export interface ThresholdChangedEventObject {
   threshold: BigNumber;
 }
@@ -560,6 +1010,17 @@ export type ThresholdChangedEvent = TypedEvent<
 
 export type ThresholdChangedEventFilter =
   TypedEventFilter<ThresholdChangedEvent>;
+
+export interface TimelockDelaySetEventObject {
+  delay: BigNumber;
+}
+export type TimelockDelaySetEvent = TypedEvent<
+  [BigNumber],
+  TimelockDelaySetEventObject
+>;
+
+export type TimelockDelaySetEventFilter =
+  TypedEventFilter<TimelockDelaySetEvent>;
 
 export interface TransactionExecutedEventObject {
   sender: string;
@@ -576,6 +1037,19 @@ export type TransactionExecutedEvent = TypedEvent<
 
 export type TransactionExecutedEventFilter =
   TypedEventFilter<TransactionExecutedEvent>;
+
+export interface TransactionScheduledEventObject {
+  txHash: string;
+  readyAt: BigNumber;
+  submitter: string;
+}
+export type TransactionScheduledEvent = TypedEvent<
+  [string, BigNumber, string],
+  TransactionScheduledEventObject
+>;
+
+export type TransactionScheduledEventFilter =
+  TypedEventFilter<TransactionScheduledEvent>;
 
 export interface TxFailureEventObject {
   sender: string;
@@ -625,15 +1099,47 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
+    advancedFeaturesEnabled(
+      overrides?: CallOverrides
+    ): Promise<[number] & { mask: number }>;
+
     allowOnlyOwnerRequest(overrides?: CallOverrides): Promise<[boolean]>;
+
+    allowedTargets(
+      target: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<[boolean]>;
+
+    allowedTargetsEnabled(overrides?: CallOverrides): Promise<[boolean]>;
 
     approveHash(
       hash: PromiseOrValue<BytesLike>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
+    cancelScheduled(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
+      validUntil: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
     changeThreshold(
       newThreshold: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    dailySpendingLimit(
+      owner: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<[BigNumber]>;
+
+    disableModule(
+      prevModule: PromiseOrValue<string>,
+      module: PromiseOrValue<string>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
@@ -650,6 +1156,11 @@ export interface MyMultiSigExtended extends BaseContract {
         extensions: BigNumber[];
       }
     >;
+
+    enableModule(
+      module: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
 
     "execTransaction(address,uint256,bytes,uint256,uint256,bytes)"(
       to: PromiseOrValue<string>,
@@ -681,6 +1192,35 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
+    execTransactionFromModule(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      operation: PromiseOrValue<BigNumberish>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    execTransactionWithSpendingAllowance(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      validUntil: PromiseOrValue<BigNumberish>,
+      signatures: PromiseOrValue<BytesLike>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    executeScheduled(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
+      validUntil: PromiseOrValue<BigNumberish>,
+      signatures: PromiseOrValue<BytesLike>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
     generateHash(
       to: PromiseOrValue<string>,
       value: PromiseOrValue<BigNumberish>,
@@ -696,14 +1236,25 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: CallOverrides
     ): Promise<[string[]]>;
 
+    getModules(
+      overrides?: CallOverrides
+    ): Promise<[string[]] & { modules: string[] }>;
+
     getThreshold(
       arg0: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<[BigNumber]>;
 
+    guard(overrides?: CallOverrides): Promise<[string]>;
+
     incrementNonce(
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
+
+    isModule(
+      module: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<[boolean]>;
 
     isNonceUsed(
       nonce: PromiseOrValue<BigNumberish>,
@@ -712,6 +1263,11 @@ export interface MyMultiSigExtended extends BaseContract {
 
     isOwner(
       owner: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<[boolean]>;
+
+    isSensitiveSelector(
+      sel: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<[boolean]>;
 
@@ -740,6 +1296,13 @@ export interface MyMultiSigExtended extends BaseContract {
     minimumTransferInactiveOwnershipAfter(
       overrides?: CallOverrides
     ): Promise<[BigNumber]>;
+
+    moduleNext(
+      module: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<[string]>;
+
+    modulesHead(overrides?: CallOverrides): Promise<[string]>;
 
     multiRequest(
       to: PromiseOrValue<string>[],
@@ -810,6 +1373,46 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
+    scheduleTransaction(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
+      validUntil: PromiseOrValue<BigNumberish>,
+      signatures: PromiseOrValue<BytesLike>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    scheduledReadyAt(
+      txHash: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<[BigNumber]>;
+
+    scheduledValidUntil(
+      txHash: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<[BigNumber]>;
+
+    sensitiveValueThreshold(overrides?: CallOverrides): Promise<[BigNumber]>;
+
+    setAllowedTarget(
+      target: PromiseOrValue<string>,
+      allowed: PromiseOrValue<boolean>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    setDailySpendingLimit(
+      owner: PromiseOrValue<string>,
+      limitWei: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    setGuard(
+      guard_: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
     setOnlyOwnerRequest(
       isOnlyOwnerRequest: PromiseOrValue<boolean>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -822,10 +1425,31 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
+    setSensitiveSelector(
+      sel: PromiseOrValue<BytesLike>,
+      isSensitive: PromiseOrValue<boolean>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    setSensitiveValueThreshold(
+      threshold: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    setTimelockDelay(
+      delay: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
     setTransferInactiveOwnershipAfter(
       transferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
+
+    spendingLimitRemaining(
+      owner: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<[BigNumber]>;
 
     supportsInterface(
       interfaceId: PromiseOrValue<BytesLike>,
@@ -839,6 +1463,8 @@ export interface MyMultiSigExtended extends BaseContract {
 
     threshold(overrides?: CallOverrides): Promise<[number]>;
 
+    timelockDelay(overrides?: CallOverrides): Promise<[BigNumber]>;
+
     version(overrides?: CallOverrides): Promise<[string]>;
   };
 
@@ -847,15 +1473,45 @@ export interface MyMultiSigExtended extends BaseContract {
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
+  advancedFeaturesEnabled(overrides?: CallOverrides): Promise<number>;
+
   allowOnlyOwnerRequest(overrides?: CallOverrides): Promise<boolean>;
+
+  allowedTargets(
+    target: PromiseOrValue<string>,
+    overrides?: CallOverrides
+  ): Promise<boolean>;
+
+  allowedTargetsEnabled(overrides?: CallOverrides): Promise<boolean>;
 
   approveHash(
     hash: PromiseOrValue<BytesLike>,
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
+  cancelScheduled(
+    to: PromiseOrValue<string>,
+    value: PromiseOrValue<BigNumberish>,
+    data: PromiseOrValue<BytesLike>,
+    txnGas: PromiseOrValue<BigNumberish>,
+    txnNonce: PromiseOrValue<BigNumberish>,
+    validUntil: PromiseOrValue<BigNumberish>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
   changeThreshold(
     newThreshold: PromiseOrValue<BigNumberish>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  dailySpendingLimit(
+    owner: PromiseOrValue<string>,
+    overrides?: CallOverrides
+  ): Promise<BigNumber>;
+
+  disableModule(
+    prevModule: PromiseOrValue<string>,
+    module: PromiseOrValue<string>,
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
@@ -872,6 +1528,11 @@ export interface MyMultiSigExtended extends BaseContract {
       extensions: BigNumber[];
     }
   >;
+
+  enableModule(
+    module: PromiseOrValue<string>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
 
   "execTransaction(address,uint256,bytes,uint256,uint256,bytes)"(
     to: PromiseOrValue<string>,
@@ -903,6 +1564,35 @@ export interface MyMultiSigExtended extends BaseContract {
     overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
+  execTransactionFromModule(
+    to: PromiseOrValue<string>,
+    value: PromiseOrValue<BigNumberish>,
+    data: PromiseOrValue<BytesLike>,
+    operation: PromiseOrValue<BigNumberish>,
+    overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  execTransactionWithSpendingAllowance(
+    to: PromiseOrValue<string>,
+    value: PromiseOrValue<BigNumberish>,
+    data: PromiseOrValue<BytesLike>,
+    txnGas: PromiseOrValue<BigNumberish>,
+    validUntil: PromiseOrValue<BigNumberish>,
+    signatures: PromiseOrValue<BytesLike>,
+    overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  executeScheduled(
+    to: PromiseOrValue<string>,
+    value: PromiseOrValue<BigNumberish>,
+    data: PromiseOrValue<BytesLike>,
+    txnGas: PromiseOrValue<BigNumberish>,
+    txnNonce: PromiseOrValue<BigNumberish>,
+    validUntil: PromiseOrValue<BigNumberish>,
+    signatures: PromiseOrValue<BytesLike>,
+    overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
   generateHash(
     to: PromiseOrValue<string>,
     value: PromiseOrValue<BigNumberish>,
@@ -918,14 +1608,23 @@ export interface MyMultiSigExtended extends BaseContract {
     overrides?: CallOverrides
   ): Promise<string[]>;
 
+  getModules(overrides?: CallOverrides): Promise<string[]>;
+
   getThreshold(
     arg0: PromiseOrValue<BytesLike>,
     overrides?: CallOverrides
   ): Promise<BigNumber>;
 
+  guard(overrides?: CallOverrides): Promise<string>;
+
   incrementNonce(
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
+
+  isModule(
+    module: PromiseOrValue<string>,
+    overrides?: CallOverrides
+  ): Promise<boolean>;
 
   isNonceUsed(
     nonce: PromiseOrValue<BigNumberish>,
@@ -934,6 +1633,11 @@ export interface MyMultiSigExtended extends BaseContract {
 
   isOwner(
     owner: PromiseOrValue<string>,
+    overrides?: CallOverrides
+  ): Promise<boolean>;
+
+  isSensitiveSelector(
+    sel: PromiseOrValue<BytesLike>,
     overrides?: CallOverrides
   ): Promise<boolean>;
 
@@ -962,6 +1666,13 @@ export interface MyMultiSigExtended extends BaseContract {
   minimumTransferInactiveOwnershipAfter(
     overrides?: CallOverrides
   ): Promise<BigNumber>;
+
+  moduleNext(
+    module: PromiseOrValue<string>,
+    overrides?: CallOverrides
+  ): Promise<string>;
+
+  modulesHead(overrides?: CallOverrides): Promise<string>;
 
   multiRequest(
     to: PromiseOrValue<string>[],
@@ -1032,6 +1743,46 @@ export interface MyMultiSigExtended extends BaseContract {
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
+  scheduleTransaction(
+    to: PromiseOrValue<string>,
+    value: PromiseOrValue<BigNumberish>,
+    data: PromiseOrValue<BytesLike>,
+    txnGas: PromiseOrValue<BigNumberish>,
+    txnNonce: PromiseOrValue<BigNumberish>,
+    validUntil: PromiseOrValue<BigNumberish>,
+    signatures: PromiseOrValue<BytesLike>,
+    overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  scheduledReadyAt(
+    txHash: PromiseOrValue<BytesLike>,
+    overrides?: CallOverrides
+  ): Promise<BigNumber>;
+
+  scheduledValidUntil(
+    txHash: PromiseOrValue<BytesLike>,
+    overrides?: CallOverrides
+  ): Promise<BigNumber>;
+
+  sensitiveValueThreshold(overrides?: CallOverrides): Promise<BigNumber>;
+
+  setAllowedTarget(
+    target: PromiseOrValue<string>,
+    allowed: PromiseOrValue<boolean>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  setDailySpendingLimit(
+    owner: PromiseOrValue<string>,
+    limitWei: PromiseOrValue<BigNumberish>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  setGuard(
+    guard_: PromiseOrValue<string>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
   setOnlyOwnerRequest(
     isOnlyOwnerRequest: PromiseOrValue<boolean>,
     overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -1044,10 +1795,31 @@ export interface MyMultiSigExtended extends BaseContract {
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
+  setSensitiveSelector(
+    sel: PromiseOrValue<BytesLike>,
+    isSensitive: PromiseOrValue<boolean>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  setSensitiveValueThreshold(
+    threshold: PromiseOrValue<BigNumberish>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  setTimelockDelay(
+    delay: PromiseOrValue<BigNumberish>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
   setTransferInactiveOwnershipAfter(
     transferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
+
+  spendingLimitRemaining(
+    owner: PromiseOrValue<string>,
+    overrides?: CallOverrides
+  ): Promise<BigNumber>;
 
   supportsInterface(
     interfaceId: PromiseOrValue<BytesLike>,
@@ -1061,6 +1833,8 @@ export interface MyMultiSigExtended extends BaseContract {
 
   threshold(overrides?: CallOverrides): Promise<number>;
 
+  timelockDelay(overrides?: CallOverrides): Promise<BigNumber>;
+
   version(overrides?: CallOverrides): Promise<string>;
 
   callStatic: {
@@ -1069,15 +1843,45 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: CallOverrides
     ): Promise<void>;
 
+    advancedFeaturesEnabled(overrides?: CallOverrides): Promise<number>;
+
     allowOnlyOwnerRequest(overrides?: CallOverrides): Promise<boolean>;
+
+    allowedTargets(
+      target: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<boolean>;
+
+    allowedTargetsEnabled(overrides?: CallOverrides): Promise<boolean>;
 
     approveHash(
       hash: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<void>;
 
+    cancelScheduled(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
+      validUntil: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
     changeThreshold(
       newThreshold: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    dailySpendingLimit(
+      owner: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    disableModule(
+      prevModule: PromiseOrValue<string>,
+      module: PromiseOrValue<string>,
       overrides?: CallOverrides
     ): Promise<void>;
 
@@ -1094,6 +1898,11 @@ export interface MyMultiSigExtended extends BaseContract {
         extensions: BigNumber[];
       }
     >;
+
+    enableModule(
+      module: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<void>;
 
     "execTransaction(address,uint256,bytes,uint256,uint256,bytes)"(
       to: PromiseOrValue<string>,
@@ -1125,6 +1934,35 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: CallOverrides
     ): Promise<boolean>;
 
+    execTransactionFromModule(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      operation: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<boolean>;
+
+    execTransactionWithSpendingAllowance(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      validUntil: PromiseOrValue<BigNumberish>,
+      signatures: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<boolean>;
+
+    executeScheduled(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
+      validUntil: PromiseOrValue<BigNumberish>,
+      signatures: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<boolean>;
+
     generateHash(
       to: PromiseOrValue<string>,
       value: PromiseOrValue<BigNumberish>,
@@ -1140,12 +1978,21 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: CallOverrides
     ): Promise<string[]>;
 
+    getModules(overrides?: CallOverrides): Promise<string[]>;
+
     getThreshold(
       arg0: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
+    guard(overrides?: CallOverrides): Promise<string>;
+
     incrementNonce(overrides?: CallOverrides): Promise<void>;
+
+    isModule(
+      module: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<boolean>;
 
     isNonceUsed(
       nonce: PromiseOrValue<BigNumberish>,
@@ -1154,6 +2001,11 @@ export interface MyMultiSigExtended extends BaseContract {
 
     isOwner(
       owner: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<boolean>;
+
+    isSensitiveSelector(
+      sel: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<boolean>;
 
@@ -1182,6 +2034,13 @@ export interface MyMultiSigExtended extends BaseContract {
     minimumTransferInactiveOwnershipAfter(
       overrides?: CallOverrides
     ): Promise<BigNumber>;
+
+    moduleNext(
+      module: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<string>;
+
+    modulesHead(overrides?: CallOverrides): Promise<string>;
 
     multiRequest(
       to: PromiseOrValue<string>[],
@@ -1254,6 +2113,46 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: CallOverrides
     ): Promise<void>;
 
+    scheduleTransaction(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
+      validUntil: PromiseOrValue<BigNumberish>,
+      signatures: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<string>;
+
+    scheduledReadyAt(
+      txHash: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    scheduledValidUntil(
+      txHash: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    sensitiveValueThreshold(overrides?: CallOverrides): Promise<BigNumber>;
+
+    setAllowedTarget(
+      target: PromiseOrValue<string>,
+      allowed: PromiseOrValue<boolean>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    setDailySpendingLimit(
+      owner: PromiseOrValue<string>,
+      limitWei: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    setGuard(
+      guard_: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
     setOnlyOwnerRequest(
       isOnlyOwnerRequest: PromiseOrValue<boolean>,
       overrides?: CallOverrides
@@ -1266,10 +2165,31 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: CallOverrides
     ): Promise<void>;
 
+    setSensitiveSelector(
+      sel: PromiseOrValue<BytesLike>,
+      isSensitive: PromiseOrValue<boolean>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    setSensitiveValueThreshold(
+      threshold: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    setTimelockDelay(
+      delay: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
     setTransferInactiveOwnershipAfter(
       transferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
     ): Promise<void>;
+
+    spendingLimitRemaining(
+      owner: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
 
     supportsInterface(
       interfaceId: PromiseOrValue<BytesLike>,
@@ -1283,10 +2203,21 @@ export interface MyMultiSigExtended extends BaseContract {
 
     threshold(overrides?: CallOverrides): Promise<number>;
 
+    timelockDelay(overrides?: CallOverrides): Promise<BigNumber>;
+
     version(overrides?: CallOverrides): Promise<string>;
   };
 
   filters: {
+    "AllowedTargetSet(address,bool)"(
+      target?: PromiseOrValue<string> | null,
+      allowed?: null
+    ): AllowedTargetSetEventFilter;
+    AllowedTargetSet(
+      target?: PromiseOrValue<string> | null,
+      allowed?: null
+    ): AllowedTargetSetEventFilter;
+
     "ApproveHash(address,bytes32)"(
       owner?: PromiseOrValue<string> | null,
       hash?: PromiseOrValue<BytesLike> | null
@@ -1303,8 +2234,53 @@ export interface MyMultiSigExtended extends BaseContract {
       txNonceLefts?: PromiseOrValue<BigNumberish> | null
     ): ContractEndOfLifeEventFilter;
 
+    "DailySpendingLimitSet(address,uint256)"(
+      owner?: PromiseOrValue<string> | null,
+      limit?: null
+    ): DailySpendingLimitSetEventFilter;
+    DailySpendingLimitSet(
+      owner?: PromiseOrValue<string> | null,
+      limit?: null
+    ): DailySpendingLimitSetEventFilter;
+
     "EIP712DomainChanged()"(): EIP712DomainChangedEventFilter;
     EIP712DomainChanged(): EIP712DomainChangedEventFilter;
+
+    "GuardSet(address)"(
+      guard?: PromiseOrValue<string> | null
+    ): GuardSetEventFilter;
+    GuardSet(guard?: PromiseOrValue<string> | null): GuardSetEventFilter;
+
+    "ModuleDisabled(address)"(
+      module?: PromiseOrValue<string> | null
+    ): ModuleDisabledEventFilter;
+    ModuleDisabled(
+      module?: PromiseOrValue<string> | null
+    ): ModuleDisabledEventFilter;
+
+    "ModuleEnabled(address)"(
+      module?: PromiseOrValue<string> | null
+    ): ModuleEnabledEventFilter;
+    ModuleEnabled(
+      module?: PromiseOrValue<string> | null
+    ): ModuleEnabledEventFilter;
+
+    "ModuleTransactionExecuted(address,address,uint256,bytes,uint256,bool)"(
+      module?: PromiseOrValue<string> | null,
+      to?: PromiseOrValue<string> | null,
+      value?: PromiseOrValue<BigNumberish> | null,
+      data?: null,
+      operation?: null,
+      success?: null
+    ): ModuleTransactionExecutedEventFilter;
+    ModuleTransactionExecuted(
+      module?: PromiseOrValue<string> | null,
+      to?: PromiseOrValue<string> | null,
+      value?: PromiseOrValue<BigNumberish> | null,
+      data?: null,
+      operation?: null,
+      success?: null
+    ): ModuleTransactionExecutedEventFilter;
 
     "MultiRequestExecuted(uint256,bool[],bytes[])"(
       txNonce?: PromiseOrValue<BigNumberish> | null,
@@ -1329,6 +2305,15 @@ export interface MyMultiSigExtended extends BaseContract {
       owner?: PromiseOrValue<string> | null
     ): OwnerRemovedEventFilter;
 
+    "PostExecutionGuardFailed(address,bytes)"(
+      guard?: PromiseOrValue<string> | null,
+      reason?: null
+    ): PostExecutionGuardFailedEventFilter;
+    PostExecutionGuardFailed(
+      guard?: PromiseOrValue<string> | null,
+      reason?: null
+    ): PostExecutionGuardFailedEventFilter;
+
     "RevokeApproval(address,bytes32)"(
       owner?: PromiseOrValue<string> | null,
       hash?: PromiseOrValue<BytesLike> | null
@@ -1338,12 +2323,49 @@ export interface MyMultiSigExtended extends BaseContract {
       hash?: PromiseOrValue<BytesLike> | null
     ): RevokeApprovalEventFilter;
 
+    "ScheduledTransactionCancelled(bytes32,address)"(
+      txHash?: PromiseOrValue<BytesLike> | null,
+      canceller?: PromiseOrValue<string> | null
+    ): ScheduledTransactionCancelledEventFilter;
+    ScheduledTransactionCancelled(
+      txHash?: PromiseOrValue<BytesLike> | null,
+      canceller?: PromiseOrValue<string> | null
+    ): ScheduledTransactionCancelledEventFilter;
+
+    "ScheduledTransactionExecuted(bytes32,address)"(
+      txHash?: PromiseOrValue<BytesLike> | null,
+      submitter?: PromiseOrValue<string> | null
+    ): ScheduledTransactionExecutedEventFilter;
+    ScheduledTransactionExecuted(
+      txHash?: PromiseOrValue<BytesLike> | null,
+      submitter?: PromiseOrValue<string> | null
+    ): ScheduledTransactionExecutedEventFilter;
+
+    "SensitiveSelectorSet(bytes4,bool)"(
+      selector?: PromiseOrValue<BytesLike> | null,
+      isSensitive?: null
+    ): SensitiveSelectorSetEventFilter;
+    SensitiveSelectorSet(
+      selector?: PromiseOrValue<BytesLike> | null,
+      isSensitive?: null
+    ): SensitiveSelectorSetEventFilter;
+
+    "SensitiveValueThresholdSet(uint256)"(
+      threshold?: null
+    ): SensitiveValueThresholdSetEventFilter;
+    SensitiveValueThresholdSet(
+      threshold?: null
+    ): SensitiveValueThresholdSetEventFilter;
+
     "ThresholdChanged(uint256)"(
       threshold?: PromiseOrValue<BigNumberish> | null
     ): ThresholdChangedEventFilter;
     ThresholdChanged(
       threshold?: PromiseOrValue<BigNumberish> | null
     ): ThresholdChangedEventFilter;
+
+    "TimelockDelaySet(uint256)"(delay?: null): TimelockDelaySetEventFilter;
+    TimelockDelaySet(delay?: null): TimelockDelaySetEventFilter;
 
     "TransactionExecuted(address,address,uint256,bytes,uint256,uint256)"(
       sender?: PromiseOrValue<string> | null,
@@ -1361,6 +2383,17 @@ export interface MyMultiSigExtended extends BaseContract {
       txnGas?: null,
       txnNonce?: null
     ): TransactionExecutedEventFilter;
+
+    "TransactionScheduled(bytes32,uint256,address)"(
+      txHash?: PromiseOrValue<BytesLike> | null,
+      readyAt?: null,
+      submitter?: PromiseOrValue<string> | null
+    ): TransactionScheduledEventFilter;
+    TransactionScheduled(
+      txHash?: PromiseOrValue<BytesLike> | null,
+      readyAt?: null,
+      submitter?: PromiseOrValue<string> | null
+    ): TransactionScheduledEventFilter;
 
     "TxFailure(address,address,uint256,bytes,uint256,uint256,bytes)"(
       sender?: PromiseOrValue<string> | null,
@@ -1388,10 +2421,29 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
+    advancedFeaturesEnabled(overrides?: CallOverrides): Promise<BigNumber>;
+
     allowOnlyOwnerRequest(overrides?: CallOverrides): Promise<BigNumber>;
+
+    allowedTargets(
+      target: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    allowedTargetsEnabled(overrides?: CallOverrides): Promise<BigNumber>;
 
     approveHash(
       hash: PromiseOrValue<BytesLike>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    cancelScheduled(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
+      validUntil: PromiseOrValue<BigNumberish>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
@@ -1400,7 +2452,23 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
+    dailySpendingLimit(
+      owner: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    disableModule(
+      prevModule: PromiseOrValue<string>,
+      module: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
     eip712Domain(overrides?: CallOverrides): Promise<BigNumber>;
+
+    enableModule(
+      module: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
 
     "execTransaction(address,uint256,bytes,uint256,uint256,bytes)"(
       to: PromiseOrValue<string>,
@@ -1432,6 +2500,35 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
+    execTransactionFromModule(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      operation: PromiseOrValue<BigNumberish>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    execTransactionWithSpendingAllowance(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      validUntil: PromiseOrValue<BigNumberish>,
+      signatures: PromiseOrValue<BytesLike>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    executeScheduled(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
+      validUntil: PromiseOrValue<BigNumberish>,
+      signatures: PromiseOrValue<BytesLike>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
     generateHash(
       to: PromiseOrValue<string>,
       value: PromiseOrValue<BigNumberish>,
@@ -1447,13 +2544,22 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
+    getModules(overrides?: CallOverrides): Promise<BigNumber>;
+
     getThreshold(
       arg0: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
+    guard(overrides?: CallOverrides): Promise<BigNumber>;
+
     incrementNonce(
       overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    isModule(
+      module: PromiseOrValue<string>,
+      overrides?: CallOverrides
     ): Promise<BigNumber>;
 
     isNonceUsed(
@@ -1463,6 +2569,11 @@ export interface MyMultiSigExtended extends BaseContract {
 
     isOwner(
       owner: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    isSensitiveSelector(
+      sel: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
@@ -1491,6 +2602,13 @@ export interface MyMultiSigExtended extends BaseContract {
     minimumTransferInactiveOwnershipAfter(
       overrides?: CallOverrides
     ): Promise<BigNumber>;
+
+    moduleNext(
+      module: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    modulesHead(overrides?: CallOverrides): Promise<BigNumber>;
 
     multiRequest(
       to: PromiseOrValue<string>[],
@@ -1561,6 +2679,46 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
+    scheduleTransaction(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
+      validUntil: PromiseOrValue<BigNumberish>,
+      signatures: PromiseOrValue<BytesLike>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    scheduledReadyAt(
+      txHash: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    scheduledValidUntil(
+      txHash: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    sensitiveValueThreshold(overrides?: CallOverrides): Promise<BigNumber>;
+
+    setAllowedTarget(
+      target: PromiseOrValue<string>,
+      allowed: PromiseOrValue<boolean>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    setDailySpendingLimit(
+      owner: PromiseOrValue<string>,
+      limitWei: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    setGuard(
+      guard_: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
     setOnlyOwnerRequest(
       isOnlyOwnerRequest: PromiseOrValue<boolean>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -1573,9 +2731,30 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
+    setSensitiveSelector(
+      sel: PromiseOrValue<BytesLike>,
+      isSensitive: PromiseOrValue<boolean>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    setSensitiveValueThreshold(
+      threshold: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    setTimelockDelay(
+      delay: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
     setTransferInactiveOwnershipAfter(
       transferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    spendingLimitRemaining(
+      owner: PromiseOrValue<string>,
+      overrides?: CallOverrides
     ): Promise<BigNumber>;
 
     supportsInterface(
@@ -1590,6 +2769,8 @@ export interface MyMultiSigExtended extends BaseContract {
 
     threshold(overrides?: CallOverrides): Promise<BigNumber>;
 
+    timelockDelay(overrides?: CallOverrides): Promise<BigNumber>;
+
     version(overrides?: CallOverrides): Promise<BigNumber>;
   };
 
@@ -1599,7 +2780,20 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
+    advancedFeaturesEnabled(
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
     allowOnlyOwnerRequest(
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    allowedTargets(
+      target: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    allowedTargetsEnabled(
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
@@ -1608,12 +2802,38 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
+    cancelScheduled(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
+      validUntil: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
     changeThreshold(
       newThreshold: PromiseOrValue<BigNumberish>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
+    dailySpendingLimit(
+      owner: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    disableModule(
+      prevModule: PromiseOrValue<string>,
+      module: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
     eip712Domain(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    enableModule(
+      module: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
 
     "execTransaction(address,uint256,bytes,uint256,uint256,bytes)"(
       to: PromiseOrValue<string>,
@@ -1645,6 +2865,35 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
+    execTransactionFromModule(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      operation: PromiseOrValue<BigNumberish>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    execTransactionWithSpendingAllowance(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      validUntil: PromiseOrValue<BigNumberish>,
+      signatures: PromiseOrValue<BytesLike>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    executeScheduled(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
+      validUntil: PromiseOrValue<BigNumberish>,
+      signatures: PromiseOrValue<BytesLike>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
     generateHash(
       to: PromiseOrValue<string>,
       value: PromiseOrValue<BigNumberish>,
@@ -1660,13 +2909,22 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
+    getModules(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
     getThreshold(
       arg0: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
+    guard(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
     incrementNonce(
       overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    isModule(
+      module: PromiseOrValue<string>,
+      overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
     isNonceUsed(
@@ -1676,6 +2934,11 @@ export interface MyMultiSigExtended extends BaseContract {
 
     isOwner(
       owner: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    isSensitiveSelector(
+      sel: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
@@ -1704,6 +2967,13 @@ export interface MyMultiSigExtended extends BaseContract {
     minimumTransferInactiveOwnershipAfter(
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
+
+    moduleNext(
+      module: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    modulesHead(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     multiRequest(
       to: PromiseOrValue<string>[],
@@ -1774,6 +3044,48 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
+    scheduleTransaction(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      txnGas: PromiseOrValue<BigNumberish>,
+      txnNonce: PromiseOrValue<BigNumberish>,
+      validUntil: PromiseOrValue<BigNumberish>,
+      signatures: PromiseOrValue<BytesLike>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    scheduledReadyAt(
+      txHash: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    scheduledValidUntil(
+      txHash: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    sensitiveValueThreshold(
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    setAllowedTarget(
+      target: PromiseOrValue<string>,
+      allowed: PromiseOrValue<boolean>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    setDailySpendingLimit(
+      owner: PromiseOrValue<string>,
+      limitWei: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    setGuard(
+      guard_: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
     setOnlyOwnerRequest(
       isOnlyOwnerRequest: PromiseOrValue<boolean>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -1786,9 +3098,30 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
+    setSensitiveSelector(
+      sel: PromiseOrValue<BytesLike>,
+      isSensitive: PromiseOrValue<boolean>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    setSensitiveValueThreshold(
+      threshold: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    setTimelockDelay(
+      delay: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
     setTransferInactiveOwnershipAfter(
       transferInactiveOwnershipAfter: PromiseOrValue<BigNumberish>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    spendingLimitRemaining(
+      owner: PromiseOrValue<string>,
+      overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
     supportsInterface(
@@ -1802,6 +3135,8 @@ export interface MyMultiSigExtended extends BaseContract {
     ): Promise<PopulatedTransaction>;
 
     threshold(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    timelockDelay(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     version(overrides?: CallOverrides): Promise<PopulatedTransaction>;
   };

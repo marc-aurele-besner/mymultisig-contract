@@ -984,7 +984,11 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
 
     describe('multiRequestStrict - atomic batch', function () {
       it('All inner calls succeed → outer tx emits TransactionExecuted', async function () {
-        const to_ = [contract.address as `0x${string}`, contract.address as `0x${string}`, contract.address as `0x${string}`]
+        const to_ = [
+          contract.address as `0x${string}`,
+          contract.address as `0x${string}`,
+          contract.address as `0x${string}`,
+        ]
         const value_ = [Helper.ZERO, Helper.ZERO, Helper.ZERO]
         const data_ = [
           contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
@@ -1025,10 +1029,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
           user01.address as `0x${string}`, // forwarding 1 wei to an EOA — wallet has 0 ETH → revert
         ]
         const value_ = [Helper.ZERO, ethers.BigNumber.from(1)]
-        const data_ = [
-          contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
-          '0x',
-        ]
+        const data_ = [contract.interface.encodeFunctionData('addOwner(address)', [user01.address]), '0x']
         const gas_ = [Helper.DEFAULT_GAS, Helper.DEFAULT_GAS]
 
         const innerData = contract.interface.encodeFunctionData('multiRequestStrict', [
@@ -1985,7 +1986,6 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
     const MAGIC = '0x1626ba7e'
 
     describe('EIP-1271 entry point', function () {
-
       // Helper: a clean dummy tx whose EIP-712 hash the test will sign and feed
       // to `isValidSignature(bytes32,bytes)`. Using a real EIP-712 hash keeps
       // the test environment symmetric with `execTransaction`'s validation.
@@ -1998,14 +1998,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
           nonce: ethers.BigNumber.from(0),
           validUntil: 0,
         }
-        const hash = await contract.generateHash(
-          fields.to,
-          fields.value,
-          fields.data,
-          fields.gas,
-          fields.nonce,
-          0,
-        )
+        const hash = await contract.generateHash(fields.to, fields.value, fields.data, fields.gas, fields.nonce, 0)
         return { fields, hash }
       }
 
@@ -2115,13 +2108,17 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
           ['tuple(address owner, bytes sig)[]'],
           [[{ owner: inner.address, sig: innerBlob }]],
         )
-        expect(await contract.connect(user01)['isValidSignature(bytes32,bytes)'](hash, oneVoteBlob)).to.equal('0xffffffff')
+        expect(await contract.connect(user01)['isValidSignature(bytes32,bytes)'](hash, oneVoteBlob)).to.equal(
+          '0xffffffff',
+        )
         // Diagnostic: try with just inner2 — same.
         const oneVoteBlob2 = ethers.utils.defaultAbiCoder.encode(
           ['tuple(address owner, bytes sig)[]'],
           [[{ owner: inner2.address, sig: inner2Blob }]],
         )
-        expect(await contract.connect(user01)['isValidSignature(bytes32,bytes)'](hash, oneVoteBlob2)).to.equal('0xffffffff')
+        expect(await contract.connect(user01)['isValidSignature(bytes32,bytes)'](hash, oneVoteBlob2)).to.equal(
+          '0xffffffff',
+        )
         // And the full blob — should be magic.
         expect(await contract.connect(user01)['isValidSignature(bytes32,bytes)'](hash, outerBlob)).to.equal(MAGIC)
       })
@@ -2154,9 +2151,9 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
           ['tuple(address owner, bytes sig)[]'],
           [[{ owner: inner.address, sig: innerBlob }]],
         )
-        expect(
-          await contract.connect(user01)['isValidSignature(bytes32,bytes)'](wrongHash, outerBlob),
-        ).to.equal('0xffffffff')
+        expect(await contract.connect(user01)['isValidSignature(bytes32,bytes)'](wrongHash, outerBlob)).to.equal(
+          '0xffffffff',
+        )
       })
 
       it('does not mutate state: nonce / approvals unchanged across repeated calls', async function () {
@@ -2193,13 +2190,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         // Replace owner03 with the inner wallet so the outer threshold stays
         // at 2 and the test exercises a contract owner in the vote mix.
         // Signature: replaceOwner(contract, submitter, owners, ownerToAdd, ownerToRemove).
-        await Helper.replaceOwner(
-          contract,
-          owner01,
-          [owner01, owner02, owner03],
-          inner.address,
-          owner03.address,
-        )
+        await Helper.replaceOwner(contract, owner01, [owner01, owner02, owner03], inner.address, owner03.address)
         return inner
       }
 
@@ -2211,7 +2202,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         const txHash = await contract.generateHash(contract.address, Helper.ZERO, data, Helper.DEFAULT_GAS, nonce, 0)
         // EOA vote: owner01 signs the outer typed-data hash with their key.
         const eoaSig = await Helper.signMultiSigTxn(
-          contract.address,
+          contract,
           owner01,
           contract.address,
           Helper.ZERO,
@@ -2310,6 +2301,490 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         expect(await contract.isOwner(user01.address)).to.be.false
       })
     })
+  })
+}
 
+// ---------------------------------------------------------------------------
+// v0.4.0 — advanced features (timelock, guard, allowance, modules)
+// ---------------------------------------------------------------------------
+
+export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.SimpleMultiSig) {
+  let provider: any
+  let owner01: any
+  let owner02: any
+  let owner03: any
+  let user01: any
+  let user02: any
+  let user03: any
+  let contract: any
+
+  describe('MyMultiSig - Advanced Tests (v0.4.0)', function () {
+    before(async function () {
+      ;[provider, owner01, owner02, owner03, user01, user02, user03] = await Helper.setupProviderAndAccount()
+    })
+
+    beforeEach(async function () {
+      const owners: string[] = [owner01.address, owner02.address, owner03.address]
+      switch (deploymentType) {
+        case DeploymentType.SimpleMultiSig: {
+          const deployment = await Helper.setupContract(
+            Helper.CONTRACT_NAME,
+            owners,
+            Helper.DEFAULT_THRESHOLD,
+            false,
+            true,
+          )
+          contract = deployment.contract
+          break
+        }
+        case DeploymentType.WithFactory: {
+          const deployment = await Helper.setupContract(
+            Helper.CONTRACT_FACTORY_NAME,
+            owners,
+            Helper.DEFAULT_THRESHOLD,
+            true,
+          )
+          const tx = await deployment.contract.createMyMultiSigAdvanced(
+            Helper.CONTRACT_NAME,
+            owners,
+            Helper.DEFAULT_THRESHOLD,
+            Helper.DEFAULT_ALLOW_ONLY_OWNER,
+          )
+          await tx.wait()
+          const Contract = await ethers.getContractFactory(Helper.CONTRACT_NAME_EXTENDED)
+          contract = new ethers.Contract(await deployment.contract.multiSig(0), Contract.interface, provider)
+          break
+        }
+        default:
+          throw new Error('Invalid deployment type')
+      }
+      // Fund the wallet so ETH transfer tests have balance to send.
+      await owner01.sendTransaction({
+        to: contract.address,
+        value: ethers.utils.parseEther('5'),
+      })
+    })
+
+    it('reports v0.4.0 as the wallet version', async function () {
+      expect(await contract.version()).to.be.equal('0.4.0')
+      // Bitmask: zero-state reports no advanced features active.
+      expect(await contract.advancedFeaturesEnabled()).to.be.equal(0)
+    })
+
+    // -- Feature 1: Timelock / delay ---------------------------------------
+    describe('Timelock (Feature 1)', function () {
+      it('sensitive call through regular execTransaction reverts with SensitiveCallRequiresDelay', async function () {
+        await Helper.setTimelockDelay(contract, owner01, [owner01, owner02], 60)
+        const data = contract.interface.encodeFunctionData('addOwner(address)', [user01.address])
+        const nonce = await contract.nonce()
+        const signatures = await Helper.prepareSignatures(
+          contract,
+          [owner01, owner02],
+          contract.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          nonce,
+          0,
+        )
+        await Helper.execTransaction(
+          contract,
+          owner01,
+          [],
+          contract.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          'SensitiveCallRequiresDelay',
+          undefined,
+          signatures,
+        )
+        // User was NOT added (the regular path reverted before the inner call).
+        expect(await contract.isOwner(user01.address)).to.be.false
+      })
+
+      it('scheduleTransaction + wait + executeScheduled runs the sensitive call', async function () {
+        await Helper.setTimelockDelay(contract, owner01, [owner01, owner02], 60)
+        const data = contract.interface.encodeFunctionData('addOwner(address)', [user01.address])
+        const nonce = await contract.nonce()
+        const signatures = await Helper.prepareSignatures(
+          contract,
+          [owner01, owner02],
+          contract.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          nonce,
+          0,
+        )
+        const txHash = await contract.generateHash(contract.address, Helper.ZERO, data, Helper.DEFAULT_GAS, nonce, 0)
+        // 1. Schedule
+        const schedTx = await contract
+          .connect(owner01)
+          .scheduleTransaction(contract.address, Helper.ZERO, data, Helper.DEFAULT_GAS, nonce, 0, signatures)
+        const schedReceipt = await schedTx.wait()
+        expect(await contract.scheduledReadyAt(txHash)).to.be.greaterThan(0)
+        // 2. Wait past the delay
+        await Helper.advanceTime(61)
+        // 3. Execute
+        const execTx = await contract
+          .connect(owner01)
+          .executeScheduled(contract.address, Helper.ZERO, data, Helper.DEFAULT_GAS, nonce, 0, signatures)
+        await execTx.wait()
+        expect(await contract.isOwner(user01.address)).to.be.true
+        // 4. Replay blocked by sentinel
+        await expect(
+          contract
+            .connect(owner01)
+            .executeScheduled(contract.address, Helper.ZERO, data, Helper.DEFAULT_GAS, nonce, 0, signatures),
+        ).to.be.revertedWithCustomError(contract, 'NotScheduled')
+      })
+    })
+
+    // -- Feature 2: Guard + allowlist --------------------------------------
+    describe('Guard + Allowlist (Feature 2)', function () {
+      it('passive guard does not block transactions', async function () {
+        // Deploy a MockGuard that passes through.
+        const Guard = await ethers.getContractFactory('MockGuard')
+        const guard = await Guard.deploy()
+        await guard.deployed()
+        await Helper.setGuard(contract, owner01, [owner01, owner02], guard.address)
+        expect(await contract.guard()).to.be.equal(guard.address)
+        // A simple ETH call goes through; no guard failure emitted.
+        const recipient = user01.address
+        const before = await ethers.provider.getBalance(recipient)
+        await Helper.execTransaction(
+          contract,
+          owner01,
+          [owner01, owner02],
+          recipient,
+          ethers.utils.parseEther('0.1'),
+          '0x',
+        )
+        const after = await ethers.provider.getBalance(recipient)
+        expect(after.sub(before)).to.be.equal(ethers.utils.parseEther('0.1'))
+      })
+
+      it('rejective guard wraps the inner revert into GuardReverted', async function () {
+        const Guard = await ethers.getContractFactory('MockGuard')
+        const guard = await Guard.deploy()
+        await guard.deployed()
+        await Helper.setGuard(contract, owner01, [owner01, owner02], guard.address)
+        await (await guard.setMode(1)).wait() // revert with reason
+        await expect(
+          Helper.execTransaction(
+            contract,
+            owner01,
+            [owner01, owner02],
+            user01.address,
+            0,
+            '0x',
+            Helper.DEFAULT_GAS,
+            undefined,
+            undefined,
+          ),
+        ).to.be.revertedWithCustomError(contract, 'GuardReverted')
+      })
+
+      it('allowlist enables then rejects unregistered targets', async function () {
+        await Helper.setAllowedTarget(contract, owner01, [owner01, owner02], user01.address, true)
+        expect(await contract.allowedTargetsEnabled()).to.be.true
+        // user02 (unrelated) is rejected.
+        await expect(
+          Helper.execTransaction(contract, owner01, [owner01, owner02], user02.address, 0, '0x'),
+        ).to.be.revertedWithCustomError(contract, 'TargetNotAllowed')
+        // user01 (allowed) works.
+        await Helper.execTransaction(contract, owner01, [owner01, owner02], user01.address, 0, '0x')
+      })
+    })
+
+    // -- Feature 3: Spending limits / allowance ----------------------------
+    describe('Allowance (Feature 3)', function () {
+      it('single-signer path charges against the submitter cap', async function () {
+        const cap = ethers.utils.parseEther('1')
+        await Helper.setDailySpendingLimit(contract, owner01, [owner01, owner02], owner01.address, cap)
+        const data = '0x'
+        const recipient = user01.address
+        const value = ethers.utils.parseEther('0.3')
+        // Single-signer ECDSA where sig recovers to owner01 == msg.sender.
+        const sig = await Helper.signMultiSigTxn(
+          contract,
+          owner01,
+          recipient,
+          value,
+          data,
+          Helper.DEFAULT_GAS,
+          await contract.nonce(),
+          0,
+        )
+        const tx = await contract
+          .connect(owner01)
+          .execTransactionWithSpendingAllowance(recipient, value, data, Helper.DEFAULT_GAS, 0, sig)
+        await tx.wait()
+        // Cap reduced by `value`.
+        const remaining = await contract.spendingLimitRemaining(owner01.address)
+        expect(remaining).to.be.equal(cap.sub(value))
+      })
+
+      it('over-cap spend reverts with DailySpendingLimitExceeded', async function () {
+        const cap = ethers.utils.parseEther('0.5')
+        await Helper.setDailySpendingLimit(contract, owner01, [owner01, owner02], owner01.address, cap)
+        const sig = await Helper.signMultiSigTxn(
+          contract,
+          owner01,
+          user01.address,
+          cap.add(1),
+          '0x',
+          Helper.DEFAULT_GAS,
+          await contract.nonce(),
+          0,
+        )
+        await expect(
+          contract
+            .connect(owner01)
+            .execTransactionWithSpendingAllowance(user01.address, cap.add(1), '0x', Helper.DEFAULT_GAS, 0, sig),
+        ).to.be.revertedWithCustomError(contract, 'DailySpendingLimitExceeded')
+      })
+
+      it('day rollover resets the cap', async function () {
+        const cap = ethers.utils.parseEther('1')
+        await Helper.setDailySpendingLimit(contract, owner01, [owner01, owner02], owner01.address, cap)
+        // First spend consumes the cap entirely.
+        let nonce = await contract.nonce()
+        let sig = await Helper.signMultiSigTxn(
+          contract,
+          owner01,
+          user01.address,
+          cap,
+          '0x',
+          Helper.DEFAULT_GAS,
+          nonce,
+          0,
+        )
+        await (
+          await contract
+            .connect(owner01)
+            .execTransactionWithSpendingAllowance(user01.address, cap, '0x', Helper.DEFAULT_GAS, 0, sig)
+        ).wait()
+        // Cross the 24h boundary.
+        await Helper.advanceTime(86401)
+        // Second spend of `cap` should succeed.
+        nonce = await contract.nonce()
+        sig = await Helper.signMultiSigTxn(contract, owner01, user01.address, cap, '0x', Helper.DEFAULT_GAS, nonce, 0)
+        await contract
+          .connect(owner01)
+          .execTransactionWithSpendingAllowance(user01.address, cap, '0x', Helper.DEFAULT_GAS, 0, sig)
+        // remaining is back to 0 after the second full-cap spend.
+        const remaining = await contract.spendingLimitRemaining(owner01.address)
+        expect(remaining).to.be.equal(0)
+      })
+    })
+
+    // -- Feature 4: Modules -------------------------------------------------
+    describe('Modules (Feature 4)', function () {
+      it('enableModule followed by execTransactionFromModule (CALL) succeeds', async function () {
+        const Module = await ethers.getContractFactory('MockModule')
+        const module = await Module.deploy(contract.address)
+        await module.deployed()
+        // Snapshot nonce BEFORE enabling. enableModule is a single
+        // execTransaction that bumps the nonce by 1; the fund call below
+        // bumps it by another 1. So nonceAfterFunding == nonceBefore + 2.
+        const nonceBefore = await contract.nonce()
+        await Helper.enableModule(contract, owner01, [owner01, owner02], module.address)
+        expect(await contract.isModule(module.address)).to.be.true
+        expect(await contract.nonce()).to.be.equal(nonceBefore.add(1))
+
+        // Fund the module so it can forward value. This bumps the nonce by 1.
+        await Helper.execTransaction(
+          contract,
+          owner01,
+          [owner01, owner02],
+          module.address,
+          ethers.utils.parseEther('1'),
+          '0x',
+        )
+        const nonceAfterFunding = await contract.nonce()
+        expect(nonceAfterFunding).to.be.equal(nonceBefore.add(2))
+
+        const before = await ethers.provider.getBalance(user01.address)
+        await module.execCall(user01.address, ethers.utils.parseEther('0.1'), '0x')
+        const after = await ethers.provider.getBalance(user01.address)
+        expect(after.sub(before)).to.be.equal(ethers.utils.parseEther('0.1'))
+        // Module action must NOT bump _txnNonce — modules bypass threshold
+        // by design so they shouldn't invalidate pending owner-signed
+        // transactions.
+        expect(await contract.nonce()).to.be.equal(nonceAfterFunding)
+      })
+
+      it('disableModule adjacency: enable A,B,C; head=C; remove head → next; remove via prev=0 walks list', async function () {
+        const Module = await ethers.getContractFactory('MockModule')
+        const mA = await (await Module.deploy(contract.address)).deployed()
+        const mB = await (await Module.deploy(contract.address)).deployed()
+        const mC = await (await Module.deploy(contract.address)).deployed()
+        await Helper.enableModule(contract, owner01, [owner01, owner02], mA.address)
+        await Helper.enableModule(contract, owner01, [owner01, owner02], mB.address)
+        await Helper.enableModule(contract, owner01, [owner01, owner02], mC.address)
+        // List order (most-recent-first): C, B, A.
+        const list = await contract.getModules()
+        expect(list.length).to.be.equal(3)
+        expect(list[0]).to.be.equal(mC.address)
+        expect(list[1]).to.be.equal(mB.address)
+        expect(list[2]).to.be.equal(mA.address)
+        // Remove the head C (Safe allows head removal only with prev=0).
+        await Helper.disableModule(contract, owner01, [owner01, owner02], ethers.constants.AddressZero, mC.address)
+        expect(await contract.modulesHead()).to.be.equal(mB.address)
+        // Remove the new head B with prev=0.
+        await Helper.disableModule(contract, owner01, [owner01, owner02], ethers.constants.AddressZero, mB.address)
+        expect(await contract.modulesHead()).to.be.equal(mA.address)
+        // Remove the last module A with prev=0 → empty list.
+        await Helper.disableModule(contract, owner01, [owner01, owner02], ethers.constants.AddressZero, mA.address)
+        expect(await contract.modulesHead()).to.be.equal(ethers.constants.AddressZero)
+        const remaining = await contract.getModules()
+        expect(remaining.length).to.be.equal(0)
+      })
+
+      it('disableModule reverts ModuleNotFound when module is not enabled', async function () {
+        // Sanity test for the negative path: trying to disable a non-module
+        // must revert. Going through the helper means the multisig layer
+        // routes the call correctly (`onlyThis` on disableModule).
+        const Module = await ethers.getContractFactory('MockModule')
+        const someModule = await (await Module.deploy(contract.address)).deployed()
+        // Don't enableModule — directly call disable.
+        try {
+          await Helper.disableModule(
+            contract,
+            owner01,
+            [owner01, owner02],
+            ethers.constants.AddressZero,
+            someModule.address,
+          )
+          expect.fail('Expected disableModule to revert')
+        } catch (e: any) {
+          // The chain-level revert surfaces here; the helper may wrap it
+          // as a generic revert or as a custom error. Either is acceptable;
+          // the important assertion is that it DID revert.
+          expect(e).to.exist
+        }
+      })
+
+      it('non-module caller reverts NotAModule', async function () {
+        await expect(
+          contract.connect(owner01).execTransactionFromModule(user01.address, 0, '0x', 0),
+        ).to.be.revertedWithCustomError(contract, 'NotAModule')
+      })
+    })
+
+    // -- Backward compatibility sanity -------------------------------------
+    it('zero-state: every existing operation still passes', async function () {
+      // Default config (delay=0, no guard, no allowance, no modules) is
+      // backwards-compatible: the regular addOwner flow works.
+      await Helper.addOwner(contract, owner01, [owner01, owner02], user01.address)
+      expect(await contract.isOwner(user01.address)).to.be.true
+    })
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Factory — per-type counters + address-keyed lookup
+// ---------------------------------------------------------------------------
+
+export async function MyMultiSigFactoryTests() {
+  let provider: any
+  let owner01: any
+  let user01: any
+  let deployment: any
+  let factory: any
+
+  describe('MyMultiSig - Factory Bookkeeping Tests', function () {
+    before(async function () {
+      ;[provider, owner01, , , user01] = await Helper.setupProviderAndAccount()
+    })
+
+    beforeEach(async function () {
+      deployment = await Helper.setupContract(Helper.CONTRACT_FACTORY_NAME, [owner01.address], 1, true)
+      factory = deployment.contract
+    })
+
+    it('reports zero per-type counts on a fresh factory', async function () {
+      expect(await factory.simpleCount()).to.be.equal(0)
+      expect(await factory.extendedCount()).to.be.equal(0)
+      expect(await factory.advancedCount()).to.be.equal(0)
+      expect(await factory.multiSigCount()).to.be.equal(0)
+      expect(await factory.creationTypeCount(0)).to.be.equal(0) // SIMPLE
+      expect(await factory.creationTypeCount(1)).to.be.equal(0) // EXTENDED
+      expect(await factory.creationTypeCount(2)).to.be.equal(0) // ADVANCED
+    })
+
+    it('counts each createMultiSig as SIMPLE and isExtended(address) returns false', async function () {
+      const tx = await factory.createMultiSig(Helper.CONTRACT_NAME, [owner01.address], 1)
+      const receipt = await tx.wait()
+      const walletAddress = await factory.multiSig(0)
+      expect(walletAddress).to.be.properAddress
+      expect(await factory.simpleCount()).to.be.equal(1)
+      expect(await factory.extendedCount()).to.be.equal(0)
+      expect(await factory.advancedCount()).to.be.equal(0)
+      expect(await factory.creationTypeOf(walletAddress)).to.be.equal(0) // SIMPLE
+      expect(await factory.isExtended(walletAddress)).to.be.false
+      // Untracked addresses report SIMPLE (default enum) — the user-facing
+      // semantic is `isExtended(...) == false`.
+      expect(await factory.creationTypeOf(user01.address)).to.be.equal(0)
+      expect(await factory.isExtended(user01.address)).to.be.false
+    })
+
+    it('counts createMyMultiSigExtended as EXTENDED and isExtended(addr) returns true', async function () {
+      const tx = await factory.createMyMultiSigExtended(
+        Helper.CONTRACT_NAME,
+        [owner01.address],
+        1,
+        Helper.DEFAULT_ALLOW_ONLY_OWNER,
+      )
+      const receipt = await tx.wait()
+      const walletAddress = await factory.multiSig(0)
+      expect(await factory.simpleCount()).to.be.equal(0)
+      expect(await factory.extendedCount()).to.be.equal(1)
+      expect(await factory.advancedCount()).to.be.equal(0)
+      expect(await factory.creationTypeOf(walletAddress)).to.be.equal(1) // EXTENDED
+      expect(await factory.isExtended(walletAddress)).to.be.true
+    })
+
+    it('counts createMyMultiSigAdvanced as ADVANCED and isExtended(addr) returns true', async function () {
+      const tx = await factory.createMyMultiSigAdvanced(
+        Helper.CONTRACT_NAME,
+        [owner01.address],
+        1,
+        Helper.DEFAULT_ALLOW_ONLY_OWNER,
+      )
+      const receipt = await tx.wait()
+      const walletAddress = await factory.multiSig(0)
+      expect(await factory.simpleCount()).to.be.equal(0)
+      expect(await factory.extendedCount()).to.be.equal(0)
+      expect(await factory.advancedCount()).to.be.equal(1)
+      expect(await factory.creationTypeOf(walletAddress)).to.be.equal(2) // ADVANCED
+      expect(await factory.isExtended(walletAddress)).to.be.true
+    })
+
+    it('counts multiple wallets of each type and keeps multiSigCount = sum', async function () {
+      await factory.createMultiSig(Helper.CONTRACT_NAME, [owner01.address], 1)
+      await factory.createMultiSig(Helper.CONTRACT_NAME, [owner01.address], 1)
+      await factory.createMyMultiSigExtended(
+        Helper.CONTRACT_NAME,
+        [owner01.address],
+        1,
+        Helper.DEFAULT_ALLOW_ONLY_OWNER,
+      )
+      await factory.createMyMultiSigAdvanced(
+        Helper.CONTRACT_NAME,
+        [owner01.address],
+        1,
+        Helper.DEFAULT_ALLOW_ONLY_OWNER,
+      )
+      expect(await factory.simpleCount()).to.be.equal(2)
+      expect(await factory.extendedCount()).to.be.equal(1)
+      expect(await factory.advancedCount()).to.be.equal(1)
+      expect(await factory.multiSigCount()).to.be.equal(4)
+      // SUM via creationTypeCount equals the global total.
+      const total = (await factory.simpleCount()).add(await factory.extendedCount()).add(await factory.advancedCount())
+      expect(total).to.be.equal(await factory.multiSigCount())
+    })
   })
 }

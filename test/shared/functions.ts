@@ -28,7 +28,7 @@ export const checkRawTxnResult = async (
   input: any,
   sender: Wallet,
   error: undefined | string,
-  contract?: MyMultiSig | MyMultiSigExtended
+  contract?: MyMultiSig | MyMultiSigExtended,
 ) => {
   let result
   if (error)
@@ -63,16 +63,14 @@ export const prepareSignatures = async (
   data: `0x${string}`,
   gas = constants.DEFAULT_GAS as number,
   nonce = BigNumber.from(0),
-  validUntil: number = 0
+  validUntil: number = 0,
 ) => {
-  // Build the per-owner ECDSA signatures first.
+  // ABI-encode the wallet's expected `(address owner, bytes sig)[]` shape.
   const votes: { owner: string; sig: string }[] = []
   for (var i = 0; i < owners.length; i++) {
     const sig = await signature.signMultiSigTxn(contract.address, owners[i], to, value, data, gas, nonce, validUntil)
     votes.push({ owner: owners[i].address, sig })
   }
-  // ABI-encode as a dynamic tuple array: abi.encode( (address owner, bytes sig)[] ).
-  // Solidity decodes this with `abi.decode(sig, (Vote[]))`.
   return ethers.utils.defaultAbiCoder.encode(['tuple(address owner, bytes sig)[]'], [votes])
 }
 
@@ -87,7 +85,7 @@ export const execTransaction = async (
   errorMsg?: string,
   extraEvents?: string[],
   signatures?: string,
-  validUntil: number = 0
+  validUntil: number = 0,
 ) => {
   const nonce = await contract.nonce()
   if (!signatures) signatures = await prepareSignatures(contract, owners, to, value, data, gas, nonce, validUntil)
@@ -128,13 +126,7 @@ export const execTransaction = async (
           )
       : await contract
           .connect(submitter)
-          .populateTransaction['execTransaction(address,uint256,bytes,uint256,bytes)'](
-            to,
-            value,
-            data,
-            gas,
-            signatures,
-          )
+          .populateTransaction['execTransaction(address,uint256,bytes,uint256,bytes)'](to, value, data, gas, signatures)
 
   const receipt = await checkRawTxnResult(input, submitter, errorMsg, contract)
   if (!errorMsg) {
@@ -192,7 +184,7 @@ export const isValidSignature = async (
   gas = constants.DEFAULT_GAS as number,
   nonce = BigNumber.from(0),
   errorMsg?: string,
-  validUntil: number = 0
+  validUntil: number = 0,
 ) => {
   const signatures = await prepareSignatures(contract, owners, to, value, data, gas, nonce, validUntil)
 
@@ -203,8 +195,7 @@ export const isValidSignature = async (
   // 7-arg to carry `validUntil`.
   const sevenArg = 'isValidSignature(address,uint256,bytes,uint256,uint256,uint256,bytes)'
 
-  if (!errorMsg)
-    return await contract.connect(submitter)[sevenArg](to, value, data, gas, nonce, validUntil, signatures)
+  if (!errorMsg) return await contract.connect(submitter)[sevenArg](to, value, data, gas, nonce, validUntil, signatures)
   else {
     const input = await contract
       .connect(submitter)
@@ -223,7 +214,7 @@ export const multiRequest = async (
   data_: string[],
   gas_: number[],
   errorMsg?: string,
-  extraEvents?: string[]
+  extraEvents?: string[],
 ) => {
   let gas = 0
   for (var i = 0; i < to_.length; i++) {
@@ -238,7 +229,7 @@ export const multiRequest = async (
     contract.interface.encodeFunctionData('multiRequest', [to_, value_, data_, gas_]) as `0x${string}`,
     gas,
     errorMsg,
-    extraEvents
+    extraEvents,
   )
 }
 
@@ -249,7 +240,7 @@ export const addOwner = async (
   ownerToAdd: string,
   gas = constants.DEFAULT_GAS as number,
   errorMsg?: string,
-  extraEvents?: string[]
+  extraEvents?: string[],
 ) => {
   const data = contract.interface.encodeFunctionData('addOwner', [ownerToAdd]) as `0x${string}`
 
@@ -262,7 +253,7 @@ export const addOwner = async (
     data,
     gas,
     errorMsg,
-    extraEvents
+    extraEvents,
   )
 
   if (!errorMsg) expect(await contract.isOwner(ownerToAdd)).to.be.true
@@ -275,7 +266,7 @@ export const removeOwner = async (
   ownerToRemove: string,
   gas = constants.DEFAULT_GAS,
   errorMsg?: string,
-  extraEvents?: string[]
+  extraEvents?: string[],
 ) => {
   const data = contract.interface.encodeFunctionData('removeOwner', [ownerToRemove]) as `0x${string}`
 
@@ -288,7 +279,7 @@ export const removeOwner = async (
     data,
     gas,
     errorMsg,
-    extraEvents
+    extraEvents,
   )
 
   if (!errorMsg) expect(await contract.isOwner(ownerToRemove)).to.be.false
@@ -302,7 +293,7 @@ export const changeThreshold = async (
   newThreshold: number,
   gas = constants.DEFAULT_GAS,
   errorMsg?: string,
-  extraEvents?: string[]
+  extraEvents?: string[],
 ) => {
   const data = contract.interface.encodeFunctionData('changeThreshold', [newThreshold]) as `0x${string}`
 
@@ -315,7 +306,7 @@ export const changeThreshold = async (
     data,
     gas,
     errorMsg,
-    extraEvents
+    extraEvents,
   )
 
   if (!errorMsg) expect(await contract.threshold()).to.be.equal(newThreshold)
@@ -329,7 +320,7 @@ export const replaceOwner = async (
   ownerToRemove: string,
   gas = constants.DEFAULT_GAS,
   errorMsg?: string,
-  extraEvents?: string[]
+  extraEvents?: string[],
 ) => {
   const data = contract.interface.encodeFunctionData('replaceOwner', [ownerToRemove, ownerToAdd]) as `0x${string}`
 
@@ -342,7 +333,7 @@ export const replaceOwner = async (
     data,
     gas,
     errorMsg,
-    extraEvents
+    extraEvents,
   )
 
   if (!errorMsg) {
@@ -358,7 +349,7 @@ export const setOnlyOwnerRequest = async (
   isOnlyOwnerRequest: boolean,
   gas = constants.DEFAULT_GAS as number,
   errorMsg?: string,
-  extraEvents?: string[]
+  extraEvents?: string[],
 ) => {
   const data = contract.interface.encodeFunctionData('setOnlyOwnerRequest', [isOnlyOwnerRequest]) as `0x${string}`
 
@@ -371,7 +362,7 @@ export const setOnlyOwnerRequest = async (
     data,
     gas,
     errorMsg,
-    extraEvents
+    extraEvents,
   )
 
   if (!errorMsg) expect(await contract.allowOnlyOwnerRequest()).to.be.equal(isOnlyOwnerRequest)
@@ -384,7 +375,7 @@ export const setTransferInactiveOwnershipAfter = async (
   transferInactiveOwnershipAfter: BigNumber,
   gas = constants.DEFAULT_GAS as number,
   errorMsg?: string,
-  extraEvents?: string[]
+  extraEvents?: string[],
 ) => {
   const data = contract.interface.encodeFunctionData('setTransferInactiveOwnershipAfter', [
     transferInactiveOwnershipAfter,
@@ -399,10 +390,11 @@ export const setTransferInactiveOwnershipAfter = async (
     data,
     gas,
     errorMsg,
-    extraEvents
+    extraEvents,
   )
 
-  if (!errorMsg) expect(await contract.minimumTransferInactiveOwnershipAfter()).to.be.equal(transferInactiveOwnershipAfter)
+  if (!errorMsg)
+    expect(await contract.minimumTransferInactiveOwnershipAfter()).to.be.equal(transferInactiveOwnershipAfter)
 }
 
 export const markNonceAsUsed = async (
@@ -412,7 +404,7 @@ export const markNonceAsUsed = async (
   nonce: BigNumber,
   gas = constants.DEFAULT_GAS as number,
   errorMsg?: string,
-  extraEvents?: string[]
+  extraEvents?: string[],
 ) => {
   const data = contract.interface.encodeFunctionData('markNonceAsUsed', [nonce]) as `0x${string}`
 
@@ -425,7 +417,7 @@ export const markNonceAsUsed = async (
     data,
     gas,
     errorMsg,
-    extraEvents
+    extraEvents,
   )
   expect(await contract.isNonceUsed(nonce)).to.be.true
 
@@ -440,7 +432,7 @@ export const setOwnerSettings = async (
   transferInactiveOwnershipAfter: BigNumber,
   delegatee: `0x${string}`,
   errorMsg?: string,
-  extraEvents?: string[]
+  extraEvents?: string[],
 ) => {
   const data = contract.interface.encodeFunctionData('setOwnerSettings', [
     ownerToConfigure,
@@ -457,7 +449,7 @@ export const setOwnerSettings = async (
     data,
     constants.DEFAULT_GAS as number,
     errorMsg,
-    extraEvents
+    extraEvents,
   )
 
   if (!errorMsg) {
@@ -472,7 +464,7 @@ export const takeOverOwnership = async (
   contract: MyMultiSigExtended,
   submitter: Wallet,
   originalOwner: `0x${string}`,
-  errorMsg?: string
+  errorMsg?: string,
 ) => {
   if (!errorMsg) {
     const originalOwnerSettings = await contract.ownerSettings(originalOwner)
@@ -488,7 +480,7 @@ export const takeOverOwnership = async (
   } else {
     await expect(contract.connect(submitter).takeOverOwnership(originalOwner)).to.be.revertedWithCustomError(
       contract,
-      errorMsg
+      errorMsg,
     )
   }
 }
@@ -506,7 +498,7 @@ export const execTransactionWithNonce = async (
   gas: number,
   nonce: BigNumber,
   validUntil: number,
-  signatures: string
+  signatures: string,
 ) => {
   const input = await contract
     .connect(submitter)
@@ -534,7 +526,7 @@ export const execTransactionWithNonceReverted = async (
   nonce: BigNumber,
   validUntil: number,
   signatures: string,
-  errorMsg: string
+  errorMsg: string,
 ) => {
   const input = await contract
     .connect(submitter)
@@ -547,9 +539,10 @@ export const execTransactionWithNonceReverted = async (
       validUntil,
       signatures,
     )
-  return await expect(
-    sendRawTxn(input, submitter, ethers, ethers.provider),
-  ).to.be.revertedWithCustomError(contract, errorMsg)
+  return await expect(sendRawTxn(input, submitter, ethers, ethers.provider)).to.be.revertedWithCustomError(
+    contract,
+    errorMsg,
+  )
 }
 
 /// @notice Calls `approveHash(hash)` from `owner` and asserts the resulting
@@ -561,7 +554,7 @@ export const approveHash = async (
   owner: Wallet,
   hash: string,
   errorMsg?: string,
-  expectEvent = true
+  expectEvent = true,
 ) => {
   if (!errorMsg) {
     const tx = await contract.connect(owner).approveHash(hash)
@@ -583,4 +576,136 @@ export const approveHash = async (
   } else {
     await expect(contract.connect(owner).approveHash(hash)).to.be.revertedWithCustomError(contract, errorMsg)
   }
+}
+
+// ---------------------------------------------------------------------------
+// v0.4.0 helpers (timelock, guard, allowance, modules)
+// ---------------------------------------------------------------------------
+
+/// @notice Low-level wrapper that calls any `onlyThis`-gated wallet method via
+///         a regular sig'd `execTransaction`. Returns the receipt so the
+///         caller can assert events. Used by all v0.4.0 set-helper functions.
+export const execOnlyThis = async (
+  contract: MyMultiSig | MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
+  method: string,
+  args: any[],
+  validUntil: number = 0,
+  errorMsg?: string,
+) => {
+  const data = contract.interface.encodeFunctionData(method, args) as `0x${string}`
+  return await execTransaction(
+    contract,
+    submitter,
+    owners,
+    contract.address as `0x${string}`,
+    ZERO,
+    data,
+    constants.DEFAULT_GAS as number,
+    errorMsg,
+    undefined,
+    undefined,
+    validUntil,
+  )
+}
+
+export const setTimelockDelay = async (
+  contract: MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
+  delay: number,
+  errorMsg?: string,
+) => {
+  await execOnlyThis(contract, submitter, owners, 'setTimelockDelay', [delay], 0, errorMsg)
+  if (!errorMsg) expect(await contract.timelockDelay()).to.be.equal(delay)
+}
+
+export const setSensitiveValueThreshold = async (
+  contract: MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
+  threshold: any,
+  errorMsg?: string,
+) => {
+  await execOnlyThis(contract, submitter, owners, 'setSensitiveValueThreshold', [threshold], 0, errorMsg)
+  if (!errorMsg) expect(await contract.sensitiveValueThreshold()).to.be.equal(threshold)
+}
+
+export const setSensitiveSelector = async (
+  contract: MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
+  selector: string,
+  isSensitive: boolean,
+  errorMsg?: string,
+) => {
+  await execOnlyThis(contract, submitter, owners, 'setSensitiveSelector', [selector, isSensitive], 0, errorMsg)
+  if (!errorMsg) expect(await contract.isSensitiveSelector(selector)).to.be.equal(isSensitive)
+}
+
+export const setGuard = async (
+  contract: MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
+  guardAddr: string,
+  errorMsg?: string,
+) => {
+  await execOnlyThis(contract, submitter, owners, 'setGuard', [guardAddr], 0, errorMsg)
+  if (!errorMsg) expect(await contract.guard()).to.be.equal(guardAddr)
+}
+
+export const setAllowedTarget = async (
+  contract: MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
+  target: string,
+  allowed: boolean,
+  errorMsg?: string,
+) => {
+  await execOnlyThis(contract, submitter, owners, 'setAllowedTarget', [target, allowed], 0, errorMsg)
+  if (!errorMsg) expect(await contract.allowedTargets(target)).to.be.equal(allowed)
+}
+
+export const setDailySpendingLimit = async (
+  contract: MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
+  ownerAddr: string,
+  limit: any,
+  errorMsg?: string,
+) => {
+  await execOnlyThis(contract, submitter, owners, 'setDailySpendingLimit', [ownerAddr, limit], 0, errorMsg)
+  if (!errorMsg) expect(await contract.dailySpendingLimit(ownerAddr)).to.be.equal(limit)
+}
+
+export const enableModule = async (
+  contract: MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
+  module: string,
+  errorMsg?: string,
+) => {
+  await execOnlyThis(contract, submitter, owners, 'enableModule', [module], 0, errorMsg)
+  if (!errorMsg) expect(await contract.isModule(module)).to.be.true
+}
+
+export const disableModule = async (
+  contract: MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
+  prev: string,
+  module: string,
+  errorMsg?: string,
+) => {
+  await execOnlyThis(contract, submitter, owners, 'disableModule', [prev, module], 0, errorMsg)
+  if (!errorMsg) expect(await contract.isModule(module)).to.be.false
+}
+
+/// @notice Advance the test EVM clock by `seconds`. Uses `time.increase` from
+///         `@nomicfoundation/hardhat-network-helpers` so timestamp-dependent
+///         assertions (timelock readyAt, daily-allowance rollover) work.
+export const advanceTime = async (seconds: number) => {
+  const { time } = await import('@nomicfoundation/hardhat-network-helpers')
+  await time.increase(seconds)
 }

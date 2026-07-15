@@ -48,10 +48,21 @@ const setupContract = async (
     const MyMultiSigExtendedDeployer = await ethers.getContractFactory('MyMultiSigExtendedDeployer')
     const myMultiSigExtendedDeployer = await MyMultiSigExtendedDeployer.deploy()
     await myMultiSigExtendedDeployer.deployed()
+    // The "Advanced" deployer is a tiny wrapper around the Extended
+    // deployer — see `MyMultiSigAdvancedDeployer.sol` — so factory
+    // bookkeeping can distinguish the creation path without paying for a
+    // second copy of the wallet bytecode.
+    const MyMultiSigAdvancedDeployer = await ethers.getContractFactory('MyMultiSigAdvancedDeployer')
+    const myMultiSigAdvancedDeployer = await MyMultiSigAdvancedDeployer.deploy(myMultiSigExtendedDeployer.address)
+    await myMultiSigAdvancedDeployer.deployed()
 
     ContractFactory = await ethers.getContractFactory(contractName)
     contract = await upgrades.deployProxy(ContractFactory, [], {
-      constructorArgs: [myMultiSigDeployer.address, myMultiSigExtendedDeployer.address],
+      constructorArgs: [
+        myMultiSigDeployer.address,
+        myMultiSigExtendedDeployer.address,
+        myMultiSigAdvancedDeployer.address,
+      ],
     })
   } else {
     if (!deployExtended) {

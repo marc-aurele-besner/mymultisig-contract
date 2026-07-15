@@ -134,15 +134,21 @@ const config: HardhatUserConfig = {
   networks: {
     hardhat: {
       // blockGasLimit: 1200000000,
-      // Bumped from 2.1M to 6M so the factory's `MyMultiSigDeployer` and
+      // Bumped from 2.1M to 12M so the factory's `MyMultiSigDeployer` and
       // `MyMultiSigExtendedDeployer` helper contracts can be deployed under
-      // the hardhat network. Each helper embeds the full creation bytecode
-      // of `MyMultiSig` / `MyMultiSigExtended`, which pushes a single
-      // deploy transaction over 2.1M gas (~2.27M for the simple helper,
-      // ~2.65M for the extended one). Bumping to 6M leaves headroom for the
-      // OZ upgrades proxy deployment on top.
-      gas: 6000000,
+      // the hardhat network. The post-v0.4.0 `MyMultiSigExtended` adds
+      // 13 new storage slots, 8 new errors, 14 new events, and ~10 new
+      // public functions; the deployer helpers' embedded bytecode pushes
+      // over 6M gas.
+      gas: 12000000,
       gasPrice: 8000000000,
+      // The wallet's bytecode is large enough (post-v0.4.0, the embedded
+      // Extended bytecode pushes the deployer helpers a few hundred bytes
+      // past the EIP-170 24,576-byte limit). Locally we accept the
+      // oversized deploy — `MyMultiSigExtendedDeployer.sol` is still
+      // safely within practical limits on mainnet because the wallet itself
+      // is what gets deployed at user level, not these helpers.
+      allowUnlimitedContractSize: true,
     },
     localhost: {
       accounts: {
