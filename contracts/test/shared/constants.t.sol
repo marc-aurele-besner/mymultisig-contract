@@ -6,9 +6,14 @@ import { Errors } from './errors.t.sol';
 contract Constants is Errors {
   // Constants value specific to the contracts we are testing.
   string constant CONTRACT_FACTORY_NAME = 'MyMultiSigFactory';
-  string constant CONTRACT_FACTORY_VERSION = '0.1.1';
+  string constant CONTRACT_FACTORY_VERSION = '0.2.0';
   string constant CONTRACT_NAME = 'MyMultiSig';
+  /// @notice EIP-712 version string for the BASE `MyMultiSig` wallet.
+  ///         Matches `wallet.version()` on the base contract.
   string constant CONTRACT_VERSION = '0.3.0';
+  /// @notice EIP-712 version string for the v0.4.0 `MyMultiSigExtended`
+  ///         wallet. Matches `wallet.version()` on the extended contract.
+  string constant CONTRACT_VERSION_EXTENDED = '0.4.0';
 
   uint16 public DEFAULT_THRESHOLD = 2;
   bool public ONLY_OWNERS_REQUEST = true;

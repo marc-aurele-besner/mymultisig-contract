@@ -67,6 +67,115 @@ v0.3.0 hardens the wallet against three treasury pain points:
 
 The base wallet's `version()` returns `'0.3.0'`. Helpers in `test/shared/signatures.ts`, `test/shared/functions.ts`, and the Foundry equivalents have been updated to thread `validUntil` through the new typehash; see the test suite for usage patterns.
 
+## 🛡️ v0.4.0 — Timelock, Guard, Allowances, Modules
+
+`MyMultiSigExtended` v0.4.0 adds four optional features, all **disabled by default** so existing v0.3.0 wallets and signatures continue to behave unchanged until the new setters are called. The base wallet `MyMultiSig` is untouched. `MyMultiSigExtended.version()` returns `'0.4.0'` (signers must include this in the EIP-712 domain via `CONTRACT_VERSION_EXTENDED` in `constants/index.ts`).
+
+### 1. ⏰ Timelock on sensitive calls
+
+Schedule/ready pattern (Safe/`TimelockController` style). A call is "sensitive" when `to == address(this) && _sensitiveSelectors[sel]` **or** `value >= _sensitiveValueThreshold`. The constructor pre-registers the wallet's admin selectors (incl. the new `enableModule`/`disableModule`) so the timelock applies to every privileged action by default.
+
+```solidity
+// Enable a 1-day delay on admin calls.
+bytes memory data = abi.encodeWithSignature("setTimelockDelay(uint256)", 1 days);
+wallet.execTransaction(address(wallet), 0, data, gas, sigs);  // sigs=threshold sigs
+// At this point direct addOwner(...) reverts SensitiveCallRequiresDelay.
+
+// Schedule instead:
+bytes memory sigs = ...;  // >= threshold sigs over the addOwner payload
+wallet.scheduleTransaction(target, 0, addOwnerCalldata, gas, nonce, validUntil, sigs);
+// After `timelockDelay` seconds:
+wallet.executeScheduled(target, 0, addOwnerCalldata, gas, nonce, validUntil, sigs);
+```
+
+View state: `timelockDelay()`, `sensitiveValueThreshold()`, `isSensitiveSelector(sel)`, `scheduledReadyAt(txHash)`, `scheduledValidUntil(txHash)`.
+
+**Gotchas**
+- Sensitive calls via regular `execTransaction` revert `SensitiveCallRequiresDelay(to, selector, value)` — route via `scheduleTransaction`.
+- The schedule is keyed by `txHash`, so any payload mutation produces a brand-new id (impossible to corrupt).
+- Replays blocked by the `type(uint256).max` sentinel on `_readyAt`; sentinel check returns `NotScheduled`.
+- `validUntil` bounds the whole window — `executeScheduled` re-checks `block.timestamp <= _scheduledValidUntil`.
+- `executeScheduled` deliberately does NOT bump `_txnNonce` (the base's `incrementNonce()` is `onlyThis`-gated and would revert `OnlyThisContract`). The (nonce, owner) anti-replay slots were already consumed at schedule time, so the next tx at this nonce requires fresh sigs anyway.
+
+### 2. 🛡️ Transaction guard + built-in allowlist
+
+Pluggable `ITransactionGuard` contract (interface in `contracts/interfaces/ITransactionGuard.sol`) wrapping every wallet-driven call. Guard reverts are wrapped via `GuardReverted(guard, reason)`. A built-in target allowlist is also available for off-chain / no-guard use.
+
+```solidity
+interface ITransactionGuard {
+    function checkTransaction(address to, uint256 value, bytes calldata data) external;
+    function checkAfterExecution(bytes32 txHash, bool success) external;
+}
+
+// Install a guard via sig'd execTransaction:
+wallet.execTransaction(address(wallet), 0,
+    abi.encodeWithSignature("setGuard(address)", guardAddr), gas, sigs);
+// Allowlist (first call enables the gate):
+wallet.execTransaction(address(wallet), 0,
+    abi.encodeWithSignature("setAllowedTarget(address,bool)", safeTarget, true), gas, sigs);
+```
+
+View state: `guard()`, `allowedTargets(target)`, `allowedTargetsEnabled()`. `PostExecutionGuardFailed(guard, reason)` event fires (silent — never reverts) when `checkAfterExecution` fails.
+
+**Gotchas**
+- A fresh wallet has an empty allowlist and `allowedTargetsEnabled() == false`. The first `setAllowedTarget` flips it on.
+- Guard also applies inside `multiRequest`/`multiRequestStrict` (per inner call) and `execTransactionFromModule` (modules are still gated).
+- `checkAfterExecution` failures are NEVER reverts — they're logged, not enforced.
+
+### 3. 💸 Per-owner daily spending allowance
+
+Single-signer entry point: `execTransactionWithSpendingAllowance(to, value, data, gas, validUntil, signatures)`. Requires a single 65-byte ECDSA sig that recovers to `msg.sender`, who must be a current owner with a non-zero daily cap. Failed inner calls don't burn the cap.
+
+```solidity
+// Owner01 gets a 5 ETH/day allowance:
+wallet.execTransaction(address(wallet), 0,
+    abi.encodeWithSignature("setDailySpendingLimit(address,uint256)", owner01, 5 ether), gas, sigs);
+// Owner01 transfers 1 ETH to someone, signed with their key alone:
+bytes memory sig = sign(owner01Key, wallet, recipient, 1 ether, "0x", gas, _txnNonce, 0);
+wallet.execTransactionWithSpendingAllowance(recipient, 1 ether, "0x", gas, 0, sig);
+```
+
+View state: `dailySpendingLimit(owner)`, `spendingLimitRemaining(owner)`.
+
+**Gotchas**
+- Day rollover is a fixed **24h relative window** per owner (not UTC midnight). At `block.timestamp >= _lastPeriodResetByOwner[owner] + 1 days` the cap resets.
+- Commit-on-success semantics: failed inner calls DO NOT burn the cap.
+- Bypass via regular `execTransaction` is unchanged — the allowance path is opt-in per call.
+- This entry point does NOT bump `_txnNonce` (allowance is a UX shortcut, not a vault state mutation).
+
+### 4. 🧩 Modules / plugins
+
+Linked-list enabled module registry (Safe ModuleManager style). Modules bypass the signature threshold — they're operational plugins (recovery, streaming, automation). The factory `MyMultiSigFactory` exposes a `createMyMultiSigAdvanced` entry that wraps the Extended deployer for distinct bookkeeping.
+
+```solidity
+// Enable a module via sig'd execTransaction:
+wallet.execTransaction(address(wallet), 0,
+    abi.encodeWithSignature("enableModule(address)", moduleAddr), gas, sigs);
+// Module can now push txns via:
+module.execCall(target, value, data);             // CALL  (op=0)
+module.execDelegateCall(calldata);               // DELEGATECALL (op=1, to == wallet only)
+```
+
+View state: `modulesHead()`, `isModule(mod)`, `moduleNext(mod)`, `getModules()`. See `contracts/mocks/MockModule.sol` for an example wrapper.
+
+**Gotchas**
+- `disableModule(prev, module)` follows Safe's strict pattern: when the module is the head, `prev` MUST be `address(0)`; otherwise `prev != 0 && _modulesNext[prev] == module` must hold. Else `ModulePrevMismatch`.
+- Module-driven calls do NOT bump `_txnNonce` (modules bypass threshold and shouldn't invalidate pending owner-signed transactions).
+- Guard + allowlist still apply to module-driven calls. Sensitive-call timelock does NOT (modules are trusted operational plugins).
+
+### Factory + extras
+
+`MyMultiSigFactory.createMyMultiSigAdvanced(name, owners, threshold, isOnlyOwnerRequest)` produces the v0.4.0 wallet through the factory's bookkeeping path. The `MyMultiSigAdvancedDeployer` is a tiny wrapper that defers to `MyMultiSigExtendedDeployer` (the v0.4.0 wallet bytecode is identical to the Extended wallet — the distinction lives in factory bookkeeping until a future v0.5.x Advanced-only release ships).
+
+`MyMultiSigAdvancedTests()` is exported from `test/shared/tests.ts` (re-exported in `test/MyMultiSigAdvanced.test.ts` and `test/MyMultiSigAdvancedFromFactory.test.ts`) and exercised against both direct deployment and factory deployment. Foundry mirrors live in `contracts/test/shared/tests.t.sol`. Helpers (`setTimelockDelay`, `setGuard`, `enableModule`, …) are in `test/shared/functions.ts`.
+
+`advancedFeaturesEnabled()` returns a bitmask (1=timelock active, 2=guard set, 4=allowlist enabled, 8=allowance cap set, 16=at least one module) for UI/explorer introspection.
+
+### Cleanups bundled with v0.4.0
+
+- `MyMultiSig.verifyNonce(uint256)` (zero references) was removed.
+- `MyMultiSig._changeThreshold` now emits `ThresholdChanged(uint256)` (event declared at line 52, never previously emitted).
+
 ## 🔧 Install Dependencies
 
 To install all necessary dependencies, run the following command:

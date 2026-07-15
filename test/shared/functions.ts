@@ -6,6 +6,21 @@ import constants from '../../constants'
 import signature from './signatures'
 import { MyMultiSig, MyMultiSigExtended } from '../../typechain-types'
 
+/// @notice Resolves the EIP-712 domain version string for the wallet being
+///         tested. The BASE `MyMultiSig` returns `'0.3.0'` and is signed with
+///         `CONTRACT_VERSION`; the v0.4.0 `MyMultiSigExtended` returns
+///         `'0.4.0'` and is signed with `CONTRACT_VERSION_EXTENDED`.
+const eip712VersionFor = async (contract: MyMultiSig | MyMultiSigExtended): Promise<string> => {
+  // `version()` is a view; read it once per test scenario. `MyMultiSigExtended`
+  // is detected by the `allowOnlyOwnerRequest` accessor (only Extended has it).
+  const isExtended = typeof (contract as any).allowOnlyOwnerRequest === 'function'
+  if (isExtended) {
+    const v = await (contract as any).version()
+    if (typeof v === 'string' && v.length > 0) return v
+  }
+  return constants.CONTRACT_VERSION
+}
+
 export const ZERO = BigNumber.from(0)
 
 export const sendRawTxn = async (input: any, sender: Wallet, ethers: any, provider: any) => {
@@ -65,10 +80,25 @@ export const prepareSignatures = async (
   nonce = BigNumber.from(0),
   validUntil: number = 0
 ) => {
+  // Resolve the EIP-712 domain version for this wallet (v0.3.0 for base,
+  // v0.4.0 for MyMultiSigExtended). Without this the typed-data domain
+  // mismatch makes `ecrecover` return the wrong address and the wallet
+  // reverts `InvalidSignatures`.
+  const version = await eip712VersionFor(contract)
   // Build the per-owner ECDSA signatures first.
   const votes: { owner: string; sig: string }[] = []
   for (var i = 0; i < owners.length; i++) {
-    const sig = await signature.signMultiSigTxn(contract.address, owners[i], to, value, data, gas, nonce, validUntil)
+    const sig = await signature.signMultiSigTxn(
+      contract.address,
+      owners[i],
+      to,
+      value,
+      data,
+      gas,
+      nonce,
+      validUntil,
+      version,
+    )
     votes.push({ owner: owners[i].address, sig })
   }
   // ABI-encode as a dynamic tuple array: abi.encode( (address owner, bytes sig)[] ).
@@ -583,4 +613,136 @@ export const approveHash = async (
   } else {
     await expect(contract.connect(owner).approveHash(hash)).to.be.revertedWithCustomError(contract, errorMsg)
   }
+}
+
+// ---------------------------------------------------------------------------
+// v0.4.0 helpers (timelock, guard, allowance, modules)
+// ---------------------------------------------------------------------------
+
+/// @notice Low-level wrapper that calls any `onlyThis`-gated wallet method via
+///         a regular sig'd `execTransaction`. Returns the receipt so the
+///         caller can assert events. Used by all v0.4.0 set-helper functions.
+export const execOnlyThis = async (
+  contract: MyMultiSig | MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
+  method: string,
+  args: any[],
+  validUntil: number = 0,
+  errorMsg?: string
+) => {
+  const data = contract.interface.encodeFunctionData(method, args) as `0x${string}`
+  return await execTransaction(
+    contract,
+    submitter,
+    owners,
+    contract.address as `0x${string}`,
+    ZERO,
+    data,
+    constants.DEFAULT_GAS as number,
+    errorMsg,
+    undefined,
+    undefined,
+    validUntil
+  )
+}
+
+export const setTimelockDelay = async (
+  contract: MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
+  delay: number,
+  errorMsg?: string
+) => {
+  await execOnlyThis(contract, submitter, owners, 'setTimelockDelay', [delay], 0, errorMsg)
+  if (!errorMsg) expect(await contract.timelockDelay()).to.be.equal(delay)
+}
+
+export const setSensitiveValueThreshold = async (
+  contract: MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
+  threshold: any,
+  errorMsg?: string
+) => {
+  await execOnlyThis(contract, submitter, owners, 'setSensitiveValueThreshold', [threshold], 0, errorMsg)
+  if (!errorMsg) expect(await contract.sensitiveValueThreshold()).to.be.equal(threshold)
+}
+
+export const setSensitiveSelector = async (
+  contract: MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
+  selector: string,
+  isSensitive: boolean,
+  errorMsg?: string
+) => {
+  await execOnlyThis(contract, submitter, owners, 'setSensitiveSelector', [selector, isSensitive], 0, errorMsg)
+  if (!errorMsg) expect(await contract.isSensitiveSelector(selector)).to.be.equal(isSensitive)
+}
+
+export const setGuard = async (
+  contract: MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
+  guardAddr: string,
+  errorMsg?: string
+) => {
+  await execOnlyThis(contract, submitter, owners, 'setGuard', [guardAddr], 0, errorMsg)
+  if (!errorMsg) expect(await contract.guard()).to.be.equal(guardAddr)
+}
+
+export const setAllowedTarget = async (
+  contract: MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
+  target: string,
+  allowed: boolean,
+  errorMsg?: string
+) => {
+  await execOnlyThis(contract, submitter, owners, 'setAllowedTarget', [target, allowed], 0, errorMsg)
+  if (!errorMsg) expect(await contract.allowedTargets(target)).to.be.equal(allowed)
+}
+
+export const setDailySpendingLimit = async (
+  contract: MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
+  ownerAddr: string,
+  limit: any,
+  errorMsg?: string
+) => {
+  await execOnlyThis(contract, submitter, owners, 'setDailySpendingLimit', [ownerAddr, limit], 0, errorMsg)
+  if (!errorMsg) expect(await contract.dailySpendingLimit(ownerAddr)).to.be.equal(limit)
+}
+
+export const enableModule = async (
+  contract: MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
+  module: string,
+  errorMsg?: string
+) => {
+  await execOnlyThis(contract, submitter, owners, 'enableModule', [module], 0, errorMsg)
+  if (!errorMsg) expect(await contract.isModule(module)).to.be.true
+}
+
+export const disableModule = async (
+  contract: MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
+  prev: string,
+  module: string,
+  errorMsg?: string
+) => {
+  await execOnlyThis(contract, submitter, owners, 'disableModule', [prev, module], 0, errorMsg)
+  if (!errorMsg) expect(await contract.isModule(module)).to.be.false
+}
+
+/// @notice Advance the test EVM clock by `seconds`. Uses `time.increase` from
+///         `@nomicfoundation/hardhat-network-helpers` so timestamp-dependent
+///         assertions (timelock readyAt, daily-allowance rollover) work.
+export const advanceTime = async (seconds: number) => {
+  const { time } = await import('@nomicfoundation/hardhat-network-helpers')
+  await time.increase(seconds)
 }

@@ -5,19 +5,39 @@ import constants from '../../constants'
 
 export default {
   signMultiSigTxn: async function (
-    contractAddress: string,
+    contractOrAddress: any,
     sourceWallet: any,
     to: string,
     value: BigNumber,
     data: string,
     gas: number,
     nonce: BigNumber,
-    validUntil: number = 0
+    validUntil: number = 0,
+    /**
+     * Override the EIP-712 `version` field. When omitted AND the first
+     * argument is a contract instance with a `version()` view, we read it
+     * directly from the wallet so the typed-data domain separator stays in
+     * sync with the v0.4.0 `MyMultiSigExtended` bump. Pass
+     * `constants.CONTRACT_VERSION_EXTENDED` to force the Extended version
+     * when the first argument is a string address.
+     */
+    explicitVersion?: string
   ) {
+    // Resolve the signing contract address and the EIP-712 version. We
+    // accept either a string address (legacy callers) or an ethers
+    // Contract instance so the helper can self-detect the v0.4.0 domain
+    // without requiring every call site to be updated.
+    const contractAddress: string =
+      typeof contractOrAddress === 'string' ? contractOrAddress : contractOrAddress.address
+    let version: string = explicitVersion ?? constants.CONTRACT_VERSION
+    if (!explicitVersion && contractOrAddress && typeof contractOrAddress === 'object' && typeof contractOrAddress.version === 'function') {
+      const v = await contractOrAddress.version()
+      if (typeof v === 'string' && v.length > 0) version = v
+    }
     var signature = await sourceWallet._signTypedData(
       {
         name: constants.CONTRACT_NAME,
-        version: constants.CONTRACT_VERSION,
+        version,
         chainId: network.config.chainId,
         verifyingContract: contractAddress,
       },
@@ -66,11 +86,23 @@ export default {
   ///         when `hash = contract.generateHash(to, value, data, gas, nonce)`.
   /// @dev    Centralizes the typed-data signing for the EIP-1271 test path
   ///         so individual tests don't have to rebuild the domain/types.
-  signEip712Hash: async function (contract: any, owner: any, hashFields: any): Promise<string> {
+  signEip712Hash: async function (
+    contract: any,
+    owner: any,
+    hashFields: any,
+    version: string = constants.CONTRACT_VERSION
+  ): Promise<string> {
+    // For the v0.4.0 MyMultiSigExtended wallet, the caller's domain version
+    // MUST match `wallet.version()`. Detect and pass through.
+    const isExtended = typeof contract.allowOnlyOwnerRequest === 'function'
+    if (isExtended) {
+      const v = await contract.version()
+      if (typeof v === 'string' && v.length > 0) version = v
+    }
     return owner._signTypedData(
       {
         name: constants.CONTRACT_NAME,
-        version: constants.CONTRACT_VERSION,
+        version,
         chainId: network.config.chainId,
         verifyingContract: contract.address,
       },

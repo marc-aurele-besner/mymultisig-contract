@@ -31,12 +31,15 @@ export interface MyMultiSigFactoryWithChugSplashInterface
   extends utils.Interface {
   functions: {
     "createMultiSig(string,address[],uint16)": FunctionFragment;
+    "createMyMultiSigAdvanced(string,address[],uint16,bool)": FunctionFragment;
     "createMyMultiSigExtended(string,address[],uint16,bool)": FunctionFragment;
     "creationType(uint256)": FunctionFragment;
+    "isAdvanced(uint256)": FunctionFragment;
     "multiSig(uint256)": FunctionFragment;
     "multiSigByCreator(address,uint256)": FunctionFragment;
     "multiSigCount()": FunctionFragment;
     "multiSigCreatorCount(address)": FunctionFragment;
+    "myMultiSigAdvancedDeployer()": FunctionFragment;
     "myMultiSigDeployer()": FunctionFragment;
     "myMultiSigExtendedDeployer()": FunctionFragment;
     "name()": FunctionFragment;
@@ -46,12 +49,15 @@ export interface MyMultiSigFactoryWithChugSplashInterface
   getFunction(
     nameOrSignatureOrTopic:
       | "createMultiSig"
+      | "createMyMultiSigAdvanced"
       | "createMyMultiSigExtended"
       | "creationType"
+      | "isAdvanced"
       | "multiSig"
       | "multiSigByCreator"
       | "multiSigCount"
       | "multiSigCreatorCount"
+      | "myMultiSigAdvancedDeployer"
       | "myMultiSigDeployer"
       | "myMultiSigExtendedDeployer"
       | "name"
@@ -67,6 +73,15 @@ export interface MyMultiSigFactoryWithChugSplashInterface
     ]
   ): string;
   encodeFunctionData(
+    functionFragment: "createMyMultiSigAdvanced",
+    values: [
+      PromiseOrValue<string>,
+      PromiseOrValue<string>[],
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<boolean>
+    ]
+  ): string;
+  encodeFunctionData(
     functionFragment: "createMyMultiSigExtended",
     values: [
       PromiseOrValue<string>,
@@ -77,6 +92,10 @@ export interface MyMultiSigFactoryWithChugSplashInterface
   ): string;
   encodeFunctionData(
     functionFragment: "creationType",
+    values: [PromiseOrValue<BigNumberish>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "isAdvanced",
     values: [PromiseOrValue<BigNumberish>]
   ): string;
   encodeFunctionData(
@@ -96,6 +115,10 @@ export interface MyMultiSigFactoryWithChugSplashInterface
     values: [PromiseOrValue<string>]
   ): string;
   encodeFunctionData(
+    functionFragment: "myMultiSigAdvancedDeployer",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
     functionFragment: "myMultiSigDeployer",
     values?: undefined
   ): string;
@@ -111,6 +134,10 @@ export interface MyMultiSigFactoryWithChugSplashInterface
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "createMyMultiSigAdvanced",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "createMyMultiSigExtended",
     data: BytesLike
   ): Result;
@@ -118,6 +145,7 @@ export interface MyMultiSigFactoryWithChugSplashInterface
     functionFragment: "creationType",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(functionFragment: "isAdvanced", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "multiSig", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "multiSigByCreator",
@@ -129,6 +157,10 @@ export interface MyMultiSigFactoryWithChugSplashInterface
   ): Result;
   decodeFunctionResult(
     functionFragment: "multiSigCreatorCount",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "myMultiSigAdvancedDeployer",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -199,6 +231,14 @@ export interface MyMultiSigFactoryWithChugSplash extends BaseContract {
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
+    createMyMultiSigAdvanced(
+      contractName: PromiseOrValue<string>,
+      owners: PromiseOrValue<string>[],
+      threshold: PromiseOrValue<BigNumberish>,
+      isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
     createMyMultiSigExtended(
       contractName: PromiseOrValue<string>,
       owners: PromiseOrValue<string>[],
@@ -211,6 +251,11 @@ export interface MyMultiSigFactoryWithChugSplash extends BaseContract {
       index: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
     ): Promise<[number]>;
+
+    isAdvanced(
+      index: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<[boolean]>;
 
     multiSig(
       index: PromiseOrValue<BigNumberish>,
@@ -230,6 +275,8 @@ export interface MyMultiSigFactoryWithChugSplash extends BaseContract {
       overrides?: CallOverrides
     ): Promise<[BigNumber]>;
 
+    myMultiSigAdvancedDeployer(overrides?: CallOverrides): Promise<[string]>;
+
     myMultiSigDeployer(overrides?: CallOverrides): Promise<[string]>;
 
     myMultiSigExtendedDeployer(overrides?: CallOverrides): Promise<[string]>;
@@ -246,6 +293,14 @@ export interface MyMultiSigFactoryWithChugSplash extends BaseContract {
     overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
+  createMyMultiSigAdvanced(
+    contractName: PromiseOrValue<string>,
+    owners: PromiseOrValue<string>[],
+    threshold: PromiseOrValue<BigNumberish>,
+    isOnlyOwnerRequest: PromiseOrValue<boolean>,
+    overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
   createMyMultiSigExtended(
     contractName: PromiseOrValue<string>,
     owners: PromiseOrValue<string>[],
@@ -258,6 +313,11 @@ export interface MyMultiSigFactoryWithChugSplash extends BaseContract {
     index: PromiseOrValue<BigNumberish>,
     overrides?: CallOverrides
   ): Promise<number>;
+
+  isAdvanced(
+    index: PromiseOrValue<BigNumberish>,
+    overrides?: CallOverrides
+  ): Promise<boolean>;
 
   multiSig(
     index: PromiseOrValue<BigNumberish>,
@@ -277,6 +337,8 @@ export interface MyMultiSigFactoryWithChugSplash extends BaseContract {
     overrides?: CallOverrides
   ): Promise<BigNumber>;
 
+  myMultiSigAdvancedDeployer(overrides?: CallOverrides): Promise<string>;
+
   myMultiSigDeployer(overrides?: CallOverrides): Promise<string>;
 
   myMultiSigExtendedDeployer(overrides?: CallOverrides): Promise<string>;
@@ -293,6 +355,14 @@ export interface MyMultiSigFactoryWithChugSplash extends BaseContract {
       overrides?: CallOverrides
     ): Promise<string>;
 
+    createMyMultiSigAdvanced(
+      contractName: PromiseOrValue<string>,
+      owners: PromiseOrValue<string>[],
+      threshold: PromiseOrValue<BigNumberish>,
+      isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      overrides?: CallOverrides
+    ): Promise<string>;
+
     createMyMultiSigExtended(
       contractName: PromiseOrValue<string>,
       owners: PromiseOrValue<string>[],
@@ -305,6 +375,11 @@ export interface MyMultiSigFactoryWithChugSplash extends BaseContract {
       index: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
     ): Promise<number>;
+
+    isAdvanced(
+      index: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<boolean>;
 
     multiSig(
       index: PromiseOrValue<BigNumberish>,
@@ -323,6 +398,8 @@ export interface MyMultiSigFactoryWithChugSplash extends BaseContract {
       creator: PromiseOrValue<string>,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
+
+    myMultiSigAdvancedDeployer(overrides?: CallOverrides): Promise<string>;
 
     myMultiSigDeployer(overrides?: CallOverrides): Promise<string>;
 
@@ -360,6 +437,14 @@ export interface MyMultiSigFactoryWithChugSplash extends BaseContract {
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
+    createMyMultiSigAdvanced(
+      contractName: PromiseOrValue<string>,
+      owners: PromiseOrValue<string>[],
+      threshold: PromiseOrValue<BigNumberish>,
+      isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
     createMyMultiSigExtended(
       contractName: PromiseOrValue<string>,
       owners: PromiseOrValue<string>[],
@@ -369,6 +454,11 @@ export interface MyMultiSigFactoryWithChugSplash extends BaseContract {
     ): Promise<BigNumber>;
 
     creationType(
+      index: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    isAdvanced(
       index: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
@@ -391,6 +481,8 @@ export interface MyMultiSigFactoryWithChugSplash extends BaseContract {
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
+    myMultiSigAdvancedDeployer(overrides?: CallOverrides): Promise<BigNumber>;
+
     myMultiSigDeployer(overrides?: CallOverrides): Promise<BigNumber>;
 
     myMultiSigExtendedDeployer(overrides?: CallOverrides): Promise<BigNumber>;
@@ -408,6 +500,14 @@ export interface MyMultiSigFactoryWithChugSplash extends BaseContract {
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
+    createMyMultiSigAdvanced(
+      contractName: PromiseOrValue<string>,
+      owners: PromiseOrValue<string>[],
+      threshold: PromiseOrValue<BigNumberish>,
+      isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
     createMyMultiSigExtended(
       contractName: PromiseOrValue<string>,
       owners: PromiseOrValue<string>[],
@@ -417,6 +517,11 @@ export interface MyMultiSigFactoryWithChugSplash extends BaseContract {
     ): Promise<PopulatedTransaction>;
 
     creationType(
+      index: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    isAdvanced(
       index: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
@@ -436,6 +541,10 @@ export interface MyMultiSigFactoryWithChugSplash extends BaseContract {
 
     multiSigCreatorCount(
       creator: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    myMultiSigAdvancedDeployer(
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 

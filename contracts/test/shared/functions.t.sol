@@ -12,6 +12,7 @@ import { MyMultiSig } from '../../MyMultiSig.sol';
 import { MyMultiSigExtended } from '../../MyMultiSigExtended.sol';
 import { MyMultiSigDeployer } from '../../MyMultiSigDeployer.sol';
 import { MyMultiSigExtendedDeployer } from '../../MyMultiSigExtendedDeployer.sol';
+import { MyMultiSigAdvancedDeployer } from '../../MyMultiSigAdvancedDeployer.sol';
 
 contract Functions is Constants, Signatures {
   uint8 LOG_LEVEL;
@@ -74,7 +75,8 @@ contract Functions is Constants, Signatures {
     if (testType_ == TestType.TestWithFactory || testType_ == TestType.TestWithFactory_extended) {
       myMultiSigFactory = new MyMultiSigFactory(
         address(new MyMultiSigDeployer()),
-        address(new MyMultiSigExtendedDeployer())
+        address(new MyMultiSigExtendedDeployer()),
+        address(new MyMultiSigAdvancedDeployer(address(new MyMultiSigExtendedDeployer())))
       );
       if (testType_ == TestType.TestWithFactory)
         (, myMultiSig) = help_createMultiSig(ADMIN, CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD);
@@ -136,13 +138,21 @@ contract Functions is Constants, Signatures {
   }
 
   // MyMultiSigFactory
+  /// @notice Resolve the EIP-712 `version` field for the deployed wallet.
+  ///         BASE `MyMultiSig` -> `'0.3.0'`. v0.4.0 `MyMultiSigExtended`
+  ///         -> `'0.4.0'`. Detected by reading `wallet.version()` so this
+  ///         helper never goes stale if the wallet version bumps again.
+  function _versionFor(MyMultiSig multiSig_) public view returns (string memory) {
+    return multiSig_.version();
+  }
+
   function build_domainSeparator(MyMultiSig multiSig_, string memory contractName_) public view returns (bytes32) {
     return
       keccak256(
         abi.encode(
           keccak256('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'),
           bytes32(keccak256(bytes(contractName_))),
-          bytes32(keccak256(bytes(CONTRACT_VERSION))),
+          bytes32(keccak256(bytes(_versionFor(multiSig_)))),
           block.chainid,
           address(multiSig_)
         )
