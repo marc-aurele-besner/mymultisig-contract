@@ -8,16 +8,14 @@ export default {
   YP  YP  YP    YP    YP  YP  YP ~Y8888P' Y88888P    YP    Y888888P \`8888Y' Y888888P  Y888P
 `,
   CONTRACT_FACTORY_NAME: 'MyMultiSigFactory',
-  CONTRACT_FACTORY_VERSION: '0.2.0',
+  CONTRACT_FACTORY_VERSION: '0.5.0',
   CONTRACT_NAME: 'MyMultiSig',
-  CONTRACT_VERSION: '0.4.0',
+  CONTRACT_VERSION: '0.5.0',
   CONTRACT_NAME_EXTENDED: 'MyMultiSigExtended',
-  CONTRACT_VERSION_EXTENDED: '0.5.0',
   DEFAULT_THRESHOLD: 2,
   DEFAULT_GAS: 75000,
   DEFAULT_ALLOW_ONLY_OWNER: true,
-  // v0.5.0 additions — `MyMultiSigExtended` constructor needs a
-  // pinned EntryPoint (canonical v0.7 address, same on every EVM
-  // chain).
+  // v0.5.0 — `MyMultiSigExtended` constructor needs a pinned
+  // EntryPoint (canonical v0.7 address, same on every EVM chain).
   ENTRY_POINT_V07_ADDRESS: '0x0000000071727De22E5E9d8BDe0dFeC0CEB6a7d7'.toLowerCase(),
 }

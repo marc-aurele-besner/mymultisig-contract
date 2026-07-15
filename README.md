@@ -65,11 +65,11 @@ v0.3.0 hardens the wallet against three treasury pain points:
 
 3. **`multiRequestStrict(address[], uint256[], bytes[], uint256[])`.** New atomic-batch entry point: reverts the whole transaction on first failure (no partial side effects, no `MultiRequestExecuted` event). Use it when the second call depends on the first (e.g. approve-then-swap). Failure bubbles as `BatchCallFailed(uint256 index, bytes reason)`. The original `multiRequest` continues to be best-effort — every call runs, partial failures are surfaced via the existing `successes[]` / `returnData[]` arrays.
 
-As of v0.4.0 both `MyMultiSig` and `MyMultiSigExtended` return `'0.4.0'` from `version()`. The EIP-712 domain separator is fixed at deploy time, so wallets deployed against this release (or later) bind signatures to that version. Helpers in `test/shared/signatures.ts`, `test/shared/functions.ts`, and the Foundry equivalents have been updated to thread `validUntil` through the typehash; see the test suite for usage patterns.
+As of v0.5.0 every wallet class — `MyMultiSig`, `MyMultiSigExtended`, `MyMultiSigFactorable`, and the `MyMultiSigFactory` proxy — returns the same canonical `'0.5.0'` from `version()`. The EIP-712 domain separator is fixed at deploy time and is now shared across the wallet family; only the typehash differs (base 6-field vs extended 7-field with `operation`). Helpers in `test/shared/signatures.ts`, `test/shared/functions.ts`, and the Foundry equivalents have been updated to thread `validUntil` / `operation` through the right typehash; see the test suite for usage patterns.
 
 ## 🛡️ v0.4.0 — Timelock, Guard, Allowances, Modules
 
-`MyMultiSigExtended` v0.4.0 adds four optional features, all **disabled by default** so previously-deployed wallets behave unchanged until the new setters are called. Both wallets now return `'0.4.0'` from `version()`.
+`MyMultiSigExtended` v0.4.0 adds four optional features, all **disabled by default** so previously-deployed wallets behave unchanged until the new setters are called. Every wallet class returns `'0.5.0'` from `version()` (as of v0.5.0).
 
 ### 1. ⏰ Timelock on sensitive calls
 
@@ -175,7 +175,7 @@ execTransaction(to, value, data, gas, txnNonce, validUntil, operation, signature
 ```
 Transaction(address to, uint256 value, bytes data, uint256 gas, uint96 nonce, uint256 validUntil, uint8 operation)
 ```
-Existing v0.4.0 `MyMultiSigExtended` signatures do **not** validate on v0.5.0 wallets because the domain separator now hashes `version() == '0.5.0'` and the typehash includes `operation`. Migrate your off-chain signer to bind `operation` (default `0`) into the typed data before deploying.
+Existing v0.4.0 `MyMultiSigExtended` signatures do **not** validate on v0.5.0 wallets because the typehash includes `operation`. Migrate your off-chain signer to bind `operation` (default `0`) into the typed data before deploying.
 
 ### 2. ⚡ ERC-4337 v0.7 account abstraction
 
@@ -199,11 +199,11 @@ When CREATE2 ships, the plan is:
 
 ### Migration story
 
-Existing v0.4.0 `MyMultiSig` and `MyMultiSigExtended` wallets stay frozen at v0.4.0 bytecode — they keep `version() == '0.4.0'` and the old 6-field EIP-712 typehash. They do **not** have the v0.5.0 surface. To migrate, the owners move the wallet's funds into a freshly-deployed `MyMultiSigExtended` v0.5.0 with the same owners / threshold.
+Existing v0.4.0 wallets (deployed before this release) stay frozen at their original bytecode — they bind to the old 6-field EIP-712 typehash and the same EIP-712 domain separator format but with `version() == '0.5.0'` (matching the unified v0.5.0 versioning) and do **not** have the v0.5.0 operation-byte surface. To migrate, the owners redeploy `MyMultiSigExtended` with the new constructor (passing `entryPoint`) and move funds.
 
 ### Cleanups bundled with v0.5.0
 
-- `MyMultiSigFactorable.version()` bumped `'0.1.1'` → `'0.2.0'`. `MyMultiSigExtended.version()` bumped `'0.4.0'` → `'0.5.0'`. `package.json` bumped `'0.2.0'` → `'0.5.0'`. Done in lock-step with the constructor signature change so the on-chain identity and the artifact registry stay aligned.
+- **Single canonical version `0.5.0` across every contract.** `MyMultiSig.version()`, `MyMultiSigExtended.version()`, `MyMultiSigFactorable.version()`, `MyMultiSigFactory.version()` (inherited), `package.json`, and the TS constants (`CONTRACT_VERSION`, `CONTRACT_FACTORY_VERSION`) all return `'0.5.0'`. The EIP-712 domain separator is therefore shared across the whole wallet family; only the typehash differs.
 - `MyMultiSigExtendedDeployer.deployMyMultiSigExtended(...)` and `MyMultiSigAdvancedDeployer.deployMyMultiSigAdvanced(...)` now take an `entryPoint` argument and forward it through.
 - `MyMultiSigFactorable.createMyMultiSigExtended(...)` and `createMyMultiSigAdvanced(...)` now take an `entryPoint` and forward it.
 - New custom errors: `InvalidOperation(uint8)`, `NotEntryPoint()`, `InvalidNonce(expected, got)`, `RequiresOperationByte()`. New events: `TransactionExecutedOp(...)`, `TxFailureOp(...)`, `UserOpExecuted(bytes32 userOpHash, uint256 nonce)`.

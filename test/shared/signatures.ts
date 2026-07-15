@@ -4,11 +4,11 @@ import { BigNumber } from 'ethers'
 import constants from '../../constants'
 
 export default {
-  /// @notice Signs a wallet's EIP-712 transaction hash. Picks the
-  ///         v0.4.0 6-field typehash for the base `MyMultiSig` wallet
-  ///         and the v0.5.0 7-field typehash (with `operation` byte)
-  ///         for `MyMultiSigExtended`. Detection uses the presence of
-  ///         `allowOnlyOwnerRequest()` on the contract.
+  /// @notice Signs a wallet's EIP-712 transaction hash. Wallets bind
+  ///         a single canonical version (`constants.CONTRACT_VERSION`)
+  ///         into the domain separator; the typehash differs between
+  ///         the v0.4.0 base wallet and the v0.5.0 extended wallet,
+  ///         detected via `allowOnlyOwnerRequest()` on the contract.
   signMultiSigTxn: async function (
     contractOrAddress: any,
     sourceWallet: any,
@@ -26,15 +26,12 @@ export default {
       typeof contractOrAddress === 'string'
         ? (sourceWallet.provider && (await sourceWallet.provider.getNetwork()), null)
         : contractOrAddress
-    // We need to decide whether this is the base or extended wallet.
-    // If we got a string address, fall back to the v0.4.0 6-field
-    // typehash (the most common case for direct EIP-1271 helpers).
     const isExtended = contract && typeof (contract as any).allowOnlyOwnerRequest === 'function'
     if (isExtended) {
       return sourceWallet._signTypedData(
         {
           name: constants.CONTRACT_NAME,
-          version: constants.CONTRACT_VERSION_EXTENDED,
+          version: constants.CONTRACT_VERSION,
           chainId: network.config.chainId,
           verifyingContract: contractAddress,
         },
@@ -80,7 +77,7 @@ export default {
       return owner._signTypedData(
         {
           name: constants.CONTRACT_NAME,
-          version: constants.CONTRACT_VERSION_EXTENDED,
+          version: constants.CONTRACT_VERSION,
           chainId: network.config.chainId,
           verifyingContract: contract.address,
         },

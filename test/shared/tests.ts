@@ -69,13 +69,11 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
     })
 
     it('Contract return correct contract version', async function () {
-      // v0.5.0 — extended wallets now return `'0.5.0'`; base wallets keep
-      // their original v0.4.0 typehash so they return `'0.4.0'` here.
-      const expected =
-        typeof (contract as any).allowOnlyOwnerRequest === 'function'
-          ? Helper.CONTRACT_VERSION_EXTENDED
-          : Helper.CONTRACT_VERSION
-      expect(await contract.version()).to.be.equal(expected)
+      // v0.5.0 — every wallet (base, extended, factory) now returns the
+      // same canonical `'0.5.0'` so the EIP-712 domain separator is
+      // shared across the whole wallet family. The typehash still
+      // differs (base 6-field vs extended 7-field with `operation`).
+      expect(await contract.version()).to.be.equal(Helper.CONTRACT_VERSION)
     })
 
     it('Contract return correct threshold', async function () {
@@ -1132,13 +1130,11 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
     })
 
     it('Contract return correct contract version', async function () {
-      // v0.5.0 — extended wallets now return `'0.5.0'`; base wallets keep
-      // their original v0.4.0 typehash so they return `'0.4.0'` here.
-      const expected =
-        typeof (contract as any).allowOnlyOwnerRequest === 'function'
-          ? Helper.CONTRACT_VERSION_EXTENDED
-          : Helper.CONTRACT_VERSION
-      expect(await contract.version()).to.be.equal(expected)
+      // v0.5.0 — every wallet (base, extended, factory) now returns the
+      // same canonical `'0.5.0'` so the EIP-712 domain separator is
+      // shared across the whole wallet family. The typehash still
+      // differs (base 6-field vs extended 7-field with `operation`).
+      expect(await contract.version()).to.be.equal(Helper.CONTRACT_VERSION)
     })
 
     it('Contract return correct threshold', async function () {
@@ -2379,8 +2375,8 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
       })
     })
 
-    it('reports v0.4.0 as the wallet version', async function () {
-      expect(await contract.version()).to.be.equal('0.4.0')
+    it('reports 0.5.0 as the wallet version', async function () {
+      expect(await contract.version()).to.be.equal('0.5.0')
       // Bitmask: zero-state reports no advanced features active.
       expect(await contract.advancedFeaturesEnabled()).to.be.equal(0)
     })

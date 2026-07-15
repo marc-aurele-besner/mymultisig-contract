@@ -149,13 +149,15 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     return _name;
   }
 
-  /// @notice Wallet version. Bumped to `'0.4.0'` for the four advanced
-  ///         features (timelock, guard, allowance, modules) added in
-  ///         `MyMultiSigExtended`. The EIP-712 domain separator is fixed
-  ///         at deploy time, so this only affects newly-deployed wallets;
-  ///         pre-existing wallets keep the version they were deployed with.
+  /// @notice Wallet version. Unified to `'0.5.0'` across every wallet
+  ///         class on v0.5.0 — same canonical value as
+  ///         `MyMultiSigExtended`, `MyMultiSigFactorable`, and the
+  ///         factory proxy. The EIP-712 domain separator is fixed at
+  ///         deploy time, so pre-existing wallets (deployed before this
+  ///         release) keep their original version while new deployments
+  ///         all bind to the v0.5.0 domain.
   function version() public pure virtual returns (string memory) {
-    return '0.4.0';
+    return '0.5.0';
   }
 
   /// @notice Retrieves the current threshold value

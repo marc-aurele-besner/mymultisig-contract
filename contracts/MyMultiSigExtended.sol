@@ -26,10 +26,10 @@ import './interfaces/PackedUserOperation.sol';
 ///           and an `executeUserOp` reachable only via the pinned
 ///           EntryPoint). Both features live on the existing
 ///           `MyMultiSigExtended` class — there is NO separate v0.5.0
-///           wallet contract. Existing v0.4.0 on-chain instances of
+///           wallet contract. Existing pre-v0.5.0 on-chain instances of
 ///           `MyMultiSigExtended` stay frozen at their original bytecode
-///           (`version() == '0.4.0'`); new wallets get `'0.5.0'` and the
-///           new features.
+///           (returning their old `version()` value); new wallets get
+///           `'0.5.0'` and the new features.
 /// @dev    New storage is appended at the END of the contract body to
 ///         avoid colliding with any future base-wallet addition.
 contract MyMultiSigExtended is MyMultiSig, IAccount {
@@ -190,10 +190,11 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   IEntryPoint public immutable ENTRY_POINT;
 
-  /// @notice Wallet version. Bumped from `'0.4.0'` to `'0.5.0'`; this
-  ///         is part of the EIP-712 domain separator, so v0.4.0
-  ///         signatures never validate on v0.5.0 wallets even if
-  ///         payload fields match.
+  /// @notice Wallet version. Unified to `'0.5.0'` across every wallet
+  ///         class on this release. The EIP-712 domain separator is
+  ///         therefore shared with `MyMultiSig` and the factory; only
+  ///         the typehash differs here (a 7-field hash binds the
+  ///         `operation` byte; the base wallet uses a 6-field hash).
   function version() public pure virtual override returns (string memory) {
     return '0.5.0';
   }
