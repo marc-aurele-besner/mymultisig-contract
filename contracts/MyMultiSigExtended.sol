@@ -1174,10 +1174,15 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     if (operation > 1) revert InvalidOperation(operation);
     if (operation == 1 && to != address(this)) revert InvalidOperation(operation);
 
+    // Run the same v0.4.0 pre-exec gates (timelock reverse-route, guard,
+    // allowlist) the base `_execTransaction` override does. Without this,
+    // v0.5.0 calls bypassing the v0.4.0 overloads would skip these gates.
+    _preExecChecks(to, value, data);
+
     bytes32 txHash = generateHashOp(to, value, data, txnGas, txnNonce, validUntil, operation);
     if (!_validateSignatureOp(txHash, txnNonce, validUntil, signatures)) revert InvalidSignatures();
 
-    incrementNonce();
+    _bumpNonce();
 
     uint256 gasBefore = gasleft();
     bytes memory returnData;

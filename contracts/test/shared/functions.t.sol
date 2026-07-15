@@ -291,6 +291,9 @@ contract Functions is Constants, Signatures {
     uint256 nonce_,
     Errors.RevertStatus revertType_
   ) internal {
+    // Capture isExtended BEFORE vm.prank so the staticcall to
+    // `allowOnlyOwnerRequest()` doesn't consume the prank.
+    bool extended = isExtended(multiSig_);
     vm.prank(prank_);
     verify_revertCall(revertType_);
 
@@ -306,7 +309,7 @@ contract Functions is Constants, Signatures {
     }
     // v0.5.0 — extended wallets use the 8-arg overload (txnNonce +
     // operation). Base wallets still take the 5-arg overload.
-    if (isExtended(multiSig_)) {
+    if (extended) {
       MyMultiSigExtended(payable(address(multiSig_))).execTransaction(
         to_,
         value_,
@@ -557,19 +560,26 @@ contract Functions is Constants, Signatures {
     bytes[] memory data_,
     uint256[] memory txGas_
   ) internal returns (uint256 txNonce, bool[] memory successes, bytes[] memory returnData) {
+    // Capture isExtended BEFORE vm.prank so the staticcall to
+    // `allowOnlyOwnerRequest()` doesn't consume the prank.
+    bool extended = isExtended(multiSig_);
     vm.prank(prank_);
-    address to = address(multiSig_);
-    uint256 value = 0;
-    bytes memory data = build_multiRequest(to_, value_, data_, txGas_);
-    uint256 gas;
-    for (uint256 i = 0; i < to_.length; i++) {
-      gas += txGas_[i];
-    }
-    uint96 nonce = multiSig_.nonce();
-    bytes memory signatures = build_signatures(multiSig_, ownersPk_, to, value, data, gas);
-
+    MultiReqInputs memory args = _prepareMultiReqInputs(multiSig_, ownersPk_, to_, value_, data_, txGas_);
     vm.recordLogs();
-    multiSig_.execTransaction(to, value, data, gas, signatures);
+    if (extended) {
+      MyMultiSigExtended(payable(address(multiSig_))).execTransaction(
+        args.to,
+        args.value,
+        args.data,
+        args.gas,
+        args.nonce,
+        0,
+        0,
+        args.signatures
+      );
+    } else {
+      multiSig_.execTransaction(args.to, args.value, args.data, args.gas, args.signatures);
+    }
     Vm.Log[] memory logs = vm.getRecordedLogs();
 
     bool found;
@@ -583,7 +593,7 @@ contract Functions is Constants, Signatures {
       }
     }
     require(found, 'MultiRequestExecuted event not found');
-    assertEq(txNonce, nonce);
+    assertEq(txNonce, args.nonce);
   }
 
   function help_multiRequest(
@@ -596,5 +606,36 @@ contract Functions is Constants, Signatures {
     uint256[] memory txGas_
   ) internal {
     help_multiRequest(prank_, multiSig_, ownersPk_, to_, value_, data_, txGas_, Errors.RevertStatus.Success);
+  }
+
+  /// @dev Bundle of mid-deps so `help_multiRequestAndCapture` stays
+  ///      under the EVM stack-depth limit.
+  struct MultiReqInputs {
+    address to;
+    uint256 value;
+    bytes data;
+    uint256 gas;
+    uint96 nonce;
+    bytes signatures;
+  }
+
+  function _prepareMultiReqInputs(
+    MyMultiSig multiSig_,
+    uint256[] memory ownersPk_,
+    address[] memory to_,
+    uint256[] memory value_,
+    bytes[] memory data_,
+    uint256[] memory txGas_
+  ) internal returns (MultiReqInputs memory args) {
+    args.to = address(multiSig_);
+    args.value = 0;
+    args.data = build_multiRequest(to_, value_, data_, txGas_);
+    uint256 sum;
+    for (uint256 i = 0; i < to_.length; i++) {
+      sum += txGas_[i];
+    }
+    args.gas = sum;
+    args.nonce = multiSig_.nonce();
+    args.signatures = build_signatures(multiSig_, ownersPk_, args.to, args.value, args.data, args.gas);
   }
 }

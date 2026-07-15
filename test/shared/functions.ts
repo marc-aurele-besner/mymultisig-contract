@@ -64,11 +64,15 @@ export const prepareSignatures = async (
   gas = constants.DEFAULT_GAS as number,
   nonce = BigNumber.from(0),
   validUntil: number = 0,
+  operation: number = 0,
 ) => {
   // ABI-encode the wallet's expected `(address owner, bytes sig)[]` shape.
+  // Pass the contract instance (not just its address) so the signing
+  // helper can sniff whether the wallet is `MyMultiSigExtended` (7-field
+  // typehash with `operation`) vs the base 6-field hash.
   const votes: { owner: string; sig: string }[] = []
   for (var i = 0; i < owners.length; i++) {
-    const sig = await signature.signMultiSigTxn(contract.address, owners[i], to, value, data, gas, nonce, validUntil)
+    const sig = await signature.signMultiSigTxn(contract, owners[i], to, value, data, gas, nonce, validUntil, operation)
     votes.push({ owner: owners[i].address, sig })
   }
   return ethers.utils.defaultAbiCoder.encode(['tuple(address owner, bytes sig)[]'], [votes])
@@ -191,24 +195,50 @@ export const isValidSignature = async (
   nonce = BigNumber.from(0),
   errorMsg?: string,
   validUntil: number = 0,
+  operation: number = 0,
 ) => {
-  const signatures = await prepareSignatures(contract, owners, to, value, data, gas, nonce, validUntil)
+  const signatures = await prepareSignatures(contract, owners, to, value, data, gas, nonce, validUntil, operation)
 
-  // ethers v5 can't disambiguate overloaded functions by name alone, so we
-  // pin the overload via the explicit fragment selector. The new
-  // `isValidSignature(bytes32,bytes)` (EIP-1271) is the only overload
-  // available without an address first; the address-first overload is now
-  // 7-arg to carry `validUntil`.
-  const sevenArg = 'isValidSignature(address,uint256,bytes,uint256,uint256,uint256,bytes)'
+  // EIP-1271 helper normalizes the wallet's bytes4 return value into
+  // a JS boolean (magic = true, non-magic = false). Pin the overload via
+  // the explicit fragment selector since ethers v5 can't disambiguate
+  // overloaded functions by name alone. Extended wallets additionally
+  // expose 8-arg `isValidSignature(...)` overloads binding `operation`.
+  const MAGIC = '0x1626ba7e'
+  const isExtended = typeof (contract as any).allowOnlyOwnerRequest === 'function'
 
-  if (!errorMsg) return await contract.connect(submitter)[sevenArg](to, value, data, gas, nonce, validUntil, signatures)
-  else {
-    const input = await contract
+  if (!isExtended) {
+    // Base wallet: only the canonical 2-arg `isValidSignature(bytes32,bytes)`
+    // exists for this shape; pass the typed-data hash we sign over.
+    if (errorMsg) throw new Error('errorMsg not supported on base isValidSignature helper')
+    const result = await contract
       .connect(submitter)
-      .populateTransaction[sevenArg](to, value, data, gas, nonce, validUntil, signatures)
-    await checkRawTxnResult(input, submitter, errorMsg, contract)
-    return false
+      ['isValidSignature(bytes32,bytes)'](
+        await contract.generateHash(to, value, data, gas, nonce, validUntil),
+        signatures,
+      )
+    return result === MAGIC
   }
+
+  const eightArg = 'isValidSignature(address,uint256,bytes,uint256,uint256,uint256,uint8,bytes)'
+  if (!errorMsg) {
+    const result = await contract.connect(submitter)[eightArg](
+      to,
+      value,
+      data,
+      gas,
+      nonce,
+      validUntil,
+      operation,
+      signatures,
+    )
+    return result === MAGIC
+  }
+  const input = await contract
+    .connect(submitter)
+    .populateTransaction[eightArg](to, value, data, gas, nonce, validUntil, operation, signatures)
+  await checkRawTxnResult(input, submitter, errorMsg, contract)
+  return false
 }
 
 export const multiRequest = async (

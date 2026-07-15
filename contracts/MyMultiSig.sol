@@ -335,7 +335,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     bytes memory signatures
   ) internal virtual returns (bool success) {
     if (!_validateSignature(to, value, data, txnGas, txnNonce, validUntil, signatures)) revert InvalidSignatures();
-    _txnNonce++;
+    _bumpNonce();
     uint256 gasBefore = gasleft();
     bytes memory returnData;
     assembly {
@@ -859,6 +859,15 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @notice Increments the transaction nonce, can be use to invalidate previous signatures
   /// @dev This function can only be called inside a multisig transaction.
   function incrementNonce() public virtual onlyThis {
+    _txnNonce++;
+  }
+
+  /// @dev Mutation hook so internal `_execTransaction` / v0.5.0's
+  ///      `_execExtended` can bump the nonce without going through the
+  ///      `onlyThis`-guarded `incrementNonce()` public entry (calling
+  ///      that from inside `execTransaction` would revert because the
+  ///      external caller's `msg.sender` is not `address(this)`).
+  function _bumpNonce() internal virtual {
     _txnNonce++;
   }
 

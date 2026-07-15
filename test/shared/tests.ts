@@ -2006,8 +2006,22 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
           gas: ethers.BigNumber.from(Helper.DEFAULT_GAS),
           nonce: ethers.BigNumber.from(0),
           validUntil: 0,
+          // v0.5.0 — extended wallets bind an `operation` byte into the
+          // EIP-712 payload; pick the right hash for the test wallet.
+          operation: 0,
         }
-        const hash = await contract.generateHash(fields.to, fields.value, fields.data, fields.gas, fields.nonce, 0)
+        const isExtended = typeof (contract as any).allowOnlyOwnerRequest === 'function'
+        const hash = isExtended
+          ? await (contract as any).generateHashOp(
+              fields.to,
+              fields.value,
+              fields.data,
+              fields.gas,
+              fields.nonce,
+              fields.validUntil,
+              fields.operation,
+            )
+          : await contract.generateHash(fields.to, fields.value, fields.data, fields.gas, fields.nonce, 0)
         return { fields, hash }
       }
 
