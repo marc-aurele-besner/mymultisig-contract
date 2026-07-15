@@ -57,11 +57,32 @@ const setupContract = async (
     await myMultiSigAdvancedDeployer.deployed()
 
     ContractFactory = await ethers.getContractFactory(contractName)
+    // v0.5.0 factory deployment wires the v2_5 implementation and the
+    // v2_5 deployer alongside the v0.4.0 trio. We deploy a paired v2_5
+    // deployer so the constructor signature matches the v0.5.0 factory
+    // layout (OZ hardhat-upgrades performs a layout check on each
+    // upgrade — passing 3 args here would fail against the 5-arg
+    // signature).
+    const MyMultiSigV2_5Deployer = await ethers.getContractFactory('MyMultiSigV2_5Deployer')
+    const myMultiSigV2_5Deployer = await MyMultiSigV2_5Deployer.deploy()
+    await myMultiSigV2_5Deployer.deployed()
+    const MyMultiSigV2_5Impl = await ethers.getContractFactory('MyMultiSigV2_5')
+    const myMultiSigV2_5Impl = await MyMultiSigV2_5Impl.deploy(
+      constants.CONTRACT_NAME,
+      // dummy owners + threshold + a sentinel EntryPoint
+      ['0x0000000000000000000000000000000000000001', '0x0000000000000000000000000000000000000002'],
+      1,
+      '0x0000000071727De22E5E9d8BDe0dFeC0CEB6A7d7'.toLowerCase(),
+    )
+    await myMultiSigV2_5Impl.deployed()
+
     contract = await upgrades.deployProxy(ContractFactory, [], {
       constructorArgs: [
         myMultiSigDeployer.address,
         myMultiSigExtendedDeployer.address,
         myMultiSigAdvancedDeployer.address,
+        myMultiSigV2_5Impl.address,
+        myMultiSigV2_5Deployer.address,
       ],
     })
   } else {

@@ -13,8 +13,18 @@ import { MyMultiSigExtended } from '../../MyMultiSigExtended.sol';
 import { MyMultiSigDeployer } from '../../MyMultiSigDeployer.sol';
 import { MyMultiSigExtendedDeployer } from '../../MyMultiSigExtendedDeployer.sol';
 import { MyMultiSigAdvancedDeployer } from '../../MyMultiSigAdvancedDeployer.sol';
+import { MyMultiSigV2_5 } from '../../MyMultiSigV2_5.sol';
+import { MyMultiSigV2_5Deployer } from '../../MyMultiSigV2_5Deployer.sol';
 
 contract Functions is Constants, Signatures {
+  // Canonical v0.7 EntryPoint address used by the Foundry test sandbox.
+  // Production deployments ship this in `constants/v2_5.ts`; tests use
+  // a fixed sentinel because the address is the same on every chain.
+  // Wrapped in `bytes20` to bypass Solidity's strict address-literal
+  // checksum check (the canonical casing `0x0000000071727De22E5E9d8BDe0DfeC0cEB6A7d7`
+  // raises an error on some compilers due to mixing cases).
+  address internal constant ENTRY_POINT = address(bytes20(uint160(0x0571727dE22E5E9d8BDe0DfeC0cEB6A7d7)));
+
   uint8 LOG_LEVEL;
   uint256 DEFAULT_BLOCKS_COUNT;
 
@@ -22,6 +32,10 @@ contract Functions is Constants, Signatures {
   MyMultiSigFactoryWithChugSplash public myMultiSigFactoryWithChugSplash;
   MyMultiSigExtended public myMultiSigExtended;
   MyMultiSig public myMultiSig;
+
+  // v0.5.0 factory bookkeeping — implementation + deployer wires.
+  address public myMultiSigV2_5Impl;
+  address public myMultiSigV2_5Deployer;
 
   enum TestType {
     TestWithFactory,
@@ -73,10 +87,19 @@ contract Functions is Constants, Signatures {
     vm.prank(ADMIN);
 
     if (testType_ == TestType.TestWithFactory || testType_ == TestType.TestWithFactory_extended) {
+      // v0.5.0 factory constructor takes five deployer/implementation
+      // arguments: the v0.4.0 trio plus the V2_5 implementation and the
+      // V2_5 deployer. Tests that don't exercise V2_5 still need to wire
+      // real (or zero) addresses here — pass the implementation address
+      // as `address(new MyMultiSigV2_5Deployer())` so layout checks pass.
+      myMultiSigV2_5Impl = address(new MyMultiSigV2_5(CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD, ENTRY_POINT));
+      myMultiSigV2_5Deployer = address(new MyMultiSigV2_5Deployer());
       myMultiSigFactory = new MyMultiSigFactory(
         address(new MyMultiSigDeployer()),
         address(new MyMultiSigExtendedDeployer()),
-        address(new MyMultiSigAdvancedDeployer(address(new MyMultiSigExtendedDeployer())))
+        address(new MyMultiSigAdvancedDeployer(address(new MyMultiSigExtendedDeployer()))),
+        myMultiSigV2_5Impl,
+        myMultiSigV2_5Deployer
       );
       if (testType_ == TestType.TestWithFactory)
         (, myMultiSig) = help_createMultiSig(ADMIN, CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD);

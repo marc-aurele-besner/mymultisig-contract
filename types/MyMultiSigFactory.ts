@@ -28,12 +28,38 @@ import type {
   PromiseOrValue,
 } from "../common";
 
+export declare namespace MyMultiSigV2_5FactorableModels {
+  export type Create2ParamsStruct = {
+    saltKind: PromiseOrValue<BigNumberish>;
+    chainAgnosticKey: PromiseOrValue<BytesLike>;
+    contractName: PromiseOrValue<string>;
+    owners: PromiseOrValue<string>[];
+    threshold: PromiseOrValue<BigNumberish>;
+  };
+
+  export type Create2ParamsStructOutput = [
+    number,
+    string,
+    string,
+    string[],
+    number
+  ] & {
+    saltKind: number;
+    chainAgnosticKey: string;
+    contractName: string;
+    owners: string[];
+    threshold: number;
+  };
+}
+
 export interface MyMultiSigFactoryInterface extends utils.Interface {
   functions: {
     "advancedCount()": FunctionFragment;
+    "computeSalt((uint8,bytes32,string,address[],uint16))": FunctionFragment;
     "createMultiSig(string,address[],uint16)": FunctionFragment;
     "createMyMultiSigAdvanced(string,address[],uint16,bool)": FunctionFragment;
     "createMyMultiSigExtended(string,address[],uint16,bool)": FunctionFragment;
+    "createMyMultiSigV2_5((uint8,bytes32,string,address[],uint16),address)": FunctionFragment;
     "creationType(uint256)": FunctionFragment;
     "creationTypeCount(uint8)": FunctionFragment;
     "creationTypeOf(address)": FunctionFragment;
@@ -41,6 +67,7 @@ export interface MyMultiSigFactoryInterface extends utils.Interface {
     "initialize()": FunctionFragment;
     "isAdvanced(uint256)": FunctionFragment;
     "isExtended(address)": FunctionFragment;
+    "isV2_5Wallet(address)": FunctionFragment;
     "multiSig(uint256)": FunctionFragment;
     "multiSigByCreator(address,uint256)": FunctionFragment;
     "multiSigCount()": FunctionFragment;
@@ -48,17 +75,24 @@ export interface MyMultiSigFactoryInterface extends utils.Interface {
     "myMultiSigAdvancedDeployer()": FunctionFragment;
     "myMultiSigDeployer()": FunctionFragment;
     "myMultiSigExtendedDeployer()": FunctionFragment;
+    "myMultiSigV2_5Deployer()": FunctionFragment;
+    "myMultiSigV2_5Impl()": FunctionFragment;
     "name()": FunctionFragment;
+    "predictWalletAddress((uint8,bytes32,string,address[],uint16))": FunctionFragment;
+    "reinitializeV2_5()": FunctionFragment;
     "simpleCount()": FunctionFragment;
+    "v2_5Count()": FunctionFragment;
     "version()": FunctionFragment;
   };
 
   getFunction(
     nameOrSignatureOrTopic:
       | "advancedCount"
+      | "computeSalt"
       | "createMultiSig"
       | "createMyMultiSigAdvanced"
       | "createMyMultiSigExtended"
+      | "createMyMultiSigV2_5"
       | "creationType"
       | "creationTypeCount"
       | "creationTypeOf"
@@ -66,6 +100,7 @@ export interface MyMultiSigFactoryInterface extends utils.Interface {
       | "initialize"
       | "isAdvanced"
       | "isExtended"
+      | "isV2_5Wallet"
       | "multiSig"
       | "multiSigByCreator"
       | "multiSigCount"
@@ -73,14 +108,23 @@ export interface MyMultiSigFactoryInterface extends utils.Interface {
       | "myMultiSigAdvancedDeployer"
       | "myMultiSigDeployer"
       | "myMultiSigExtendedDeployer"
+      | "myMultiSigV2_5Deployer"
+      | "myMultiSigV2_5Impl"
       | "name"
+      | "predictWalletAddress"
+      | "reinitializeV2_5"
       | "simpleCount"
+      | "v2_5Count"
       | "version"
   ): FunctionFragment;
 
   encodeFunctionData(
     functionFragment: "advancedCount",
     values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "computeSalt",
+    values: [MyMultiSigV2_5FactorableModels.Create2ParamsStruct]
   ): string;
   encodeFunctionData(
     functionFragment: "createMultiSig",
@@ -106,6 +150,13 @@ export interface MyMultiSigFactoryInterface extends utils.Interface {
       PromiseOrValue<string>[],
       PromiseOrValue<BigNumberish>,
       PromiseOrValue<boolean>
+    ]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "createMyMultiSigV2_5",
+    values: [
+      MyMultiSigV2_5FactorableModels.Create2ParamsStruct,
+      PromiseOrValue<string>
     ]
   ): string;
   encodeFunctionData(
@@ -137,6 +188,10 @@ export interface MyMultiSigFactoryInterface extends utils.Interface {
     values: [PromiseOrValue<string>]
   ): string;
   encodeFunctionData(
+    functionFragment: "isV2_5Wallet",
+    values: [PromiseOrValue<string>]
+  ): string;
+  encodeFunctionData(
     functionFragment: "multiSig",
     values: [PromiseOrValue<BigNumberish>]
   ): string;
@@ -164,15 +219,36 @@ export interface MyMultiSigFactoryInterface extends utils.Interface {
     functionFragment: "myMultiSigExtendedDeployer",
     values?: undefined
   ): string;
+  encodeFunctionData(
+    functionFragment: "myMultiSigV2_5Deployer",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "myMultiSigV2_5Impl",
+    values?: undefined
+  ): string;
   encodeFunctionData(functionFragment: "name", values?: undefined): string;
+  encodeFunctionData(
+    functionFragment: "predictWalletAddress",
+    values: [MyMultiSigV2_5FactorableModels.Create2ParamsStruct]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "reinitializeV2_5",
+    values?: undefined
+  ): string;
   encodeFunctionData(
     functionFragment: "simpleCount",
     values?: undefined
   ): string;
+  encodeFunctionData(functionFragment: "v2_5Count", values?: undefined): string;
   encodeFunctionData(functionFragment: "version", values?: undefined): string;
 
   decodeFunctionResult(
     functionFragment: "advancedCount",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "computeSalt",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -185,6 +261,10 @@ export interface MyMultiSigFactoryInterface extends utils.Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "createMyMultiSigExtended",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "createMyMultiSigV2_5",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -206,6 +286,10 @@ export interface MyMultiSigFactoryInterface extends utils.Interface {
   decodeFunctionResult(functionFragment: "initialize", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "isAdvanced", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "isExtended", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "isV2_5Wallet",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "multiSig", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "multiSigByCreator",
@@ -231,20 +315,39 @@ export interface MyMultiSigFactoryInterface extends utils.Interface {
     functionFragment: "myMultiSigExtendedDeployer",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(
+    functionFragment: "myMultiSigV2_5Deployer",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "myMultiSigV2_5Impl",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "name", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "predictWalletAddress",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "reinitializeV2_5",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "simpleCount",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(functionFragment: "v2_5Count", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "version", data: BytesLike): Result;
 
   events: {
     "Initialized(uint8)": EventFragment;
     "MyMultiSigCreated(address,address,uint256,string,address[],uint16)": EventFragment;
+    "MyMultiSigV2_5Created(address,address,bytes32,string,address[],uint16)": EventFragment;
   };
 
   getEvent(nameOrSignatureOrTopic: "Initialized"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "MyMultiSigCreated"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "MyMultiSigV2_5Created"): EventFragment;
 }
 
 export interface InitializedEventObject {
@@ -269,6 +372,22 @@ export type MyMultiSigCreatedEvent = TypedEvent<
 
 export type MyMultiSigCreatedEventFilter =
   TypedEventFilter<MyMultiSigCreatedEvent>;
+
+export interface MyMultiSigV2_5CreatedEventObject {
+  creator: string;
+  contractAddress: string;
+  salt: string;
+  contractName: string;
+  originalOwners: string[];
+  threshold: number;
+}
+export type MyMultiSigV2_5CreatedEvent = TypedEvent<
+  [string, string, string, string, string[], number],
+  MyMultiSigV2_5CreatedEventObject
+>;
+
+export type MyMultiSigV2_5CreatedEventFilter =
+  TypedEventFilter<MyMultiSigV2_5CreatedEvent>;
 
 export interface MyMultiSigFactory extends BaseContract {
   connect(signerOrProvider: Signer | Provider | string): this;
@@ -299,6 +418,11 @@ export interface MyMultiSigFactory extends BaseContract {
   functions: {
     advancedCount(overrides?: CallOverrides): Promise<[BigNumber]>;
 
+    computeSalt(
+      params: MyMultiSigV2_5FactorableModels.Create2ParamsStruct,
+      overrides?: CallOverrides
+    ): Promise<[string]>;
+
     createMultiSig(
       contractName: PromiseOrValue<string>,
       owners: PromiseOrValue<string>[],
@@ -319,6 +443,12 @@ export interface MyMultiSigFactory extends BaseContract {
       owners: PromiseOrValue<string>[],
       threshold: PromiseOrValue<BigNumberish>,
       isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    createMyMultiSigV2_5(
+      params: MyMultiSigV2_5FactorableModels.Create2ParamsStruct,
+      entryPoint: PromiseOrValue<string>,
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
@@ -353,6 +483,11 @@ export interface MyMultiSigFactory extends BaseContract {
       overrides?: CallOverrides
     ): Promise<[boolean]>;
 
+    isV2_5Wallet(
+      wallet: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<[boolean]>;
+
     multiSig(
       index: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
@@ -377,14 +512,34 @@ export interface MyMultiSigFactory extends BaseContract {
 
     myMultiSigExtendedDeployer(overrides?: CallOverrides): Promise<[string]>;
 
+    myMultiSigV2_5Deployer(overrides?: CallOverrides): Promise<[string]>;
+
+    myMultiSigV2_5Impl(overrides?: CallOverrides): Promise<[string]>;
+
     name(overrides?: CallOverrides): Promise<[string]>;
 
+    predictWalletAddress(
+      params: MyMultiSigV2_5FactorableModels.Create2ParamsStruct,
+      overrides?: CallOverrides
+    ): Promise<[string, string] & { wallet: string; impl: string }>;
+
+    reinitializeV2_5(
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
     simpleCount(overrides?: CallOverrides): Promise<[BigNumber]>;
+
+    v2_5Count(overrides?: CallOverrides): Promise<[BigNumber]>;
 
     version(overrides?: CallOverrides): Promise<[string]>;
   };
 
   advancedCount(overrides?: CallOverrides): Promise<BigNumber>;
+
+  computeSalt(
+    params: MyMultiSigV2_5FactorableModels.Create2ParamsStruct,
+    overrides?: CallOverrides
+  ): Promise<string>;
 
   createMultiSig(
     contractName: PromiseOrValue<string>,
@@ -406,6 +561,12 @@ export interface MyMultiSigFactory extends BaseContract {
     owners: PromiseOrValue<string>[],
     threshold: PromiseOrValue<BigNumberish>,
     isOnlyOwnerRequest: PromiseOrValue<boolean>,
+    overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  createMyMultiSigV2_5(
+    params: MyMultiSigV2_5FactorableModels.Create2ParamsStruct,
+    entryPoint: PromiseOrValue<string>,
     overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
@@ -440,6 +601,11 @@ export interface MyMultiSigFactory extends BaseContract {
     overrides?: CallOverrides
   ): Promise<boolean>;
 
+  isV2_5Wallet(
+    wallet: PromiseOrValue<string>,
+    overrides?: CallOverrides
+  ): Promise<boolean>;
+
   multiSig(
     index: PromiseOrValue<BigNumberish>,
     overrides?: CallOverrides
@@ -464,14 +630,34 @@ export interface MyMultiSigFactory extends BaseContract {
 
   myMultiSigExtendedDeployer(overrides?: CallOverrides): Promise<string>;
 
+  myMultiSigV2_5Deployer(overrides?: CallOverrides): Promise<string>;
+
+  myMultiSigV2_5Impl(overrides?: CallOverrides): Promise<string>;
+
   name(overrides?: CallOverrides): Promise<string>;
 
+  predictWalletAddress(
+    params: MyMultiSigV2_5FactorableModels.Create2ParamsStruct,
+    overrides?: CallOverrides
+  ): Promise<[string, string] & { wallet: string; impl: string }>;
+
+  reinitializeV2_5(
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
   simpleCount(overrides?: CallOverrides): Promise<BigNumber>;
+
+  v2_5Count(overrides?: CallOverrides): Promise<BigNumber>;
 
   version(overrides?: CallOverrides): Promise<string>;
 
   callStatic: {
     advancedCount(overrides?: CallOverrides): Promise<BigNumber>;
+
+    computeSalt(
+      params: MyMultiSigV2_5FactorableModels.Create2ParamsStruct,
+      overrides?: CallOverrides
+    ): Promise<string>;
 
     createMultiSig(
       contractName: PromiseOrValue<string>,
@@ -493,6 +679,12 @@ export interface MyMultiSigFactory extends BaseContract {
       owners: PromiseOrValue<string>[],
       threshold: PromiseOrValue<BigNumberish>,
       isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      overrides?: CallOverrides
+    ): Promise<string>;
+
+    createMyMultiSigV2_5(
+      params: MyMultiSigV2_5FactorableModels.Create2ParamsStruct,
+      entryPoint: PromiseOrValue<string>,
       overrides?: CallOverrides
     ): Promise<string>;
 
@@ -525,6 +717,11 @@ export interface MyMultiSigFactory extends BaseContract {
       overrides?: CallOverrides
     ): Promise<boolean>;
 
+    isV2_5Wallet(
+      wallet: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<boolean>;
+
     multiSig(
       index: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
@@ -549,9 +746,22 @@ export interface MyMultiSigFactory extends BaseContract {
 
     myMultiSigExtendedDeployer(overrides?: CallOverrides): Promise<string>;
 
+    myMultiSigV2_5Deployer(overrides?: CallOverrides): Promise<string>;
+
+    myMultiSigV2_5Impl(overrides?: CallOverrides): Promise<string>;
+
     name(overrides?: CallOverrides): Promise<string>;
 
+    predictWalletAddress(
+      params: MyMultiSigV2_5FactorableModels.Create2ParamsStruct,
+      overrides?: CallOverrides
+    ): Promise<[string, string] & { wallet: string; impl: string }>;
+
+    reinitializeV2_5(overrides?: CallOverrides): Promise<void>;
+
     simpleCount(overrides?: CallOverrides): Promise<BigNumber>;
+
+    v2_5Count(overrides?: CallOverrides): Promise<BigNumber>;
 
     version(overrides?: CallOverrides): Promise<string>;
   };
@@ -576,10 +786,32 @@ export interface MyMultiSigFactory extends BaseContract {
       originalOwners?: null,
       threshold?: null
     ): MyMultiSigCreatedEventFilter;
+
+    "MyMultiSigV2_5Created(address,address,bytes32,string,address[],uint16)"(
+      creator?: PromiseOrValue<string> | null,
+      contractAddress?: PromiseOrValue<string> | null,
+      salt?: null,
+      contractName?: null,
+      originalOwners?: null,
+      threshold?: null
+    ): MyMultiSigV2_5CreatedEventFilter;
+    MyMultiSigV2_5Created(
+      creator?: PromiseOrValue<string> | null,
+      contractAddress?: PromiseOrValue<string> | null,
+      salt?: null,
+      contractName?: null,
+      originalOwners?: null,
+      threshold?: null
+    ): MyMultiSigV2_5CreatedEventFilter;
   };
 
   estimateGas: {
     advancedCount(overrides?: CallOverrides): Promise<BigNumber>;
+
+    computeSalt(
+      params: MyMultiSigV2_5FactorableModels.Create2ParamsStruct,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
 
     createMultiSig(
       contractName: PromiseOrValue<string>,
@@ -601,6 +833,12 @@ export interface MyMultiSigFactory extends BaseContract {
       owners: PromiseOrValue<string>[],
       threshold: PromiseOrValue<BigNumberish>,
       isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    createMyMultiSigV2_5(
+      params: MyMultiSigV2_5FactorableModels.Create2ParamsStruct,
+      entryPoint: PromiseOrValue<string>,
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
@@ -635,6 +873,11 @@ export interface MyMultiSigFactory extends BaseContract {
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
+    isV2_5Wallet(
+      wallet: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
     multiSig(
       index: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
@@ -659,15 +902,35 @@ export interface MyMultiSigFactory extends BaseContract {
 
     myMultiSigExtendedDeployer(overrides?: CallOverrides): Promise<BigNumber>;
 
+    myMultiSigV2_5Deployer(overrides?: CallOverrides): Promise<BigNumber>;
+
+    myMultiSigV2_5Impl(overrides?: CallOverrides): Promise<BigNumber>;
+
     name(overrides?: CallOverrides): Promise<BigNumber>;
 
+    predictWalletAddress(
+      params: MyMultiSigV2_5FactorableModels.Create2ParamsStruct,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    reinitializeV2_5(
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
     simpleCount(overrides?: CallOverrides): Promise<BigNumber>;
+
+    v2_5Count(overrides?: CallOverrides): Promise<BigNumber>;
 
     version(overrides?: CallOverrides): Promise<BigNumber>;
   };
 
   populateTransaction: {
     advancedCount(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    computeSalt(
+      params: MyMultiSigV2_5FactorableModels.Create2ParamsStruct,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
 
     createMultiSig(
       contractName: PromiseOrValue<string>,
@@ -689,6 +952,12 @@ export interface MyMultiSigFactory extends BaseContract {
       owners: PromiseOrValue<string>[],
       threshold: PromiseOrValue<BigNumberish>,
       isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    createMyMultiSigV2_5(
+      params: MyMultiSigV2_5FactorableModels.Create2ParamsStruct,
+      entryPoint: PromiseOrValue<string>,
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
@@ -723,6 +992,11 @@ export interface MyMultiSigFactory extends BaseContract {
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
+    isV2_5Wallet(
+      wallet: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
     multiSig(
       index: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
@@ -753,9 +1027,28 @@ export interface MyMultiSigFactory extends BaseContract {
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
+    myMultiSigV2_5Deployer(
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    myMultiSigV2_5Impl(
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
     name(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
+    predictWalletAddress(
+      params: MyMultiSigV2_5FactorableModels.Create2ParamsStruct,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    reinitializeV2_5(
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
     simpleCount(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    v2_5Count(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     version(overrides?: CallOverrides): Promise<PopulatedTransaction>;
   };
