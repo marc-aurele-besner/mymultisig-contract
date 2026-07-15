@@ -992,7 +992,11 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
 
     describe('multiRequestStrict - atomic batch', function () {
       it('All inner calls succeed → outer tx emits TransactionExecuted', async function () {
-        const to_ = [contract.address as `0x${string}`, contract.address as `0x${string}`, contract.address as `0x${string}`]
+        const to_ = [
+          contract.address as `0x${string}`,
+          contract.address as `0x${string}`,
+          contract.address as `0x${string}`,
+        ]
         const value_ = [Helper.ZERO, Helper.ZERO, Helper.ZERO]
         const data_ = [
           contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
@@ -1033,10 +1037,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
           user01.address as `0x${string}`, // forwarding 1 wei to an EOA — wallet has 0 ETH → revert
         ]
         const value_ = [Helper.ZERO, ethers.BigNumber.from(1)]
-        const data_ = [
-          contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
-          '0x',
-        ]
+        const data_ = [contract.interface.encodeFunctionData('addOwner(address)', [user01.address]), '0x']
         const gas_ = [Helper.DEFAULT_GAS, Helper.DEFAULT_GAS]
 
         const innerData = contract.interface.encodeFunctionData('multiRequestStrict', [
@@ -2001,7 +2002,6 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
     const MAGIC = '0x1626ba7e'
 
     describe('EIP-1271 entry point', function () {
-
       // Helper: a clean dummy tx whose EIP-712 hash the test will sign and feed
       // to `isValidSignature(bytes32,bytes)`. Using a real EIP-712 hash keeps
       // the test environment symmetric with `execTransaction`'s validation.
@@ -2014,14 +2014,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
           nonce: ethers.BigNumber.from(0),
           validUntil: 0,
         }
-        const hash = await contract.generateHash(
-          fields.to,
-          fields.value,
-          fields.data,
-          fields.gas,
-          fields.nonce,
-          0,
-        )
+        const hash = await contract.generateHash(fields.to, fields.value, fields.data, fields.gas, fields.nonce, 0)
         return { fields, hash }
       }
 
@@ -2131,13 +2124,17 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
           ['tuple(address owner, bytes sig)[]'],
           [[{ owner: inner.address, sig: innerBlob }]],
         )
-        expect(await contract.connect(user01)['isValidSignature(bytes32,bytes)'](hash, oneVoteBlob)).to.equal('0xffffffff')
+        expect(await contract.connect(user01)['isValidSignature(bytes32,bytes)'](hash, oneVoteBlob)).to.equal(
+          '0xffffffff',
+        )
         // Diagnostic: try with just inner2 — same.
         const oneVoteBlob2 = ethers.utils.defaultAbiCoder.encode(
           ['tuple(address owner, bytes sig)[]'],
           [[{ owner: inner2.address, sig: inner2Blob }]],
         )
-        expect(await contract.connect(user01)['isValidSignature(bytes32,bytes)'](hash, oneVoteBlob2)).to.equal('0xffffffff')
+        expect(await contract.connect(user01)['isValidSignature(bytes32,bytes)'](hash, oneVoteBlob2)).to.equal(
+          '0xffffffff',
+        )
         // And the full blob — should be magic.
         expect(await contract.connect(user01)['isValidSignature(bytes32,bytes)'](hash, outerBlob)).to.equal(MAGIC)
       })
@@ -2170,9 +2167,9 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
           ['tuple(address owner, bytes sig)[]'],
           [[{ owner: inner.address, sig: innerBlob }]],
         )
-        expect(
-          await contract.connect(user01)['isValidSignature(bytes32,bytes)'](wrongHash, outerBlob),
-        ).to.equal('0xffffffff')
+        expect(await contract.connect(user01)['isValidSignature(bytes32,bytes)'](wrongHash, outerBlob)).to.equal(
+          '0xffffffff',
+        )
       })
 
       it('does not mutate state: nonce / approvals unchanged across repeated calls', async function () {
@@ -2209,13 +2206,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         // Replace owner03 with the inner wallet so the outer threshold stays
         // at 2 and the test exercises a contract owner in the vote mix.
         // Signature: replaceOwner(contract, submitter, owners, ownerToAdd, ownerToRemove).
-        await Helper.replaceOwner(
-          contract,
-          owner01,
-          [owner01, owner02, owner03],
-          inner.address,
-          owner03.address,
-        )
+        await Helper.replaceOwner(contract, owner01, [owner01, owner02, owner03], inner.address, owner03.address)
         return inner
       }
 
@@ -2326,7 +2317,6 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         expect(await contract.isOwner(user01.address)).to.be.false
       })
     })
-
   })
 }
 
@@ -2346,8 +2336,7 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
 
   describe('MyMultiSig - Advanced Tests (v0.4.0)', function () {
     before(async function () {
-      ;[provider, owner01, owner02, owner03, user01, user02, user03] =
-        await Helper.setupProviderAndAccount()
+      ;[provider, owner01, owner02, owner03, user01, user02, user03] = await Helper.setupProviderAndAccount()
     })
 
     beforeEach(async function () {
@@ -2444,26 +2433,11 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
           nonce,
           0,
         )
-        const txHash = await contract.generateHash(
-          contract.address,
-          Helper.ZERO,
-          data,
-          Helper.DEFAULT_GAS,
-          nonce,
-          0,
-        )
+        const txHash = await contract.generateHash(contract.address, Helper.ZERO, data, Helper.DEFAULT_GAS, nonce, 0)
         // 1. Schedule
         const schedTx = await contract
           .connect(owner01)
-          .scheduleTransaction(
-            contract.address,
-            Helper.ZERO,
-            data,
-            Helper.DEFAULT_GAS,
-            nonce,
-            0,
-            signatures,
-          )
+          .scheduleTransaction(contract.address, Helper.ZERO, data, Helper.DEFAULT_GAS, nonce, 0, signatures)
         const schedReceipt = await schedTx.wait()
         expect(await contract.scheduledReadyAt(txHash)).to.be.greaterThan(0)
         // 2. Wait past the delay
@@ -2471,30 +2445,14 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
         // 3. Execute
         const execTx = await contract
           .connect(owner01)
-          .executeScheduled(
-            contract.address,
-            Helper.ZERO,
-            data,
-            Helper.DEFAULT_GAS,
-            nonce,
-            0,
-            signatures,
-          )
+          .executeScheduled(contract.address, Helper.ZERO, data, Helper.DEFAULT_GAS, nonce, 0, signatures)
         await execTx.wait()
         expect(await contract.isOwner(user01.address)).to.be.true
         // 4. Replay blocked by sentinel
         await expect(
           contract
             .connect(owner01)
-            .executeScheduled(
-              contract.address,
-              Helper.ZERO,
-              data,
-              Helper.DEFAULT_GAS,
-              nonce,
-              0,
-              signatures,
-            ),
+            .executeScheduled(contract.address, Helper.ZERO, data, Helper.DEFAULT_GAS, nonce, 0, signatures),
         ).to.be.revertedWithCustomError(contract, 'NotScheduled')
       })
     })
@@ -2549,24 +2507,10 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
         expect(await contract.allowedTargetsEnabled()).to.be.true
         // user02 (unrelated) is rejected.
         await expect(
-          Helper.execTransaction(
-            contract,
-            owner01,
-            [owner01, owner02],
-            user02.address,
-            0,
-            '0x',
-          ),
+          Helper.execTransaction(contract, owner01, [owner01, owner02], user02.address, 0, '0x'),
         ).to.be.revertedWithCustomError(contract, 'TargetNotAllowed')
         // user01 (allowed) works.
-        await Helper.execTransaction(
-          contract,
-          owner01,
-          [owner01, owner02],
-          user01.address,
-          0,
-          '0x',
-        )
+        await Helper.execTransaction(contract, owner01, [owner01, owner02], user01.address, 0, '0x')
       })
     })
 
@@ -2591,14 +2535,7 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
         )
         const tx = await contract
           .connect(owner01)
-          .execTransactionWithSpendingAllowance(
-            recipient,
-            value,
-            data,
-            Helper.DEFAULT_GAS,
-            0,
-            sig,
-          )
+          .execTransactionWithSpendingAllowance(recipient, value, data, Helper.DEFAULT_GAS, 0, sig)
         await tx.wait()
         // Cap reduced by `value`.
         const remaining = await contract.spendingLimitRemaining(owner01.address)
@@ -2621,14 +2558,7 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
         await expect(
           contract
             .connect(owner01)
-            .execTransactionWithSpendingAllowance(
-              user01.address,
-              cap.add(1),
-              '0x',
-              Helper.DEFAULT_GAS,
-              0,
-              sig,
-            ),
+            .execTransactionWithSpendingAllowance(user01.address, cap.add(1), '0x', Helper.DEFAULT_GAS, 0, sig),
         ).to.be.revertedWithCustomError(contract, 'DailySpendingLimitExceeded')
       })
 
@@ -2647,36 +2577,19 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
           nonce,
           0,
         )
-        await (await contract.connect(owner01).execTransactionWithSpendingAllowance(
-          user01.address,
-          cap,
-          '0x',
-          Helper.DEFAULT_GAS,
-          0,
-          sig,
-        )).wait()
+        await (
+          await contract
+            .connect(owner01)
+            .execTransactionWithSpendingAllowance(user01.address, cap, '0x', Helper.DEFAULT_GAS, 0, sig)
+        ).wait()
         // Cross the 24h boundary.
         await Helper.advanceTime(86401)
         // Second spend of `cap` should succeed.
         nonce = await contract.nonce()
-        sig = await Helper.signMultiSigTxn(
-          contract,
-          owner01,
-          user01.address,
-          cap,
-          '0x',
-          Helper.DEFAULT_GAS,
-          nonce,
-          0,
-        )
-        await contract.connect(owner01).execTransactionWithSpendingAllowance(
-          user01.address,
-          cap,
-          '0x',
-          Helper.DEFAULT_GAS,
-          0,
-          sig,
-        )
+        sig = await Helper.signMultiSigTxn(contract, owner01, user01.address, cap, '0x', Helper.DEFAULT_GAS, nonce, 0)
+        await contract
+          .connect(owner01)
+          .execTransactionWithSpendingAllowance(user01.address, cap, '0x', Helper.DEFAULT_GAS, 0, sig)
         // remaining is back to 0 after the second full-cap spend.
         const remaining = await contract.spendingLimitRemaining(owner01.address)
         expect(remaining).to.be.equal(0)

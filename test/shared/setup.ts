@@ -53,9 +53,7 @@ const setupContract = async (
     // bookkeeping can distinguish the creation path without paying for a
     // second copy of the wallet bytecode.
     const MyMultiSigAdvancedDeployer = await ethers.getContractFactory('MyMultiSigAdvancedDeployer')
-    const myMultiSigAdvancedDeployer = await MyMultiSigAdvancedDeployer.deploy(
-      myMultiSigExtendedDeployer.address,
-    )
+    const myMultiSigAdvancedDeployer = await MyMultiSigAdvancedDeployer.deploy(myMultiSigExtendedDeployer.address)
     await myMultiSigAdvancedDeployer.deployed()
 
     ContractFactory = await ethers.getContractFactory(contractName)

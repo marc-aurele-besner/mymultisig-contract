@@ -21,7 +21,7 @@ export default {
      * `constants.CONTRACT_VERSION_EXTENDED` to force the Extended version
      * when the first argument is a string address.
      */
-    explicitVersion?: string
+    explicitVersion?: string,
   ) {
     // Resolve the signing contract address and the EIP-712 version. We
     // accept either a string address (legacy callers) or an ethers
@@ -30,7 +30,12 @@ export default {
     const contractAddress: string =
       typeof contractOrAddress === 'string' ? contractOrAddress : contractOrAddress.address
     let version: string = explicitVersion ?? constants.CONTRACT_VERSION
-    if (!explicitVersion && contractOrAddress && typeof contractOrAddress === 'object' && typeof contractOrAddress.version === 'function') {
+    if (
+      !explicitVersion &&
+      contractOrAddress &&
+      typeof contractOrAddress === 'object' &&
+      typeof contractOrAddress.version === 'function'
+    ) {
       const v = await contractOrAddress.version()
       if (typeof v === 'string' && v.length > 0) version = v
     }
@@ -76,7 +81,7 @@ export default {
         gas,
         nonce,
         validUntil,
-      }
+      },
     )
     return signature
   },
@@ -90,7 +95,7 @@ export default {
     contract: any,
     owner: any,
     hashFields: any,
-    version: string = constants.CONTRACT_VERSION
+    version: string = constants.CONTRACT_VERSION,
   ): Promise<string> {
     // For the v0.4.0 MyMultiSigExtended wallet, the caller's domain version
     // MUST match `wallet.version()`. Detect and pass through.
