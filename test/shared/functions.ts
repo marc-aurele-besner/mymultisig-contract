@@ -86,31 +86,37 @@ export const execTransaction = async (
   extraEvents?: string[],
   signatures?: string,
   validUntil: number = 0,
+  operation: number = 0,
 ) => {
   const nonce = await contract.nonce()
-  if (!signatures) signatures = await prepareSignatures(contract, owners, to, value, data, gas, nonce, validUntil)
+  // v0.5.0 wallets bind `operation` into the signature; sign with it
+  // when targeting an Extended wallet so the EIP-712 hash matches.
+  if (!signatures)
+    signatures = await prepareSignatures(contract, owners, to, value, data, gas, nonce, validUntil, operation)
 
   // Pick the right `execTransaction` overload for the deployed contract.
   // - `MyMultiSig` (base wallet) exposes BOTH the legacy 5-arg overload
-  //   (no deadline) and a new 6-arg overload that takes `validUntil`.
+  //   (no deadline) and a 6-arg overload that takes `validUntil`.
   //   Default to the 5-arg overload for backwards-compat with existing
   //   callers that pass `validUntil = 0`; switch to the 6-arg overload
-  //   whenever a non-zero deadline is supplied.
-  // - `MyMultiSigExtended` exposes only the 7-arg overload with custom
-  //   nonce + validUntil, so we pass both explicitly.
+  //   whenever a non-zero deadline is supplied. Base has NO `operation`.
+  // - `MyMultiSigExtended` (v0.5.0) uses the 8-arg overload with
+  //   `txnNonce + validUntil + operation`, since the v0.4.0 7-arg
+  //   overload is disabled (`V2_5RequiresOperationByte`).
   // We detect the Extended variant by the presence of its
   // `allowOnlyOwnerRequest()` accessor (the base wallet doesn't have it).
   const isExtended = typeof (contract as any).allowOnlyOwnerRequest === 'function'
   const input = isExtended
     ? await contract
         .connect(submitter)
-        .populateTransaction['execTransaction(address,uint256,bytes,uint256,uint256,uint256,bytes)'](
+        .populateTransaction['execTransaction(address,uint256,bytes,uint256,uint256,uint256,uint8,bytes)'](
           to,
           value,
           data,
           gas,
           nonce,
           validUntil,
+          operation,
           signatures,
         )
     : validUntil !== 0
@@ -499,18 +505,19 @@ export const execTransactionWithNonce = async (
   nonce: BigNumber,
   validUntil: number,
   signatures: string,
+  operation: number = 0,
 ) => {
-  const input = await contract
-    .connect(submitter)
-    .populateTransaction['execTransaction(address,uint256,bytes,uint256,uint256,uint256,bytes)'](
-      to,
-      value,
-      data,
-      gas,
-      nonce,
-      validUntil,
-      signatures,
-    )
+  // v0.5.0 Extended path uses the 8-arg overload (txnNonce +
+  // validUntil + operation). The base wallet still uses the 6-arg
+  // overload (no `operation`).
+  const isExtended = typeof (contract as any).allowOnlyOwnerRequest === 'function'
+  const overload = isExtended
+    ? 'execTransaction(address,uint256,bytes,uint256,uint256,uint256,uint8,bytes)'
+    : 'execTransaction(address,uint256,bytes,uint256,uint256,uint256,bytes)'
+  const args = isExtended
+    ? [to, value, data, gas, nonce, validUntil, operation, signatures]
+    : [to, value, data, gas, nonce, validUntil, signatures]
+  const input = await contract.connect(submitter).populateTransaction[overload](...(args as any))
   return await sendRawTxn(input, submitter, ethers, ethers.provider)
 }
 

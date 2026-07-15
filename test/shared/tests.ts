@@ -69,7 +69,13 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
     })
 
     it('Contract return correct contract version', async function () {
-      expect(await contract.version()).to.be.equal(Helper.CONTRACT_VERSION)
+      // v0.5.0 — extended wallets now return `'0.5.0'`; base wallets keep
+      // their original v0.4.0 typehash so they return `'0.4.0'` here.
+      const expected =
+        typeof (contract as any).allowOnlyOwnerRequest === 'function'
+          ? Helper.CONTRACT_VERSION_V2_5
+          : Helper.CONTRACT_VERSION
+      expect(await contract.version()).to.be.equal(expected)
     })
 
     it('Contract return correct threshold', async function () {
@@ -1106,6 +1112,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
             [owner01.address, owner02.address, owner03.address],
             2,
             Helper.DEFAULT_ALLOW_ONLY_OWNER,
+            Helper.ENTRY_POINT_V07_ADDRESS,
           )
           await tx.wait()
           const contractAddress = await deployment.contract.multiSig(0)
@@ -1125,7 +1132,13 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
     })
 
     it('Contract return correct contract version', async function () {
-      expect(await contract.version()).to.be.equal(Helper.CONTRACT_VERSION)
+      // v0.5.0 — extended wallets now return `'0.5.0'`; base wallets keep
+      // their original v0.4.0 typehash so they return `'0.4.0'` here.
+      const expected =
+        typeof (contract as any).allowOnlyOwnerRequest === 'function'
+          ? Helper.CONTRACT_VERSION_V2_5
+          : Helper.CONTRACT_VERSION
+      expect(await contract.version()).to.be.equal(expected)
     })
 
     it('Contract return correct threshold', async function () {
@@ -2349,6 +2362,7 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
             owners,
             Helper.DEFAULT_THRESHOLD,
             Helper.DEFAULT_ALLOW_ONLY_OWNER,
+            Helper.ENTRY_POINT_V07_ADDRESS,
           )
           await tx.wait()
           const Contract = await ethers.getContractFactory(Helper.CONTRACT_NAME_EXTENDED)
@@ -2737,6 +2751,7 @@ export async function MyMultiSigFactoryTests() {
         [owner01.address],
         1,
         Helper.DEFAULT_ALLOW_ONLY_OWNER,
+        Helper.ENTRY_POINT_V07_ADDRESS,
       )
       const receipt = await tx.wait()
       const walletAddress = await factory.multiSig(0)
@@ -2753,6 +2768,7 @@ export async function MyMultiSigFactoryTests() {
         [owner01.address],
         1,
         Helper.DEFAULT_ALLOW_ONLY_OWNER,
+        Helper.ENTRY_POINT_V07_ADDRESS,
       )
       const receipt = await tx.wait()
       const walletAddress = await factory.multiSig(0)
@@ -2771,12 +2787,14 @@ export async function MyMultiSigFactoryTests() {
         [owner01.address],
         1,
         Helper.DEFAULT_ALLOW_ONLY_OWNER,
+        Helper.ENTRY_POINT_V07_ADDRESS,
       )
       await factory.createMyMultiSigAdvanced(
         Helper.CONTRACT_NAME,
         [owner01.address],
         1,
         Helper.DEFAULT_ALLOW_ONLY_OWNER,
+        Helper.ENTRY_POINT_V07_ADDRESS,
       )
       expect(await factory.simpleCount()).to.be.equal(2)
       expect(await factory.extendedCount()).to.be.equal(1)

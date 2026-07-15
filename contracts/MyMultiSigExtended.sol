@@ -3,8 +3,11 @@ pragma solidity 0.8.24;
 
 import './MyMultiSig.sol';
 import './interfaces/ITransactionGuard.sol';
+import './interfaces/IAccount.sol';
+import './interfaces/IEntryPoint.sol';
+import './interfaces/PackedUserOperation.sol';
 
-/// @title MyMultiSigExtended (v0.4.0)
+/// @title MyMultiSigExtended (v0.5.0)
 /// @notice Inactivity / delegate handover from v0.3.0, plus four opt-in
 ///         v0.4.0 features: timelock on sensitive admin calls, pluggable
 ///         transaction guard with a built-in target allowlist, per-owner
@@ -12,9 +15,24 @@ import './interfaces/ITransactionGuard.sol';
 ///         registry. All four v0.4.0 features are disabled by default, so
 ///         existing wallets (and existing signatures) behave unchanged
 ///         until the new setters are called.
+/// @notice direct delegation cap. The cap can also be lifted (briefly) by
+///         calling `setAllowedTarget(...)`. The same v0.4.0 storage is
+///         still appended at the END of the contract body.
+///         v0.5.0 ADDS on top:
+///         - An `operation` byte on the owner-signed `execTransaction`
+///           overloads (0 = CALL, 1 = DELEGATECALL gated to
+///           `to == address(this)`).
+///         - ERC-4337 v0.7 account abstraction (`IAccount.validateUserOp`
+///           and an `executeUserOp` reachable only via the pinned
+///           EntryPoint). Both features live on the existing
+///           `MyMultiSigExtended` class — there is NO separate v0.5.0
+///           wallet contract. Existing v0.4.0 on-chain instances of
+///           `MyMultiSigExtended` stay frozen at their original bytecode
+///           (`version() == '0.4.0'`); new wallets get `'0.5.0'` and the
+///           new features.
 /// @dev    New storage is appended at the END of the contract body to
 ///         avoid colliding with any future base-wallet addition.
-contract MyMultiSigExtended is MyMultiSig {
+contract MyMultiSigExtended is MyMultiSig, IAccount {
   // --- v0.3.0 state ---
   bool private _onlyOwnerRequest;
   uint256 private _minimumTransferInactiveOwnershipAfter;
@@ -92,6 +110,12 @@ contract MyMultiSigExtended is MyMultiSig {
   error ModuleNotFound(address module);
   error InvalidModuleOperation(uint256 operation);
 
+  // --- v0.5.0 custom errors ---
+  error InvalidOperationV2_5(uint8 operation);
+  error NotEntryPoint();
+  error InvalidNonceV2_5(uint256 expected, uint256 got);
+  error V2_5RequiresOperationByte();
+
   // --- v0.4.0 events (v0.3.0 events live in MyMultiSig.sol) ---
 
   event TimelockDelaySet(uint256 delay);
@@ -121,11 +145,17 @@ contract MyMultiSigExtended is MyMultiSig {
   // ---------------------------------------------------------------------------
   // Constructor
   // ---------------------------------------------------------------------------
+  /// @custom:oz-upgrades-unsafe-allow constructor
+  /// @dev    v0.5.0 adds an `entryPoint_` constructor arg. Existing
+  ///         v0.4.0 on-chain instances of `MyMultiSigExtended` are
+  ///         frozen at their original bytecode — they continue to use
+  ///         `version() == '0.4.0'` and do NOT have the v0.5.0 surface.
   constructor(
     string memory name_,
     address[] memory owners_,
     uint16 threshold_,
-    bool isOnlyOwnerRequest_
+    bool isOnlyOwnerRequest_,
+    address entryPoint_
   ) MyMultiSig(name_, owners_, threshold_) {
     _onlyOwnerRequest = isOnlyOwnerRequest_;
 
@@ -142,15 +172,30 @@ contract MyMultiSigExtended is MyMultiSig {
     _sensitiveSelectors[bytes4(keccak256('enableModule(address)'))] = true;
     _sensitiveSelectors[bytes4(keccak256('disableModule(address,address)'))] = true;
     _sensitiveSelectors[bytes4(keccak256('setTimelockDelay(uint256)'))] = true;
+
+    if (entryPoint_ == address(0)) revert InvalidOperationV2_5(0);
+    ENTRY_POINT = IEntryPoint(entryPoint_);
   }
 
   // ---------------------------------------------------------------------------
-  // v0.4.0 version override
+  // v0.5.0 immutable + version override
   // ---------------------------------------------------------------------------
 
-  /// @notice Wallet version.
+  /// @notice Pinned EntryPoint for ERC-4337 v0.7 operations. Frozen at
+  ///         deploy time; the address is part of the wallet's on-chain
+  ///         identity (the wallet won't accept a UserOp from any other
+  ///         EntryPoint). The canonical EntryPoint v0.7 address is
+  ///         `0x0000000071727De22E5E9d8BDe0dFeC0CEB6a7d7` and is the
+  ///         same on every EVM chain.
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+  IEntryPoint public immutable ENTRY_POINT;
+
+  /// @notice Wallet version. Bumped from `'0.4.0'` to `'0.5.0'`; this
+  ///         is part of the EIP-712 domain separator, so v0.4.0
+  ///         signatures never validate on v0.5.0 wallets even if
+  ///         payload fields match.
   function version() public pure virtual override returns (string memory) {
-    return '0.4.0';
+    return '0.5.0';
   }
 
   // ---------------------------------------------------------------------------
@@ -181,30 +226,28 @@ contract MyMultiSigExtended is MyMultiSig {
     return _noncesUsed[nonce];
   }
 
-  /// @notice Executes a transaction
-  /// @param to The address to which the transaction is made.
-  /// @param value The amount of Ether to be transferred.
-  /// @param data The data to be passed along with the transaction.
-  /// @param txnGas The gas limit for the transaction.
-  /// @param txnNonce The nonce bound to the transaction. Lets callers pick a
-  ///        nonce inside the replay window (any value in `[0, 2^96 - 1]`),
-  ///        enabling signers to pre-sign for a future nonce (e.g. `_txnNonce + N`)
-  ///        so the tx can be replayed later by anyone holding the signatures.
-  ///        Reverts if `txnNonce` has already been marked as used via
-  ///        `markNonceAsUsed`.
-  /// @param validUntil Unix timestamp after which the signature is invalid;
-  ///        `0` disables the deadline check.
-  /// @param signatures The signatures to be used for the transaction.
+  /// @notice v0.5.0 — DISABLED overload of the v0.4.0 7-arg
+  ///         `execTransaction(to, value, data, gas, txnNonce,
+  ///         validUntil, signatures)` (with `txnNonce + validUntil` but
+  ///         no `operation` byte). v0.5.0 binds the operation byte into
+  ///         the EIP-712 payload; callers must use one of the new
+  ///         6/7/8-arg overloads at the bottom of this contract that
+  ///         include `operation`. Reverts with
+  ///         `V2_5RequiresOperationByte()`.
   function execTransaction(
-    address to,
-    uint256 value,
-    bytes memory data,
-    uint256 txnGas,
-    uint256 txnNonce,
-    uint256 validUntil,
-    bytes memory signatures
-  ) public payable virtual nonReentrant returns (bool success) {
-    success = _execTransaction(to, value, data, txnGas, txnNonce, validUntil, signatures);
+    address /* to */,
+    uint256 /* value */,
+    bytes memory /* data */,
+    uint256 /* txnGas */,
+    uint256 /* txnNonce */,
+    uint256 /* validUntil */,
+    bytes memory /* signatures */
+  ) public payable virtual nonReentrant returns (bool /* success */) {
+    // v0.5.0 requires the `operation` byte on the EIP-712 payload. The
+    // v0.4.0 7-arg overload (with `txnNonce + validUntil` but no
+    // `operation`) is unreachable; callers must use one of the new
+    // overloads at the bottom of this contract.
+    revert V2_5RequiresOperationByte();
   }
 
   // ---------------------------------------------------------------------------
@@ -912,5 +955,401 @@ contract MyMultiSigExtended is MyMultiSig {
       _dailySpentByOwner[owner] = 0;
       _lastPeriodResetByOwner[owner] = block.timestamp;
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // v0.5.0 — `operation` byte on execTransaction + ERC-4337 v0.7 support
+  // ---------------------------------------------------------------------------
+
+  /// @notice EIP-712 typehash for the v0.5.0 owner-signed payload. The
+  ///         new field `operation` binds the `operation` byte into the
+  ///         signature, so the same `(to, value, data, gas, nonce,
+  ///         validUntil)` payload with different `operation` values
+  ///         produces different hashes and won't cross-validate.
+  bytes32 private constant _TRANSACTION_TYPEHASH_V2_5 =
+    keccak256(
+      'Transaction(address to,uint256 value,bytes data,uint256 gas,uint96 nonce,uint256 validUntil,uint8 operation)'
+    );
+
+  /// @notice ERC-4337 v0.7 `validationData` magic value for "always valid".
+  uint256 private constant _SIG_VALIDATION_SUCCESS = 0;
+
+  /// @notice ERC-4337 v0.7 `validationData` magic value for failure.
+  uint256 private constant _SIG_VALIDATION_FAILED = 1;
+
+  /// @notice v0.5.0 events. The base `TransactionExecuted` /
+  ///         `TxFailure` / `ContractEndOfLife` events still fire on every
+  ///         v0.5.0 path so existing indexers keep working; these v0.5.0
+  ///         events carry the `operation` byte so off-chain consumers
+  ///         can distinguish CALL vs DELEGATECALL.
+  event TransactionExecutedV2_5(
+    address indexed sender,
+    address indexed to,
+    uint256 indexed value,
+    bytes data,
+    uint256 txnGas,
+    uint256 txnNonce,
+    uint8 operation
+  );
+  event TxFailureV2_5(
+    address indexed sender,
+    address indexed to,
+    uint256 indexed value,
+    bytes data,
+    uint256 txnGas,
+    uint256 txnNonce,
+    uint8 operation,
+    bytes reason
+  );
+  event UserOpExecuted(bytes32 indexed userOpHash, uint256 indexed nonce);
+
+  // --------- execTransaction overloads with operation byte ---------
+
+  /// @notice v0.5.0 entry point: 6 args, current nonce, no validUntil,
+  ///         `operation` bound into the EIP-712 payload.
+  function execTransaction(
+    address to,
+    uint256 value,
+    bytes memory data,
+    uint256 txnGas,
+    uint8 operation,
+    bytes memory signatures
+  ) public payable virtual nonReentrant returns (bool success) {
+    success = _execExtended(to, value, data, txnGas, nonce(), 0, operation, signatures);
+    if (nonce() > uint96(2 ** 96 - 1000)) emit ContractEndOfLife(2 ** 96 - nonce() - 1);
+  }
+
+  /// @notice v0.5.0 entry point: 7 args, current nonce, explicit
+  ///         `validUntil`, `operation` bound into the payload.
+  function execTransaction(
+    address to,
+    uint256 value,
+    bytes memory data,
+    uint256 txnGas,
+    uint256 validUntil,
+    uint8 operation,
+    bytes memory signatures
+  ) public payable virtual nonReentrant returns (bool success) {
+    success = _execExtended(to, value, data, txnGas, nonce(), validUntil, operation, signatures);
+    if (nonce() > uint96(2 ** 96 - 1000)) emit ContractEndOfLife(2 ** 96 - nonce() - 1);
+  }
+
+  /// @notice v0.5.0 entry point: 8 args, custom nonce, explicit
+  ///         `validUntil`, `operation` bound into the payload.
+  function execTransaction(
+    address to,
+    uint256 value,
+    bytes memory data,
+    uint256 txnGas,
+    uint256 txnNonce,
+    uint256 validUntil,
+    uint8 operation,
+    bytes memory signatures
+  ) public payable virtual nonReentrant returns (bool success) {
+    success = _execExtended(to, value, data, txnGas, txnNonce, validUntil, operation, signatures);
+    if (nonce() > uint96(2 ** 96 - 1000)) emit ContractEndOfLife(2 ** 96 - nonce() - 1);
+  }
+
+  /// @notice Disabled override of the v0.4.0 5-arg overload. v0.5.0
+  ///         requires the `operation` byte, so the base's no-op-byte
+  ///         path is unreachable on v0.5.0 wallets.
+  function execTransaction(
+    address /* to */,
+    uint256 /* value */,
+    bytes memory /* data */,
+    uint256 /* txnGas */,
+    bytes memory /* signatures */
+  ) public payable virtual override returns (bool /* success */) {
+    revert V2_5RequiresOperationByte();
+  }
+
+  /// @notice Disabled override of the v0.4.0 6-arg overload (with
+  ///         `validUntil` but no `operation`).
+  function execTransaction(
+    address /* to */,
+    uint256 /* value */,
+    bytes memory /* data */,
+    uint256 /* txnGas */,
+    uint256 /* validUntil */,
+    bytes memory /* signatures */
+  ) public payable virtual override returns (bool /* success */) {
+    revert V2_5RequiresOperationByte();
+  }
+
+  /// @notice Disabled override of the v0.4.0 7-arg overload (with
+  ///         `txnNonce + validUntil` but no `operation`) — see the
+  ///         disabled version earlier in this file (the actual override
+  ///         lives where the v0.4.0 7-arg overload was originally
+  ///         declared, to avoid duplicate override declarations).
+
+  // --------- v0.5.0 EIP-712 hash + view-side signature helpers ---------
+
+  /// @notice v0.5.0 EIP-712 typed-data hash. The 7-field hash binds
+  ///         `operation` so signatures against the v0.4.0 6-field hash
+  ///         do NOT validate here.
+  function generateHashV2_5(
+    address to,
+    uint256 value,
+    bytes memory data,
+    uint256 txnGas,
+    uint256 txnNonce,
+    uint256 validUntil,
+    uint8 operation
+  ) public view returns (bytes32) {
+    return
+      _hashTypedDataV4(
+        keccak256(
+          abi.encode(
+            _TRANSACTION_TYPEHASH_V2_5,
+            to,
+            value,
+            keccak256(data),
+            txnGas,
+            txnNonce,
+            validUntil,
+            operation
+          )
+        )
+      );
+  }
+
+  /// @notice 7-arg view `isValidSignature` overload that includes
+  ///         `operation` in the bound hash.
+  function isValidSignature(
+    address to,
+    uint256 value,
+    bytes memory data,
+    uint256 txnGas,
+    uint256 txnNonce,
+    uint256 validUntil,
+    uint8 operation,
+    bytes memory signatures
+  ) public view returns (bool valid) {
+    bytes32 txHash = generateHashV2_5(to, value, data, txnGas, txnNonce, validUntil, operation);
+    return _checkSignaturesV2_5(txHash, txnNonce, validUntil, signatures);
+  }
+
+  /// @notice View-side signature check that mirrors `_checkSignatures`
+  ///         (base wallet, line 546) but rejects stale nonces via the
+  ///         v0.4.0 `_noncesUsed` map. Reads private state through the
+  ///         public accessors (`threshold`, `isOwner`,
+  ///         `getApprovedOwners`) because the base's storage vars are
+  ///         `private`.
+  function _checkSignaturesV2_5(
+    bytes32 txHash,
+    uint256 txnNonce,
+    uint256 validUntil,
+    bytes memory signatures
+  ) internal view returns (bool valid) {
+    if (_noncesUsed[txnNonce]) return false;
+    if (validUntil != 0 && block.timestamp > validUntil) return false;
+    uint16 threshold_ = threshold();
+    address[] memory approved = getApprovedOwners(txHash);
+    uint256 counted;
+    for (uint256 i; i < approved.length; ) {
+      unchecked {
+        if (!isOwner(approved[i])) return false;
+        ++counted;
+        ++i;
+      }
+    }
+    if (counted >= threshold_) return true;
+    (address[] memory owners, bytes[] memory sigs) = _decodeVotes(signatures);
+    for (uint256 i = 0; i < owners.length; ) {
+      unchecked {
+        if (counted >= threshold_) break;
+        if (_validateVote(txHash, owners[i], sigs[i])) ++counted;
+        ++i;
+      }
+    }
+    return counted >= threshold_;
+  }
+
+  /// @notice Mutating-side validator that records the per-`(nonce, owner)`
+  ///         slot consumed (mirrors the v0.4.0 `_validateSignature`).
+  function _validateSignatureV2_5(
+    bytes32 txHash,
+    uint256 txnNonce,
+    uint256 validUntil,
+    bytes memory signatures
+  ) internal returns (bool valid) {
+    if (_noncesUsed[txnNonce]) return false;
+    if (validUntil != 0 && block.timestamp > validUntil) revert SignatureExpired();
+    uint16 threshold_ = threshold();
+    uint256 counted;
+    address[] memory approved = getApprovedOwners(txHash);
+    for (uint256 i; i < approved.length; ) {
+      unchecked {
+        address approvedOwner = approved[i];
+        if (!isOwner(approvedOwner)) return false;
+        if (!_recordVote(txHash, txnNonce, approvedOwner)) return false;
+        ++counted;
+        ++i;
+      }
+    }
+    if (counted >= threshold_) return true;
+    (address[] memory owners, bytes[] memory sigs) = _decodeVotes(signatures);
+    for (uint256 i = 0; i < owners.length; ) {
+      unchecked {
+        if (counted >= threshold_) break;
+        if (_validateVote(txHash, owners[i], sigs[i]) && _recordVote(txHash, txnNonce, owners[i])) ++counted;
+        ++i;
+      }
+    }
+    return counted >= threshold_;
+  }
+
+  // --------- Internal v0.5.0 exec orchestrator ---------
+
+  /// @notice Internal v0.5.0 exec path. Mirrors `_execTransaction`
+  ///         (MyMultiSig.sol:326) but:
+  ///         - rejects `operation` outside `0..1`,
+  ///         - rejects DELEGATECALL unless `to == address(this)`,
+  ///         - dispatches via assembly `call` or `delegatecall`,
+  ///         - emits v0.5.0 events with `operation` as a non-indexed
+  ///           field so off-chain indexers can route CALL vs DELEGATECALL.
+  function _execExtended(
+    address to,
+    uint256 value,
+    bytes memory data,
+    uint256 txnGas,
+    uint256 txnNonce,
+    uint256 validUntil,
+    uint8 operation,
+    bytes memory signatures
+  ) internal virtual returns (bool success) {
+    if (validUntil != 0 && block.timestamp > validUntil) revert SignatureExpired();
+    if (operation > 1) revert InvalidOperationV2_5(operation);
+    if (operation == 1 && to != address(this)) revert InvalidOperationV2_5(operation);
+
+    bytes32 txHash = generateHashV2_5(to, value, data, txnGas, txnNonce, validUntil, operation);
+    if (!_validateSignatureV2_5(txHash, txnNonce, validUntil, signatures)) revert InvalidSignatures();
+
+    incrementNonce();
+
+    uint256 gasBefore = gasleft();
+    bytes memory returnData;
+    if (operation == 0) {
+      (success, returnData) = _lowLevelCall(txnGas, to, value, data);
+    } else {
+      (success, returnData) = _lowLevelDelegateCall(gasBefore, to, data);
+    }
+    if (gasBefore - gasleft() >= txnGas) revert NotEnoughGas();
+    if (success) {
+      emit TransactionExecuted(msg.sender, to, value, data, txnGas, txnNonce);
+      emit TransactionExecutedV2_5(msg.sender, to, value, data, txnGas, txnNonce, operation);
+    } else if (returnData.length > 0) {
+      assembly {
+        revert(add(returnData, 0x20), mload(returnData))
+      }
+    } else {
+      emit TxFailure(msg.sender, to, value, data, txnGas, txnNonce, returnData);
+      emit TxFailureV2_5(msg.sender, to, value, data, txnGas, txnNonce, operation, returnData);
+    }
+  }
+
+  /// @notice Thin assembly `call` wrapper used by `_execExtended` for the
+  ///         CALL branch (operation == 0).
+  function _lowLevelCall(
+    uint256 gasBudget,
+    address to,
+    uint256 value,
+    bytes memory data
+  ) internal virtual returns (bool success, bytes memory returnData) {
+    assembly {
+      success := call(gasBudget, to, value, add(data, 0x20), mload(data), 0, 0)
+      let size := returndatasize()
+      returnData := mload(0x40)
+      mstore(returnData, size)
+      returndatacopy(add(returnData, 0x20), 0, size)
+      mstore(0x40, add(add(returnData, 0x20), and(add(size, 0x1f), not(0x1f))))
+    }
+  }
+
+  /// @notice Thin assembly `delegatecall` wrapper used by
+  ///         `_execExtended` for the DELEGATECALL branch (operation == 1).
+  ///         The `to` argument is verified to equal `address(this)` by
+  ///         the calling `_execExtended` so the code at `to` runs in
+  ///         the wallet's storage context.
+  function _lowLevelDelegateCall(
+    uint256 gasBudget,
+    address to,
+    bytes memory data
+  ) internal virtual returns (bool success, bytes memory returnData) {
+    assembly {
+      success := delegatecall(gasBudget, to, add(data, 0x20), mload(data), 0, 0)
+      let size := returndatasize()
+      returnData := mload(0x40)
+      mstore(returnData, size)
+      returndatacopy(add(returnData, 0x20), 0, size)
+      mstore(0x40, add(add(returnData, 0x20), and(add(size, 0x1f), not(0x1f))))
+    }
+  }
+
+  // --------- ERC-4337 v0.7 ---------
+
+  /// @notice IAccount.validateUserOp (v0.7). Called by the EntryPoint
+  ///         (via a bundler) BEFORE the operation is added to a batch.
+  ///         Pure validation; does NOT execute or advance `_txnNonce`.
+  /// @dev    We require:
+  ///         - `msg.sender == ENTRY_POINT` (so an EOA can't probe hashes),
+  ///         - `userOp.sender == address(this)` (so a bundler can't ask
+  ///           us to validate someone else's hash),
+  ///         - `operation == 0` (DELEGATECALL from a 4337 flow would
+  ///           touch wallet storage in ways the bundler cannot
+  ///           anticipate — gate behind CALL for safety),
+  ///         - `userOp.nonce == current _txnNonce`,
+  ///         - threshold reached via `_checkSignaturesV2_5`.
+  function validateUserOp(
+    PackedUserOperation calldata userOp,
+    bytes32 /* userOpHash */,
+    uint256 /* missingAccountFunds */
+  ) external view override returns (uint256 validationData) {
+    if (msg.sender != address(ENTRY_POINT)) revert NotEntryPoint();
+    if (userOp.sender != address(this)) revert InvalidNonceV2_5(uint256(uint160(address(this))), uint256(uint160(userOp.sender)));
+
+    (address to, uint256 value, bytes memory data, uint256 txnGas, uint256 validUntil, uint8 operation) =
+      _decodeUserOpCallData(userOp.callData);
+
+    if (operation != 0) revert InvalidOperationV2_5(operation);
+    uint256 expectedNonce = nonce();
+    if (userOp.nonce != expectedNonce) revert InvalidNonceV2_5(expectedNonce, userOp.nonce);
+    bytes32 txHash = generateHashV2_5(to, value, data, txnGas, expectedNonce, validUntil, operation);
+    if (!_checkSignaturesV2_5(txHash, expectedNonce, validUntil, userOp.signature)) {
+      return _SIG_VALIDATION_FAILED;
+    }
+    return _SIG_VALIDATION_SUCCESS;
+  }
+
+  /// @notice EntryPoint-only execution path for `UserOp`s. Reconstructs
+  ///         the inner (to, value, data, gas, validUntil, operation)
+  ///         from `userOp.callData` and runs it through `_execExtended`.
+  function executeUserOp(PackedUserOperation calldata userOp) external payable {
+    if (msg.sender != address(ENTRY_POINT)) revert NotEntryPoint();
+
+    bytes32 userOpHash = keccak256(userOp.callData);
+    (address to, uint256 value, bytes memory data, uint256 txnGas, uint256 validUntil, uint8 operation) =
+      _decodeUserOpCallData(userOp.callData);
+
+    _execExtended(to, value, data, txnGas, nonce(), validUntil, operation, userOp.signature);
+    emit UserOpExecuted(userOpHash, nonce());
+  }
+
+  /// @notice Canonical encoding for the inner call of a user operation.
+  ///         The bundler MUST ABI-encode this tuple into `userOp.callData`:
+  ///         `abi.encode(address to, uint256 value, bytes data, uint256 txnGas,
+  ///         uint256 validUntil, uint8 operation)`.
+  /// @dev    MyMultiSigExtended deliberately uses this non-standard
+  ///         `callData` encoding rather than the upstream
+  ///         `IExecute.execute(dest, value, func)` shape because the
+  ///         wallet already routes the inner call through `_execExtended`.
+  ///         A reference bundler that supports `IExecute.execute` can
+  ///         still drive MyMultiSigExtended by encoding
+  ///         `func = abi.encodeCall(this.executeUserOp.selector,
+  ///         abi.encode(to, value, data, gas, validUntil, operation))`.
+  function _decodeUserOpCallData(
+    bytes calldata callData
+  ) internal pure returns (address to, uint256 value, bytes memory data, uint256 gas, uint256 validUntil, uint8 operation) {
+    return abi.decode(callData, (address, uint256, bytes, uint256, uint256, uint8));
   }
 }

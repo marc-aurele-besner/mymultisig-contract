@@ -151,75 +151,62 @@ bool isExtended(address wallet);    // true for Extended + Advanced
 - `MyMultiSig.verifyNonce(uint256)` removed (zero references).
 - `MyMultiSig._changeThreshold` now emits `ThresholdChanged(uint256)` (event declared at line 52 but never previously emitted).
 
-## 🚀 v0.5.0 — CREATE2, DELEGATECALL op, ERC-4337
+## 🚀 v0.5.0 — DELEGATECALL op + ERC-4337 rolled into `MyMultiSigExtended`
 
-The v0.5.0 release is a single wallet-class addition (`MyMultiSigV2_5`), shipped alongside the existing v0.4.0 wallets (which stay frozen). Every V2_5 wallet:
+> ⚠️ **v0.5.0 ships the new wallet features as additions to the existing `MyMultiSigExtended` class — there is no separate `MyMultiSigV2_5` wallet contract.** All wallets deployed through the factory after this release are `MyMultiSigExtended` instances that now also expose the `operation` byte and the `IAccount` surface.
 
-- inherits `MyMultiSig` (the v0.4.0 base), **not** `MyMultiSigExtended` (no built-in timelock / guard / allowance / modules machinery);
-- exposes `version() == '0.5.0'`, binding the EIP-712 domain separator to this version, so v0.4.0 signatures never validate here even if payload fields match;
-- emits a `MyMultiSigV2_5Created(creator, address, salt, contractName, owners, threshold)` event on creation through the factory.
+`MyMultiSigExtended` v0.5.0 adds three forward-looking capabilities on top of the existing v0.4.0 features (timelock, guard, allowance, modules):
 
-### 1. 🌐 CREATE2 deterministic wallets
+### 1. 🛡️ `operation` byte on the owner-signed `execTransaction`
 
-Wallets are deployed as EIP-1167 minimal proxies via OZ `Clones.cloneDeterministic(salt, impl)` from a single, immutable `MyMultiSigV2_5` implementation contract. The factory predicts the wallet address with:
-
-```solidity
-MyMultiSigFactorableV2_5.predictWalletAddress(
-  MyMultiSigV2_5FactorableModels.Create2Params({
-    saltKind: MyMultiSigV2_5FactorableModels.SaltKind.OwnerSet,
-    chainAgnosticKey: bytes32 <32-byte user-supplied random>,
-    contractName: 'MyMultisig',
-    owners: [0x.., 0x.., 0x..],
-    threshold: 2
-  })
-) -> (walletAddress, implementationAddress)
-```
-
-Same parameters on every chain ⇒ same address by construction. The salt is `keccak256(saltKind, chainAgnosticKey, owners, threshold, contractName)`. `chainAgnosticKey` is the only user-controlled input that must be reused cross-chain to make the address match; generate a fresh 32-byte random once (`hexlify(crypto.randomBytes(32))`) and store it next to the wallet name.
-
-The factory upgrade ships a hard-coded vanity salt + the OZ canonical CREATE2 deployer address (`0x4e59b44847b379578588920cA78FbF26c0B4956C`). Both are surfaced in `scripts/deploy.ts` output and `constants/v2_5.ts` so operators can verify and re-run the same deploy across chains.
-
-⚠️ **Stability:** the salt becomes part of the address on every chain, so changing it requires re-deploying the factory proxy across the entire multi-chain rollout. Pick carefully.
-
-### 2. 🛡️ DELEGATECALL operation type
-
-A new `uint8 operation` byte on the owner-signed `execTransaction` overloads:
+A new `uint8 operation` parameter is bound into the EIP-712 typed-data payload. Three new `execTransaction` overloads:
 
 ```solidity
 execTransaction(to, value, data, gas, operation, signatures) -> success
 execTransaction(to, value, data, gas, validUntil, operation, signatures) -> success
+execTransaction(to, value, data, gas, txnNonce, validUntil, operation, signatures) -> success
 ```
 
-`operation == 0` (default) → standard CALL. `operation == 1` → DELEGATECALL into `to`, gated to **`to == address(this)`** (mirrors the same gating in `MyMultiSigExtended.execTransactionFromModule`). Anything else reverts with `InvalidOperation(uint8 op)`.
+`operation == 0` (default) → standard CALL. `operation == 1` → DELEGATECALL into `to`, gated to **`to == address(this)`** (mirrors the same gating already used by `MyMultiSigExtended.execTransactionFromModule`). Anything else reverts with the new custom error `InvalidOperationV2_5(uint8 op)`.
 
-⚠️ **Back-compat**: the old 5-arg and 6-arg `execTransaction` overloads (no `operation`) are **disabled** on `MyMultiSigV2_5` — they revert with `V2_5RequiresOperationByte()`. Frontends should call only the new overloads.
+⚠️ **Breaking**: the pre-existing 5/6/7-arg `execTransaction` overloads on `MyMultiSigExtended` are **disabled** — they now revert with `V2_5RequiresOperationByte()`. All frontends must switch to the new overloads that include `operation`. The base `MyMultiSig` wallet is **untouched** and continues to expose the old 5/6-arg signatures against the v0.4.0 typehash.
 
-⚠️ **`multiRequest` / `multiRequestStrict` are CALL-only.** The v0.5.0 batch helpers inherit the base-wallet semantics and never honor the `operation` byte; inner calls remain CALL. This matches Safe's convention.
+⚠️ **EIP-712 footer changed.** The new typehash binds `operation`:
+```
+Transaction(address to, uint256 value, bytes data, uint256 gas, uint96 nonce, uint256 validUntil, uint8 operation)
+```
+Existing v0.4.0 `MyMultiSigExtended` signatures do **not** validate on v0.5.0 wallets because the domain separator now hashes `version() == '0.5.0'` and the typehash includes `operation`. Migrate your off-chain signer to bind `operation` (default `0`) into the typed data before deploying.
 
-The new event `TransactionExecutedV2_5(..., uint8 operation)` carries the byte as a non-indexed field so off-chain indexers can route CALL vs DELEGATECALL.
+### 2. ⚡ ERC-4337 v0.7 account abstraction
 
-### 3. ⚡ ERC-4337 v0.7 account abstraction
+`MyMultiSigExtended` implements `IAccount` against an immutable `IEntryPoint` v0.7 address passed at construction. The canonical EntryPoint v0.7 address (same on every EVM chain) is `0x0000000071727De22E5E9d8BDe0dFeC0CEB6a7d7`.
 
-`MyMultiSigV2_5` implements `IAccount` against an immutable `IEntryPoint` address passed at construction. The canonical EntryPoint v0.7 address is `0x0000000071727De22E5E9d8BDe0dFeC0CEB6a7d7` (same on every chain). Bundlers flow:
+Constructor signature: `new MyMultiSigExtended(name, owners, threshold, isOnlyOwnerRequest, entryPoint)`. Bundler flow:
 
 1. Bundler calls `EntryPoint.handleOps([userOp], beneficiary)`.
-2. EntryPoint calls the wallet's `validateUserOp(PackedUserOperation, bytes32 userOpHash, uint256 missingAccountFunds)` — returns `0` on success, `1` (`SIG_VALIDATION_FAILED`) on failure.
-3. EntryPoint funds execution and calls the wallet's `executeUserOp(PackedUserOperation)`, which reconstructs the inner call from `userOp.callData = abi.encode(address to, uint256 value, bytes data, uint256 gas, uint256 validUntil, uint8 operation)` and runs it through the gated `_execV2_5` path.
+2. EntryPoint calls the wallet's `validateUserOp(PackedUserOperation, bytes32 userOpHash, uint256 missingAccountFunds)`. Returns `0` on success / `1` (`SIG_VALIDATION_FAILED`) on failure. Requires `msg.sender == ENTRY_POINT`, `userOp.sender == address(this)`, `operation == 0`, `userOp.nonce == _txnNonce`, and threshold reached via the same signature-validation path used by `execTransaction`.
+3. EntryPoint funds execution and calls `executeUserOp(PackedUserOperation)`, which reconstructs the inner call from `userOp.callData = abi.encode(address to, uint256 value, bytes data, uint256 gas, uint256 validUntil, uint8 operation)` and runs it through the gated `_execExtended` path.
 
 Paymaster support drops out naturally: a paymaster can pre-fund via `EntryPoint.depositTo(address(this))`; bundlers assemble UserOps with `paymasterAndData != 0` and the wallet's `validateUserOp` is permissive on value-funded flows.
 
-⚠️ **Dual-use caveat**: an EOA `execTransaction` against a wallet whose nonce was already advanced by a bundled UserOp will revert with `InvalidSignatures` — expected behaviour, since the slot `(nonce, owner)` is consumed by the bundler flow and a fresh EOA vote for the same nonce would no longer count.
+### 3. 🌐 CREATE2 deterministic wallets (deferred to a follow-up)
+
+The original v0.5.0 plan called for a CREATE2-based factory path (`Clones.cloneDeterministic` against a dedicated implementation). That work would require converting `MyMultiSigExtended` into `Initializable` (a non-trivial storage layout shift on a non-upgradeable wallet), so it was **deferred to a follow-up release** to keep this PR focused. The v0.5.0 factory stores the same deployer trio as v0.4.0 (`MyMultiSigDeployer`, `MyMultiSigExtendedDeployer`, `MyMultiSigAdvancedDeployer`).
+
+When CREATE2 ships, the plan is:
+- Make `MyMultiSigExtended` `Initializable`; `MyMultiSigExtendedDeployer` calls `new MyMultiSigExtendedProxy()` followed by `initialize(name, owners, threshold, isOnlyOwnerRequest, entryPoint)`.
+- The factory holds an immutable `myMultiSigV2_5Impl` (the wallet implementation used as a `Clones.cloneDeterministic` target) and uses `OZ Clones.cloneDeterministic(salt, myMultiSigV2_5Impl)` to deploy.
 
 ### Migration story
 
-v0.4.0 wallets **cannot** opt in to v0.5.0 features (wallet code is non-upgradeable). To migrate, the owners move the wallet's funds into a freshly-deployed `MyMultiSigV2_5` with the same owners / threshold. The legacy `MyMultiSig` and `MyMultiSigExtended` paths continue to work for any organization that does not want to migrate.
+Existing v0.4.0 `MyMultiSig` and `MyMultiSigExtended` wallets stay frozen at v0.4.0 bytecode — they keep `version() == '0.4.0'` and the old 6-field EIP-712 typehash. They do **not** have the v0.5.0 surface. To migrate, the owners move the wallet's funds into a freshly-deployed `MyMultiSigExtended` v0.5.0 with the same owners / threshold.
 
 ### Cleanups bundled with v0.5.0
 
-- `MyMultiSigFactorable.version()` bumped `'0.1.1'` → `'0.2.0'`; `package.json` bumped `'0.2.0'` → `'0.5.0'`. Done in lock-step with the `MyMultiSigV2_5.version() = '0.5.0'` change so the on-chain identity and the artifact registry stay aligned.
-- `MyMultiSigFactory` constructor takes 5 arguments now: the v0.4.0 deployer trio + the V2_5 implementation address + the V2_5 deployer address. OZ hardhat-upgrades validates this layout on every upgrade.
-- Two new entry points on `MyMultiSigFactory`: `reinitializeV2_5()` (re-initializer for chains that already had v0.4.0 deployed) and `createMyMultiSigV2_5(params, entryPoint)` (CREATE2 deployment).
-- Run `yarn upgrade-factory:sepolia` (or any other network) followed by `reinitializeV2_5()` to wire the v0.5.0 surface into the existing factory proxy.
+- `MyMultiSigFactorable.version()` bumped `'0.1.1'` → `'0.2.0'`. `MyMultiSigExtended.version()` bumped `'0.4.0'` → `'0.5.0'`. `package.json` bumped `'0.2.0'` → `'0.5.0'`. Done in lock-step with the constructor signature change so the on-chain identity and the artifact registry stay aligned.
+- `MyMultiSigExtendedDeployer.deployMyMultiSigExtended(...)` and `MyMultiSigAdvancedDeployer.deployMyMultiSigAdvanced(...)` now take an `entryPoint` argument and forward it through.
+- `MyMultiSigFactorable.createMyMultiSigExtended(...)` and `createMyMultiSigAdvanced(...)` now take an `entryPoint` and forward it.
+- New custom errors: `InvalidOperationV2_5(uint8)`, `NotEntryPoint()`, `InvalidNonceV2_5(expected, got)`, `V2_5RequiresOperationByte()`. New events: `TransactionExecutedV2_5(...)`, `TxFailureV2_5(...)`, `UserOpExecuted(bytes32 userOpHash, uint256 nonce)`.
 
 ## 🔧 Install Dependencies
 

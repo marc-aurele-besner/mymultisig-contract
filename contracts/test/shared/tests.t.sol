@@ -511,6 +511,8 @@ abstract contract TestBasic is Helper {
       abi.encodeWithSelector(MyMultiSig.BatchCallFailed.selector, uint256(1), bytes(''))
     );
     if (extended) {
+      // v0.5.0 — extended wallets use the 8-arg overload with the
+      // explicit `operation` byte.
       MyMultiSigExtended(payable(address(myMultiSig))).execTransaction(
         to,
         value,
@@ -518,6 +520,7 @@ abstract contract TestBasic is Helper {
         gas,
         nonceBefore,
         0,
+        0, // operation = 0 (CALL)
         signatures
       );
     } else {

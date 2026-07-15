@@ -13,17 +13,16 @@ import { MyMultiSigExtended } from '../../MyMultiSigExtended.sol';
 import { MyMultiSigDeployer } from '../../MyMultiSigDeployer.sol';
 import { MyMultiSigExtendedDeployer } from '../../MyMultiSigExtendedDeployer.sol';
 import { MyMultiSigAdvancedDeployer } from '../../MyMultiSigAdvancedDeployer.sol';
-import { MyMultiSigV2_5 } from '../../MyMultiSigV2_5.sol';
-import { MyMultiSigV2_5Deployer } from '../../MyMultiSigV2_5Deployer.sol';
 
 contract Functions is Constants, Signatures {
   // Canonical v0.7 EntryPoint address used by the Foundry test sandbox.
   // Production deployments ship this in `constants/v2_5.ts`; tests use
   // a fixed sentinel because the address is the same on every chain.
   // Wrapped in `bytes20` to bypass Solidity's strict address-literal
-  // checksum check (the canonical casing `0x0000000071727De22E5E9d8BDe0DfeC0cEB6A7d7`
-  // raises an error on some compilers due to mixing cases).
-  address internal constant ENTRY_POINT = address(bytes20(uint160(0x0571727dE22E5E9d8BDe0DfeC0cEB6A7d7)));
+  // checksum check (the canonical casing
+  // `0x0000000071727De22E5E9d8BDe0dFeC0CEB6a7d7` raises an error on some
+  // compilers due to mixing cases).
+  address internal constant ENTRY_POINT = address(bytes20(uint160(0x0571727dE22E5E9d8BDe0dfeC0cEB6A7d7)));
 
   uint8 LOG_LEVEL;
   uint256 DEFAULT_BLOCKS_COUNT;
@@ -32,10 +31,6 @@ contract Functions is Constants, Signatures {
   MyMultiSigFactoryWithChugSplash public myMultiSigFactoryWithChugSplash;
   MyMultiSigExtended public myMultiSigExtended;
   MyMultiSig public myMultiSig;
-
-  // v0.5.0 factory bookkeeping — implementation + deployer wires.
-  address public myMultiSigV2_5Impl;
-  address public myMultiSigV2_5Deployer;
 
   enum TestType {
     TestWithFactory,
@@ -87,19 +82,10 @@ contract Functions is Constants, Signatures {
     vm.prank(ADMIN);
 
     if (testType_ == TestType.TestWithFactory || testType_ == TestType.TestWithFactory_extended) {
-      // v0.5.0 factory constructor takes five deployer/implementation
-      // arguments: the v0.4.0 trio plus the V2_5 implementation and the
-      // V2_5 deployer. Tests that don't exercise V2_5 still need to wire
-      // real (or zero) addresses here — pass the implementation address
-      // as `address(new MyMultiSigV2_5Deployer())` so layout checks pass.
-      myMultiSigV2_5Impl = address(new MyMultiSigV2_5(CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD, ENTRY_POINT));
-      myMultiSigV2_5Deployer = address(new MyMultiSigV2_5Deployer());
       myMultiSigFactory = new MyMultiSigFactory(
         address(new MyMultiSigDeployer()),
         address(new MyMultiSigExtendedDeployer()),
-        address(new MyMultiSigAdvancedDeployer(address(new MyMultiSigExtendedDeployer()))),
-        myMultiSigV2_5Impl,
-        myMultiSigV2_5Deployer
+        address(new MyMultiSigAdvancedDeployer(address(new MyMultiSigExtendedDeployer())))
       );
       if (testType_ == TestType.TestWithFactory)
         (, myMultiSig) = help_createMultiSig(ADMIN, CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD);
@@ -114,7 +100,7 @@ contract Functions is Constants, Signatures {
       // else
       // (, myMultiSig) = help_createMultiSig(ADMIN, CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD);
     } else if (testType_ == TestType.TestWithoutFactory_extended) {
-      myMultiSigExtended = new MyMultiSigExtended(CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD, ONLY_OWNERS_REQUEST);
+      myMultiSigExtended = new MyMultiSigExtended(CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD, ONLY_OWNERS_REQUEST, ENTRY_POINT);
       myMultiSig = MyMultiSig(payable(address(myMultiSigExtended)));
     } else {
       myMultiSig = new MyMultiSig(CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD);
@@ -191,6 +177,30 @@ contract Functions is Constants, Signatures {
     bytes sig;
   }
 
+  /// @dev Compute the EIP-712 inner hash for either the v0.4.0 base
+  ///      wallet or the v0.5.0 extended wallet. Factored into a helper
+  ///      to keep `build_signatures` under the stack-depth limit.
+  function build_innerHash(
+    MyMultiSig multiSig_,
+    address to_,
+    uint256 value_,
+    bytes memory data_,
+    uint256 txnGas_,
+    uint256 nonce_,
+    uint256 validUntil_
+  ) public view returns (bytes32) {
+    bool extended = isExtended(multiSig_);
+    bytes32 typehash = extended
+      ? keccak256('Transaction(address to,uint256 value,bytes data,uint256 gas,uint96 nonce,uint256 validUntil,uint8 operation)')
+      : keccak256('Transaction(address to,uint256 value,bytes data,uint256 gas,uint96 nonce,uint256 validUntil)');
+    if (extended) {
+      return keccak256(
+        abi.encode(typehash, to_, value_, keccak256(data_), txnGas_, nonce_, validUntil_, uint8(0))
+      );
+    }
+    return keccak256(abi.encode(typehash, to_, value_, keccak256(data_), txnGas_, nonce_, validUntil_));
+  }
+
   function build_signatures(
     MyMultiSig multiSig_,
     uint256[] memory ownersPk_,
@@ -202,17 +212,7 @@ contract Functions is Constants, Signatures {
   ) public returns (bytes memory signatures) {
     uint256 nonce = multiSig_.nonce();
     bytes32 domainSeparator = build_domainSeparator(multiSig_, multiSig_.name());
-    bytes32 innerHash = keccak256(
-      abi.encode(
-        keccak256('Transaction(address to,uint256 value,bytes data,uint256 gas,uint96 nonce,uint256 validUntil)'),
-        to_,
-        value_,
-        keccak256(data_),
-        txnGas_,
-        nonce,
-        validUntil_
-      )
-    );
+    bytes32 innerHash = build_innerHash(multiSig_, to_, value_, data_, txnGas_, nonce, validUntil_);
     Vote[] memory votes = new Vote[](ownersPk_.length);
     for (uint256 i = 0; i < ownersPk_.length; i++) {
       votes[i] = Vote({
@@ -304,7 +304,22 @@ contract Functions is Constants, Signatures {
       vm.expectEmit(true, true, true, false);
       emit TransactionExecuted(prank_, to_, value_, data_, txnGas_, nonce_);
     }
-    multiSig_.execTransaction(to_, value_, data_, txnGas_, signatures_);
+    // v0.5.0 — extended wallets use the 8-arg overload (txnNonce +
+    // operation). Base wallets still take the 5-arg overload.
+    if (isExtended(multiSig_)) {
+      MyMultiSigExtended(payable(address(multiSig_))).execTransaction(
+        to_,
+        value_,
+        data_,
+        txnGas_,
+        nonce_,
+        0,
+        0, // operation = 0 (CALL)
+        signatures_
+      );
+    } else {
+      multiSig_.execTransaction(to_, value_, data_, txnGas_, signatures_);
+    }
   }
 
   /// @notice Overload that threads `validUntil_` through the 6-arg
@@ -336,7 +351,10 @@ contract Functions is Constants, Signatures {
     }
     if (extended) {
       MyMultiSigExtended extended_ = MyMultiSigExtended(payable(address(multiSig_)));
-      extended_.execTransaction(to_, value_, data_, txnGas_, nonce_, validUntil_, signatures_);
+      // v0.5.0 — 8-arg overload with explicit `operation` byte. The
+      // disabled v0.4.0 7-arg overload reverts with
+      // `V2_5RequiresOperationByte()`.
+      extended_.execTransaction(to_, value_, data_, txnGas_, nonce_, validUntil_, 0, signatures_);
     } else {
       multiSig_.execTransaction(to_, value_, data_, txnGas_, validUntil_, signatures_);
     }
