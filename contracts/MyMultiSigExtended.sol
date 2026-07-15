@@ -8,30 +8,14 @@ import './interfaces/IEntryPoint.sol';
 import './interfaces/PackedUserOperation.sol';
 
 /// @title MyMultiSigExtended (v0.5.0)
-/// @notice Inactivity / delegate handover from v0.3.0, plus four opt-in
-///         v0.4.0 features: timelock on sensitive admin calls, pluggable
-///         transaction guard with a built-in target allowlist, per-owner
-///         daily spending allowance, and a Safe-style enabled module
-///         registry. All four v0.4.0 features are disabled by default, so
-///         existing wallets (and existing signatures) behave unchanged
-///         until the new setters are called.
-/// @notice direct delegation cap. The cap can also be lifted (briefly) by
-///         calling `setAllowedTarget(...)`. The same v0.4.0 storage is
-///         still appended at the END of the contract body.
-///         v0.5.0 ADDS on top:
-///         - An `operation` byte on the owner-signed `execTransaction`
-///           overloads (0 = CALL, 1 = DELEGATECALL gated to
-///           `to == address(this)`).
-///         - ERC-4337 v0.7 account abstraction (`IAccount.validateUserOp`
-///           and an `executeUserOp` reachable only via the pinned
-///           EntryPoint). Both features live on the existing
-///           `MyMultiSigExtended` class — there is NO separate v0.5.0
-///           wallet contract. Existing pre-v0.5.0 on-chain instances of
-///           `MyMultiSigExtended` stay frozen at their original bytecode
-///           (returning their old `version()` value); new wallets get
-///           `'0.5.0'` and the new features.
-/// @dev    New storage is appended at the END of the contract body to
-///         avoid colliding with any future base-wallet addition.
+/// @notice v0.3.0 inactivity / delegate handover, v0.4.0 opt-in
+///         features (timelock, guard, allowlist, allowance, modules),
+///         and v0.5.0 additions: an `operation` byte on
+///         `execTransaction` (0 = CALL, 1 = DELEGATECALL gated to
+///         `to == address(this)`) and ERC-4337 v0.7 account abstraction.
+///         All four v0.4.0 features remain disabled by default.
+/// @dev    Storage is appended at the END of each release so later
+///         versions never collide with earlier storage slots.
 contract MyMultiSigExtended is MyMultiSig, IAccount {
   // --- v0.3.0 state ---
   bool private _onlyOwnerRequest;
@@ -959,29 +943,22 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   }
 
   // ---------------------------------------------------------------------------
-  // v0.5.0 — `operation` byte on execTransaction + ERC-4337 v0.7 support
+  // v0.5.0 — `operation` byte on execTransaction + ERC-4337 v0.7
   // ---------------------------------------------------------------------------
 
-  /// @notice EIP-712 typehash for the v0.5.0 owner-signed payload. The
-  ///         new field `operation` binds the `operation` byte into the
-  ///         signature, so the same `(to, value, data, gas, nonce,
-  ///         validUntil)` payload with different `operation` values
-  ///         produces different hashes and won't cross-validate.
+  /// @notice v0.5.0 EIP-712 typehash (binds `operation`).
   bytes32 private constant _TRANSACTION_TYPEHASH_OP =
     keccak256(
       'Transaction(address to,uint256 value,bytes data,uint256 gas,uint96 nonce,uint256 validUntil,uint8 operation)'
     );
 
-  /// @notice ERC-4337 v0.7 `validationData` magic value for "always valid".
+  /// @notice ERC-4337 v0.7 `validationData` magic values.
   uint256 private constant _SIG_VALIDATION_SUCCESS = 0;
-
-  /// @notice ERC-4337 v0.7 `validationData` magic value for failure.
   uint256 private constant _SIG_VALIDATION_FAILED = 1;
 
-  /// @notice v0.5.0 events. The base `TransactionExecuted` /
-  ///         `TxFailure` / `ContractEndOfLife` events still fire on every
-  ///         v0.5.0 path so existing indexers keep working; these v0.5.0
-  ///         events carry the `operation` byte so off-chain consumers
+  /// @notice v0.5.0 events. The base `TransactionExecuted` / `TxFailure`
+  ///         / `ContractEndOfLife` events still fire so existing indexers
+  ///         keep working; these carry `operation` so off-chain consumers
   ///         can distinguish CALL vs DELEGATECALL.
   event TransactionExecutedOp(
     address indexed sender,
@@ -1006,8 +983,6 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
 
   // --------- execTransaction overloads with operation byte ---------
 
-  /// @notice v0.5.0 entry point: 6 args, current nonce, no validUntil,
-  ///         `operation` bound into the EIP-712 payload.
   function execTransaction(
     address to,
     uint256 value,
@@ -1020,8 +995,6 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     if (nonce() > uint96(2 ** 96 - 1000)) emit ContractEndOfLife(2 ** 96 - nonce() - 1);
   }
 
-  /// @notice v0.5.0 entry point: 7 args, current nonce, explicit
-  ///         `validUntil`, `operation` bound into the payload.
   function execTransaction(
     address to,
     uint256 value,
@@ -1035,8 +1008,6 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     if (nonce() > uint96(2 ** 96 - 1000)) emit ContractEndOfLife(2 ** 96 - nonce() - 1);
   }
 
-  /// @notice v0.5.0 entry point: 8 args, custom nonce, explicit
-  ///         `validUntil`, `operation` bound into the payload.
   function execTransaction(
     address to,
     uint256 value,
@@ -1051,9 +1022,10 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     if (nonce() > uint96(2 ** 96 - 1000)) emit ContractEndOfLife(2 ** 96 - nonce() - 1);
   }
 
-  /// @notice Disabled override of the v0.4.0 5-arg overload. v0.5.0
-  ///         requires the `operation` byte, so the base's no-op-byte
-  ///         path is unreachable on v0.5.0 wallets.
+  // Disabled overrides — the v0.4.0 overloads (no `operation` byte) are
+  // unreachable on v0.5.0. The actual `override` lives at the original
+  // 7-arg declaration further up in this file.
+
   function execTransaction(
     address /* to */,
     uint256 /* value */,
@@ -1064,8 +1036,6 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     revert RequiresOperationByte();
   }
 
-  /// @notice Disabled override of the v0.4.0 6-arg overload (with
-  ///         `validUntil` but no `operation`).
   function execTransaction(
     address /* to */,
     uint256 /* value */,
@@ -1077,17 +1047,9 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     revert RequiresOperationByte();
   }
 
-  /// @notice Disabled override of the v0.4.0 7-arg overload (with
-  ///         `txnNonce + validUntil` but no `operation`) — see the
-  ///         disabled version earlier in this file (the actual override
-  ///         lives where the v0.4.0 7-arg overload was originally
-  ///         declared, to avoid duplicate override declarations).
+  // --------- EIP-712 hash + signature helpers ---------
 
-  // --------- v0.5.0 EIP-712 hash + view-side signature helpers ---------
-
-  /// @notice v0.5.0 EIP-712 typed-data hash. The 7-field hash binds
-  ///         `operation` so signatures against the v0.4.0 6-field hash
-  ///         do NOT validate here.
+  /// @notice EIP-712 typed-data hash. 7-field, binds `operation`.
   function generateHashOp(
     address to,
     uint256 value,
@@ -1114,8 +1076,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
       );
   }
 
-  /// @notice 7-arg view `isValidSignature` overload that includes
-  ///         `operation` in the bound hash.
+  /// @notice 7-arg view `isValidSignature` overload.
   function isValidSignature(
     address to,
     uint256 value,
@@ -1130,12 +1091,9 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     return _checkSignaturesOp(txHash, txnNonce, validUntil, signatures);
   }
 
-  /// @notice View-side signature check that mirrors `_checkSignatures`
-  ///         (base wallet, line 546) but rejects stale nonces via the
-  ///         v0.4.0 `_noncesUsed` map. Reads private state through the
-  ///         public accessors (`threshold`, `isOwner`,
-  ///         `getApprovedOwners`) because the base's storage vars are
-  ///         `private`.
+  /// @dev Reads base-wallet state via `threshold` / `isOwner` /
+  ///      `getApprovedOwners` accessors since the base's storage vars
+  ///      are `private`.
   function _checkSignaturesOp(
     bytes32 txHash,
     uint256 txnNonce,
@@ -1166,8 +1124,8 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     return counted >= threshold_;
   }
 
-  /// @notice Mutating-side validator that records the per-`(nonce, owner)`
-  ///         slot consumed (mirrors the v0.4.0 `_validateSignature`).
+  /// @dev Mutating-side validator that records each vote's
+  ///      `(nonce, owner)` slot via `_recordVote`.
   function _validateSignatureOp(
     bytes32 txHash,
     uint256 txnNonce,
@@ -1200,15 +1158,8 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     return counted >= threshold_;
   }
 
-  // --------- Internal v0.5.0 exec orchestrator ---------
+  // --------- Internal exec orchestrator ---------
 
-  /// @notice Internal v0.5.0 exec path. Mirrors `_execTransaction`
-  ///         (MyMultiSig.sol:326) but:
-  ///         - rejects `operation` outside `0..1`,
-  ///         - rejects DELEGATECALL unless `to == address(this)`,
-  ///         - dispatches via assembly `call` or `delegatecall`,
-  ///         - emits v0.5.0 events with `operation` as a non-indexed
-  ///           field so off-chain indexers can route CALL vs DELEGATECALL.
   function _execExtended(
     address to,
     uint256 value,
@@ -1249,8 +1200,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     }
   }
 
-  /// @notice Thin assembly `call` wrapper used by `_execExtended` for the
-  ///         CALL branch (operation == 0).
+  /// @dev Thin assembly wrapper for the CALL branch.
   function _lowLevelCall(
     uint256 gasBudget,
     address to,
@@ -1267,11 +1217,9 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     }
   }
 
-  /// @notice Thin assembly `delegatecall` wrapper used by
-  ///         `_execExtended` for the DELEGATECALL branch (operation == 1).
-  ///         The `to` argument is verified to equal `address(this)` by
-  ///         the calling `_execExtended` so the code at `to` runs in
-  ///         the wallet's storage context.
+  /// @dev Thin assembly wrapper for the DELEGATECALL branch. `to` is
+  ///      verified equal to `address(this)` by `_execExtended` so the
+  ///      code at `to` runs in this wallet's storage context.
   function _lowLevelDelegateCall(
     uint256 gasBudget,
     address to,
@@ -1289,18 +1237,11 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
 
   // --------- ERC-4337 v0.7 ---------
 
-  /// @notice IAccount.validateUserOp (v0.7). Called by the EntryPoint
-  ///         (via a bundler) BEFORE the operation is added to a batch.
-  ///         Pure validation; does NOT execute or advance `_txnNonce`.
-  /// @dev    We require:
-  ///         - `msg.sender == ENTRY_POINT` (so an EOA can't probe hashes),
-  ///         - `userOp.sender == address(this)` (so a bundler can't ask
-  ///           us to validate someone else's hash),
-  ///         - `operation == 0` (DELEGATECALL from a 4337 flow would
-  ///           touch wallet storage in ways the bundler cannot
-  ///           anticipate — gate behind CALL for safety),
-  ///         - `userOp.nonce == current _txnNonce`,
-  ///         - threshold reached via `_checkSignaturesOp`.
+  /// @notice IAccount.validateUserOp (v0.7). Caller must be `ENTRY_POINT`;
+  ///         requires `userOp.sender == address(this)`, `operation == 0`,
+  ///         `userOp.nonce == _txnNonce`, and threshold-reached
+  ///         signatures. Returns 0 on success, 1 (`SIG_VALIDATION_FAILED`)
+  ///         on failure.
   function validateUserOp(
     PackedUserOperation calldata userOp,
     bytes32 /* userOpHash */,
@@ -1322,8 +1263,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     return _SIG_VALIDATION_SUCCESS;
   }
 
-  /// @notice EntryPoint-only execution path for `UserOp`s. Reconstructs
-  ///         the inner (to, value, data, gas, validUntil, operation)
+  /// @notice EntryPoint-only execution path. Reconstructs the inner call
   ///         from `userOp.callData` and runs it through `_execExtended`.
   function executeUserOp(PackedUserOperation calldata userOp) external payable {
     if (msg.sender != address(ENTRY_POINT)) revert NotEntryPoint();
@@ -1336,18 +1276,11 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     emit UserOpExecuted(userOpHash, nonce());
   }
 
-  /// @notice Canonical encoding for the inner call of a user operation.
-  ///         The bundler MUST ABI-encode this tuple into `userOp.callData`:
-  ///         `abi.encode(address to, uint256 value, bytes data, uint256 txnGas,
-  ///         uint256 validUntil, uint8 operation)`.
-  /// @dev    MyMultiSigExtended deliberately uses this non-standard
-  ///         `callData` encoding rather than the upstream
-  ///         `IExecute.execute(dest, value, func)` shape because the
-  ///         wallet already routes the inner call through `_execExtended`.
-  ///         A reference bundler that supports `IExecute.execute` can
-  ///         still drive MyMultiSigExtended by encoding
-  ///         `func = abi.encodeCall(this.executeUserOp.selector,
-  ///         abi.encode(to, value, data, gas, validUntil, operation))`.
+  /// @notice Bundler convention: `userOp.callData = abi.encode(to, value,
+  ///         data, gas, validUntil, operation)`. This is a non-standard
+  ///         inner encoding — reference `IExecute.execute` callers can
+  ///         still drive this wallet by encoding
+  ///         `func = abi.encodeCall(executeUserOp, abi.encode(...))`.
   function _decodeUserOpCallData(
     bytes calldata callData
   ) internal pure returns (address to, uint256 value, bytes memory data, uint256 gas, uint256 validUntil, uint8 operation) {
