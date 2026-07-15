@@ -9,8 +9,15 @@ contract MyMultiSigFactory is MyMultiSigFactorable, Initializable {
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(
     address myMultiSigDeployer_,
-    address myMultiSigExtendedDeployer_
-  ) MyMultiSigFactorable(myMultiSigDeployer_, myMultiSigExtendedDeployer_) {}
+    address myMultiSigExtendedDeployer_,
+    address myMultiSigAdvancedDeployer_
+  )
+    MyMultiSigFactorable(
+      myMultiSigDeployer_,
+      myMultiSigExtendedDeployer_,
+      myMultiSigAdvancedDeployer_
+    )
+  {}
 
   function initialize() external initializer {}
 }

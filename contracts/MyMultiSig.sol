@@ -791,6 +791,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     if (newThreshold == 0) revert ThresholdMustBeGreaterThanZero();
     if (newThreshold > _ownerCount) revert ThresholdMustBeLessOrEqualToOwnerCount();
     _threshold = newThreshold;
+    emit ThresholdChanged(newThreshold);
   }
 
   /// @notice Replaces an owner with a new owner
@@ -848,12 +849,6 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
           )
         )
       );
-  }
-
-  /// @notice Returns the current transaction nonce
-  /// @return The current transaction nonce.
-  function verifyNonce(uint256 nonce_) internal view virtual returns (bool) {
-    return nonce_ == _txnNonce;
   }
 
   /// @notice Increments the transaction nonce, can be use to invalidate previous signatures

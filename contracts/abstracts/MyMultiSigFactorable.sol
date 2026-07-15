@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import '../interfaces/IMyMultiSigDeployer.sol';
 import '../interfaces/IMyMultiSigExtendedDeployer.sol';
+import '../interfaces/IMyMultiSigAdvancedDeployer.sol';
 import '../libs/MyMultiSigFactorableModels.sol';
 
 /// @title MyMultiSigFactorable
@@ -20,6 +21,8 @@ abstract contract MyMultiSigFactorable {
   address public immutable myMultiSigDeployer;
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   address public immutable myMultiSigExtendedDeployer;
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+  address public immutable myMultiSigAdvancedDeployer;
 
   uint256 private _multiSigCount;
 
@@ -38,9 +41,14 @@ abstract contract MyMultiSigFactorable {
   );
 
   /// @custom:oz-upgrades-unsafe-allow constructor
-  constructor(address myMultiSigDeployer_, address myMultiSigExtendedDeployer_) {
+  constructor(
+    address myMultiSigDeployer_,
+    address myMultiSigExtendedDeployer_,
+    address myMultiSigAdvancedDeployer_
+  ) {
     myMultiSigDeployer = myMultiSigDeployer_;
     myMultiSigExtendedDeployer = myMultiSigExtendedDeployer_;
+    myMultiSigAdvancedDeployer = myMultiSigAdvancedDeployer_;
   }
 
   /// @notice Retrieves the contract name
@@ -142,5 +150,44 @@ abstract contract MyMultiSigFactorable {
     }
 
     emit MyMultiSigCreated(msg.sender, contractAddress, _multiSigCount, contractName, owners, threshold);
+  }
+
+  /// @notice Creates a new MyMultiSigExtended (v0.4.0) instance through the
+  ///         "Advanced" deployer. The bytecode is currently identical to the
+  ///         Extended deployer — we keep a separate entry point so future
+  ///         Advanced-only features can ship without re-deploying the wallet.
+  /// @param contractName The name of your multisig contract
+  /// @param owners The owners list
+  /// @param threshold The amount of owners signature require to execute transactions
+  function createMyMultiSigAdvanced(
+    string memory contractName,
+    address[] memory owners,
+    uint16 threshold,
+    bool isOnlyOwnerRequest
+  ) public payable returns (address contractAddress) {
+    contractAddress = IMyMultiSigAdvancedDeployer(myMultiSigAdvancedDeployer).deployMyMultiSigAdvanced(
+      contractName,
+      owners,
+      threshold,
+      isOnlyOwnerRequest
+    );
+
+    _multiSigs[_multiSigCount] = contractAddress;
+    _multiSigIndexByCreator[msg.sender][_multiSigCreatorCount[msg.sender]] = _multiSigCount;
+    unchecked {
+      _multiSigCreatorCount[msg.sender]++;
+    }
+    _multiSigCreationType[_multiSigCount] = MyMultiSigFactorableModels.CreationType.ADVANCED;
+    unchecked {
+      _multiSigCount++;
+    }
+
+    emit MyMultiSigCreated(msg.sender, contractAddress, _multiSigCount, contractName, owners, threshold);
+  }
+
+  /// @notice Convenience view: `true` iff the multisig at `index` was
+  ///         created via the Advanced deployer.
+  function isAdvanced(uint256 index) public view returns (bool) {
+    return _multiSigCreationType[index] == MyMultiSigFactorableModels.CreationType.ADVANCED;
   }
 }
