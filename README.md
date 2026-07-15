@@ -131,6 +131,19 @@ module.execDelegateCall(calldata);       // DELEGATECALL (op=1, to == wallet onl
 
 `advancedFeaturesEnabled()` returns a bitmask (1=timelock, 2=guard, 4=allowlist, 8=allowance, 16=module) for UI/explorer use.
 
+### Factory bookkeeping (v0.4.0)
+
+The factory now tracks per-type counts and exposes an address-keyed type lookup:
+
+```solidity
+uint256 simpleCount();      // base MyMultiSig wallets
+uint256 extendedCount();     // MyMultiSigExtended (incl. Advanced)
+uint256 advancedCount();     // wallets created via the Advanced deployer
+uint256 creationTypeCount(MyMultiSigFactorableModels.CreationType);
+MyMultiSigFactorableModels.CreationType creationTypeOf(address wallet);
+bool isExtended(address wallet);    // true for Extended + Advanced
+```
+
 `MyMultiSigAdvancedTests()` is the new exported test group in `test/shared/tests.ts` (entry files `test/MyMultiSigAdvanced.test.ts` and `test/MyMultiSigAdvancedFromFactory.test.ts`); Foundry mirrors under `contracts/test/shared/tests.t.sol`. Helpers (`setTimelockDelay`, `enableModule`, …) live in `test/shared/functions.ts`.
 
 ### Cleanups bundled with v0.4.0

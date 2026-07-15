@@ -30,12 +30,17 @@ import type {
 
 export interface MyMultiSigFactoryInterface extends utils.Interface {
   functions: {
+    "advancedCount()": FunctionFragment;
     "createMultiSig(string,address[],uint16)": FunctionFragment;
     "createMyMultiSigAdvanced(string,address[],uint16,bool)": FunctionFragment;
     "createMyMultiSigExtended(string,address[],uint16,bool)": FunctionFragment;
     "creationType(uint256)": FunctionFragment;
+    "creationTypeCount(uint8)": FunctionFragment;
+    "creationTypeOf(address)": FunctionFragment;
+    "extendedCount()": FunctionFragment;
     "initialize()": FunctionFragment;
     "isAdvanced(uint256)": FunctionFragment;
+    "isExtended(address)": FunctionFragment;
     "multiSig(uint256)": FunctionFragment;
     "multiSigByCreator(address,uint256)": FunctionFragment;
     "multiSigCount()": FunctionFragment;
@@ -44,17 +49,23 @@ export interface MyMultiSigFactoryInterface extends utils.Interface {
     "myMultiSigDeployer()": FunctionFragment;
     "myMultiSigExtendedDeployer()": FunctionFragment;
     "name()": FunctionFragment;
+    "simpleCount()": FunctionFragment;
     "version()": FunctionFragment;
   };
 
   getFunction(
     nameOrSignatureOrTopic:
+      | "advancedCount"
       | "createMultiSig"
       | "createMyMultiSigAdvanced"
       | "createMyMultiSigExtended"
       | "creationType"
+      | "creationTypeCount"
+      | "creationTypeOf"
+      | "extendedCount"
       | "initialize"
       | "isAdvanced"
+      | "isExtended"
       | "multiSig"
       | "multiSigByCreator"
       | "multiSigCount"
@@ -63,9 +74,14 @@ export interface MyMultiSigFactoryInterface extends utils.Interface {
       | "myMultiSigDeployer"
       | "myMultiSigExtendedDeployer"
       | "name"
+      | "simpleCount"
       | "version"
   ): FunctionFragment;
 
+  encodeFunctionData(
+    functionFragment: "advancedCount",
+    values?: undefined
+  ): string;
   encodeFunctionData(
     functionFragment: "createMultiSig",
     values: [
@@ -97,12 +113,28 @@ export interface MyMultiSigFactoryInterface extends utils.Interface {
     values: [PromiseOrValue<BigNumberish>]
   ): string;
   encodeFunctionData(
+    functionFragment: "creationTypeCount",
+    values: [PromiseOrValue<BigNumberish>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "creationTypeOf",
+    values: [PromiseOrValue<string>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "extendedCount",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
     functionFragment: "initialize",
     values?: undefined
   ): string;
   encodeFunctionData(
     functionFragment: "isAdvanced",
     values: [PromiseOrValue<BigNumberish>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "isExtended",
+    values: [PromiseOrValue<string>]
   ): string;
   encodeFunctionData(
     functionFragment: "multiSig",
@@ -133,8 +165,16 @@ export interface MyMultiSigFactoryInterface extends utils.Interface {
     values?: undefined
   ): string;
   encodeFunctionData(functionFragment: "name", values?: undefined): string;
+  encodeFunctionData(
+    functionFragment: "simpleCount",
+    values?: undefined
+  ): string;
   encodeFunctionData(functionFragment: "version", values?: undefined): string;
 
+  decodeFunctionResult(
+    functionFragment: "advancedCount",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "createMultiSig",
     data: BytesLike
@@ -151,8 +191,21 @@ export interface MyMultiSigFactoryInterface extends utils.Interface {
     functionFragment: "creationType",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(
+    functionFragment: "creationTypeCount",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "creationTypeOf",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "extendedCount",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "initialize", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "isAdvanced", data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: "isExtended", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "multiSig", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "multiSigByCreator",
@@ -179,6 +232,10 @@ export interface MyMultiSigFactoryInterface extends utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "name", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "simpleCount",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "version", data: BytesLike): Result;
 
   events: {
@@ -240,6 +297,8 @@ export interface MyMultiSigFactory extends BaseContract {
   removeListener: OnEvent<this>;
 
   functions: {
+    advancedCount(overrides?: CallOverrides): Promise<[BigNumber]>;
+
     createMultiSig(
       contractName: PromiseOrValue<string>,
       owners: PromiseOrValue<string>[],
@@ -268,12 +327,29 @@ export interface MyMultiSigFactory extends BaseContract {
       overrides?: CallOverrides
     ): Promise<[number]>;
 
+    creationTypeCount(
+      kind: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<[BigNumber]>;
+
+    creationTypeOf(
+      contractAddress: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<[number]>;
+
+    extendedCount(overrides?: CallOverrides): Promise<[BigNumber]>;
+
     initialize(
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
     isAdvanced(
       index: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<[boolean]>;
+
+    isExtended(
+      contractAddress: PromiseOrValue<string>,
       overrides?: CallOverrides
     ): Promise<[boolean]>;
 
@@ -303,8 +379,12 @@ export interface MyMultiSigFactory extends BaseContract {
 
     name(overrides?: CallOverrides): Promise<[string]>;
 
+    simpleCount(overrides?: CallOverrides): Promise<[BigNumber]>;
+
     version(overrides?: CallOverrides): Promise<[string]>;
   };
+
+  advancedCount(overrides?: CallOverrides): Promise<BigNumber>;
 
   createMultiSig(
     contractName: PromiseOrValue<string>,
@@ -334,12 +414,29 @@ export interface MyMultiSigFactory extends BaseContract {
     overrides?: CallOverrides
   ): Promise<number>;
 
+  creationTypeCount(
+    kind: PromiseOrValue<BigNumberish>,
+    overrides?: CallOverrides
+  ): Promise<BigNumber>;
+
+  creationTypeOf(
+    contractAddress: PromiseOrValue<string>,
+    overrides?: CallOverrides
+  ): Promise<number>;
+
+  extendedCount(overrides?: CallOverrides): Promise<BigNumber>;
+
   initialize(
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
   isAdvanced(
     index: PromiseOrValue<BigNumberish>,
+    overrides?: CallOverrides
+  ): Promise<boolean>;
+
+  isExtended(
+    contractAddress: PromiseOrValue<string>,
     overrides?: CallOverrides
   ): Promise<boolean>;
 
@@ -369,9 +466,13 @@ export interface MyMultiSigFactory extends BaseContract {
 
   name(overrides?: CallOverrides): Promise<string>;
 
+  simpleCount(overrides?: CallOverrides): Promise<BigNumber>;
+
   version(overrides?: CallOverrides): Promise<string>;
 
   callStatic: {
+    advancedCount(overrides?: CallOverrides): Promise<BigNumber>;
+
     createMultiSig(
       contractName: PromiseOrValue<string>,
       owners: PromiseOrValue<string>[],
@@ -400,10 +501,27 @@ export interface MyMultiSigFactory extends BaseContract {
       overrides?: CallOverrides
     ): Promise<number>;
 
+    creationTypeCount(
+      kind: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    creationTypeOf(
+      contractAddress: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<number>;
+
+    extendedCount(overrides?: CallOverrides): Promise<BigNumber>;
+
     initialize(overrides?: CallOverrides): Promise<void>;
 
     isAdvanced(
       index: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<boolean>;
+
+    isExtended(
+      contractAddress: PromiseOrValue<string>,
       overrides?: CallOverrides
     ): Promise<boolean>;
 
@@ -433,6 +551,8 @@ export interface MyMultiSigFactory extends BaseContract {
 
     name(overrides?: CallOverrides): Promise<string>;
 
+    simpleCount(overrides?: CallOverrides): Promise<BigNumber>;
+
     version(overrides?: CallOverrides): Promise<string>;
   };
 
@@ -459,6 +579,8 @@ export interface MyMultiSigFactory extends BaseContract {
   };
 
   estimateGas: {
+    advancedCount(overrides?: CallOverrides): Promise<BigNumber>;
+
     createMultiSig(
       contractName: PromiseOrValue<string>,
       owners: PromiseOrValue<string>[],
@@ -487,12 +609,29 @@ export interface MyMultiSigFactory extends BaseContract {
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
+    creationTypeCount(
+      kind: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    creationTypeOf(
+      contractAddress: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    extendedCount(overrides?: CallOverrides): Promise<BigNumber>;
+
     initialize(
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
     isAdvanced(
       index: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    isExtended(
+      contractAddress: PromiseOrValue<string>,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
@@ -522,10 +661,14 @@ export interface MyMultiSigFactory extends BaseContract {
 
     name(overrides?: CallOverrides): Promise<BigNumber>;
 
+    simpleCount(overrides?: CallOverrides): Promise<BigNumber>;
+
     version(overrides?: CallOverrides): Promise<BigNumber>;
   };
 
   populateTransaction: {
+    advancedCount(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
     createMultiSig(
       contractName: PromiseOrValue<string>,
       owners: PromiseOrValue<string>[],
@@ -554,12 +697,29 @@ export interface MyMultiSigFactory extends BaseContract {
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
+    creationTypeCount(
+      kind: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    creationTypeOf(
+      contractAddress: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    extendedCount(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
     initialize(
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
     isAdvanced(
       index: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    isExtended(
+      contractAddress: PromiseOrValue<string>,
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
@@ -594,6 +754,8 @@ export interface MyMultiSigFactory extends BaseContract {
     ): Promise<PopulatedTransaction>;
 
     name(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    simpleCount(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     version(overrides?: CallOverrides): Promise<PopulatedTransaction>;
   };

@@ -2683,3 +2683,108 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
     })
   })
 }
+
+// ---------------------------------------------------------------------------
+// Factory — per-type counters + address-keyed lookup
+// ---------------------------------------------------------------------------
+
+export async function MyMultiSigFactoryTests() {
+  let provider: any
+  let owner01: any
+  let user01: any
+  let deployment: any
+  let factory: any
+
+  describe('MyMultiSig - Factory Bookkeeping Tests', function () {
+    before(async function () {
+      ;[provider, owner01, , , user01] = await Helper.setupProviderAndAccount()
+    })
+
+    beforeEach(async function () {
+      deployment = await Helper.setupContract(Helper.CONTRACT_FACTORY_NAME, [owner01.address], 1, true)
+      factory = deployment.contract
+    })
+
+    it('reports zero per-type counts on a fresh factory', async function () {
+      expect(await factory.simpleCount()).to.be.equal(0)
+      expect(await factory.extendedCount()).to.be.equal(0)
+      expect(await factory.advancedCount()).to.be.equal(0)
+      expect(await factory.multiSigCount()).to.be.equal(0)
+      expect(await factory.creationTypeCount(0)).to.be.equal(0) // SIMPLE
+      expect(await factory.creationTypeCount(1)).to.be.equal(0) // EXTENDED
+      expect(await factory.creationTypeCount(2)).to.be.equal(0) // ADVANCED
+    })
+
+    it('counts each createMultiSig as SIMPLE and isExtended(address) returns false', async function () {
+      const tx = await factory.createMultiSig(Helper.CONTRACT_NAME, [owner01.address], 1)
+      const receipt = await tx.wait()
+      const walletAddress = await factory.multiSig(0)
+      expect(walletAddress).to.be.properAddress
+      expect(await factory.simpleCount()).to.be.equal(1)
+      expect(await factory.extendedCount()).to.be.equal(0)
+      expect(await factory.advancedCount()).to.be.equal(0)
+      expect(await factory.creationTypeOf(walletAddress)).to.be.equal(0) // SIMPLE
+      expect(await factory.isExtended(walletAddress)).to.be.false
+      // Untracked addresses report SIMPLE (default enum) — the user-facing
+      // semantic is `isExtended(...) == false`.
+      expect(await factory.creationTypeOf(user01.address)).to.be.equal(0)
+      expect(await factory.isExtended(user01.address)).to.be.false
+    })
+
+    it('counts createMyMultiSigExtended as EXTENDED and isExtended(addr) returns true', async function () {
+      const tx = await factory.createMyMultiSigExtended(
+        Helper.CONTRACT_NAME,
+        [owner01.address],
+        1,
+        Helper.DEFAULT_ALLOW_ONLY_OWNER,
+      )
+      const receipt = await tx.wait()
+      const walletAddress = await factory.multiSig(0)
+      expect(await factory.simpleCount()).to.be.equal(0)
+      expect(await factory.extendedCount()).to.be.equal(1)
+      expect(await factory.advancedCount()).to.be.equal(0)
+      expect(await factory.creationTypeOf(walletAddress)).to.be.equal(1) // EXTENDED
+      expect(await factory.isExtended(walletAddress)).to.be.true
+    })
+
+    it('counts createMyMultiSigAdvanced as ADVANCED and isExtended(addr) returns true', async function () {
+      const tx = await factory.createMyMultiSigAdvanced(
+        Helper.CONTRACT_NAME,
+        [owner01.address],
+        1,
+        Helper.DEFAULT_ALLOW_ONLY_OWNER,
+      )
+      const receipt = await tx.wait()
+      const walletAddress = await factory.multiSig(0)
+      expect(await factory.simpleCount()).to.be.equal(0)
+      expect(await factory.extendedCount()).to.be.equal(0)
+      expect(await factory.advancedCount()).to.be.equal(1)
+      expect(await factory.creationTypeOf(walletAddress)).to.be.equal(2) // ADVANCED
+      expect(await factory.isExtended(walletAddress)).to.be.true
+    })
+
+    it('counts multiple wallets of each type and keeps multiSigCount = sum', async function () {
+      await factory.createMultiSig(Helper.CONTRACT_NAME, [owner01.address], 1)
+      await factory.createMultiSig(Helper.CONTRACT_NAME, [owner01.address], 1)
+      await factory.createMyMultiSigExtended(
+        Helper.CONTRACT_NAME,
+        [owner01.address],
+        1,
+        Helper.DEFAULT_ALLOW_ONLY_OWNER,
+      )
+      await factory.createMyMultiSigAdvanced(
+        Helper.CONTRACT_NAME,
+        [owner01.address],
+        1,
+        Helper.DEFAULT_ALLOW_ONLY_OWNER,
+      )
+      expect(await factory.simpleCount()).to.be.equal(2)
+      expect(await factory.extendedCount()).to.be.equal(1)
+      expect(await factory.advancedCount()).to.be.equal(1)
+      expect(await factory.multiSigCount()).to.be.equal(4)
+      // SUM via creationTypeCount equals the global total.
+      const total = (await factory.simpleCount()).add(await factory.extendedCount()).add(await factory.advancedCount())
+      expect(total).to.be.equal(await factory.multiSigCount())
+    })
+  })
+}
