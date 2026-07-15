@@ -6,21 +6,6 @@ import constants from '../../constants'
 import signature from './signatures'
 import { MyMultiSig, MyMultiSigExtended } from '../../typechain-types'
 
-/// @notice Resolves the EIP-712 domain version string for the wallet being
-///         tested. The BASE `MyMultiSig` returns `'0.3.0'` and is signed with
-///         `CONTRACT_VERSION`; the v0.4.0 `MyMultiSigExtended` returns
-///         `'0.4.0'` and is signed with `CONTRACT_VERSION_EXTENDED`.
-const eip712VersionFor = async (contract: MyMultiSig | MyMultiSigExtended): Promise<string> => {
-  // `version()` is a view; read it once per test scenario. `MyMultiSigExtended`
-  // is detected by the `allowOnlyOwnerRequest` accessor (only Extended has it).
-  const isExtended = typeof (contract as any).allowOnlyOwnerRequest === 'function'
-  if (isExtended) {
-    const v = await (contract as any).version()
-    if (typeof v === 'string' && v.length > 0) return v
-  }
-  return constants.CONTRACT_VERSION
-}
-
 export const ZERO = BigNumber.from(0)
 
 export const sendRawTxn = async (input: any, sender: Wallet, ethers: any, provider: any) => {
@@ -80,29 +65,12 @@ export const prepareSignatures = async (
   nonce = BigNumber.from(0),
   validUntil: number = 0,
 ) => {
-  // Resolve the EIP-712 domain version for this wallet (v0.3.0 for base,
-  // v0.4.0 for MyMultiSigExtended). Without this the typed-data domain
-  // mismatch makes `ecrecover` return the wrong address and the wallet
-  // reverts `InvalidSignatures`.
-  const version = await eip712VersionFor(contract)
-  // Build the per-owner ECDSA signatures first.
+  // ABI-encode the wallet's expected `(address owner, bytes sig)[]` shape.
   const votes: { owner: string; sig: string }[] = []
   for (var i = 0; i < owners.length; i++) {
-    const sig = await signature.signMultiSigTxn(
-      contract.address,
-      owners[i],
-      to,
-      value,
-      data,
-      gas,
-      nonce,
-      validUntil,
-      version,
-    )
+    const sig = await signature.signMultiSigTxn(contract.address, owners[i], to, value, data, gas, nonce, validUntil)
     votes.push({ owner: owners[i].address, sig })
   }
-  // ABI-encode as a dynamic tuple array: abi.encode( (address owner, bytes sig)[] ).
-  // Solidity decodes this with `abi.decode(sig, (Vote[]))`.
   return ethers.utils.defaultAbiCoder.encode(['tuple(address owner, bytes sig)[]'], [votes])
 }
 

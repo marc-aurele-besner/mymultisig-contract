@@ -69,15 +69,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
     })
 
     it('Contract return correct contract version', async function () {
-      // The Extended suite covers `MyMultiSigExtended` (v0.4.0) which
-      // overrides `version()` to `'0.4.0'`. The base-wallet standard suite
-      // uses `Helper.CONTRACT_VERSION = '0.3.0'` instead. Detect via the
-      // Extended-only `allowOnlyOwnerRequest` accessor.
-      const expectedVersion =
-        typeof (contract as any).allowOnlyOwnerRequest === 'function'
-          ? Helper.CONTRACT_VERSION_EXTENDED
-          : Helper.CONTRACT_VERSION
-      expect(await contract.version()).to.be.equal(expectedVersion)
+      expect(await contract.version()).to.be.equal(Helper.CONTRACT_VERSION)
     })
 
     it('Contract return correct threshold', async function () {
@@ -1133,15 +1125,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
     })
 
     it('Contract return correct contract version', async function () {
-      // The Extended suite covers `MyMultiSigExtended` (v0.4.0) which
-      // overrides `version()` to `'0.4.0'`. The base-wallet standard suite
-      // uses `Helper.CONTRACT_VERSION = '0.3.0'` instead. Detect via the
-      // Extended-only `allowOnlyOwnerRequest` accessor.
-      const expectedVersion =
-        typeof (contract as any).allowOnlyOwnerRequest === 'function'
-          ? Helper.CONTRACT_VERSION_EXTENDED
-          : Helper.CONTRACT_VERSION
-      expect(await contract.version()).to.be.equal(expectedVersion)
+      expect(await contract.version()).to.be.equal(Helper.CONTRACT_VERSION)
     })
 
     it('Contract return correct threshold', async function () {

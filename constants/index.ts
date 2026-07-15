@@ -10,18 +10,8 @@ export default {
   CONTRACT_FACTORY_NAME: 'MyMultiSigFactory',
   CONTRACT_FACTORY_VERSION: '0.2.0',
   CONTRACT_NAME: 'MyMultiSig',
-  /// @notice EIP-712 version string for the BASE `MyMultiSig` wallet. The
-  ///         v0.4.0 `MyMultiSigExtended` is built on top of this contract and
-  ///         bumps its `version()` getter to `'0.4.0'` for wallet-side
-  ///         introspection, but the signed-payload's EIP-712 domain MUST
-  ///         continue to match the wallet's `version()` exactly. Test
-  ///         helpers read this constant when signing for the base wallet and
-  ///         `CONTRACT_VERSION_EXTENDED` for Extended wallets.
-  CONTRACT_VERSION: '0.3.0',
+  CONTRACT_VERSION: '0.4.0',
   CONTRACT_NAME_EXTENDED: 'MyMultiSigExtended',
-  /// @notice EIP-712 version string for the `MyMultiSigExtended` v0.4.0
-  ///         wallet. Matches the wallet's `version()` getter.
-  CONTRACT_VERSION_EXTENDED: '0.4.0',
   DEFAULT_THRESHOLD: 2,
   DEFAULT_GAS: 75000,
   DEFAULT_ALLOW_ONLY_OWNER: true,
