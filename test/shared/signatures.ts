@@ -11,7 +11,8 @@ export default {
     value: BigNumber,
     data: string,
     gas: number,
-    nonce: BigNumber
+    nonce: BigNumber,
+    validUntil: number = 0
   ) {
     var signature = await sourceWallet._signTypedData(
       {
@@ -42,6 +43,10 @@ export default {
             name: 'nonce',
             type: 'uint96',
           },
+          {
+            name: 'validUntil',
+            type: 'uint256',
+          },
         ],
       },
       {
@@ -50,6 +55,7 @@ export default {
         data,
         gas,
         nonce,
+        validUntil,
       }
     )
     return signature
@@ -75,6 +81,7 @@ export default {
           { name: 'data', type: 'bytes' },
           { name: 'gas', type: 'uint256' },
           { name: 'nonce', type: 'uint96' },
+          { name: 'validUntil', type: 'uint256' },
         ],
       },
       hashFields,

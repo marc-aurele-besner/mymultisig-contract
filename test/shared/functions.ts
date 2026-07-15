@@ -62,12 +62,13 @@ export const prepareSignatures = async (
   value: BigNumber,
   data: `0x${string}`,
   gas = constants.DEFAULT_GAS as number,
-  nonce = BigNumber.from(0)
+  nonce = BigNumber.from(0),
+  validUntil: number = 0
 ) => {
   // Build the per-owner ECDSA signatures first.
   const votes: { owner: string; sig: string }[] = []
   for (var i = 0; i < owners.length; i++) {
-    const sig = await signature.signMultiSigTxn(contract.address, owners[i], to, value, data, gas, nonce)
+    const sig = await signature.signMultiSigTxn(contract.address, owners[i], to, value, data, gas, nonce, validUntil)
     votes.push({ owner: owners[i].address, sig })
   }
   // ABI-encode as a dynamic tuple array: abi.encode( (address owner, bytes sig)[] ).
@@ -85,14 +86,55 @@ export const execTransaction = async (
   gas = constants.DEFAULT_GAS as number,
   errorMsg?: string,
   extraEvents?: string[],
-  signatures?: string
+  signatures?: string,
+  validUntil: number = 0
 ) => {
   const nonce = await contract.nonce()
-  if (!signatures) signatures = await prepareSignatures(contract, owners, to, value, data, gas, nonce)
+  if (!signatures) signatures = await prepareSignatures(contract, owners, to, value, data, gas, nonce, validUntil)
 
-  const input = await contract
-    .connect(submitter)
-    .populateTransaction['execTransaction(address,uint256,bytes,uint256,bytes)'](to, value, data, gas, signatures)
+  // Pick the right `execTransaction` overload for the deployed contract.
+  // - `MyMultiSig` (base wallet) exposes BOTH the legacy 5-arg overload
+  //   (no deadline) and a new 6-arg overload that takes `validUntil`.
+  //   Default to the 5-arg overload for backwards-compat with existing
+  //   callers that pass `validUntil = 0`; switch to the 6-arg overload
+  //   whenever a non-zero deadline is supplied.
+  // - `MyMultiSigExtended` exposes only the 7-arg overload with custom
+  //   nonce + validUntil, so we pass both explicitly.
+  // We detect the Extended variant by the presence of its
+  // `allowOnlyOwnerRequest()` accessor (the base wallet doesn't have it).
+  const isExtended = typeof (contract as any).allowOnlyOwnerRequest === 'function'
+  const input = isExtended
+    ? await contract
+        .connect(submitter)
+        .populateTransaction['execTransaction(address,uint256,bytes,uint256,uint256,uint256,bytes)'](
+          to,
+          value,
+          data,
+          gas,
+          nonce,
+          validUntil,
+          signatures,
+        )
+    : validUntil !== 0
+      ? await contract
+          .connect(submitter)
+          .populateTransaction['execTransaction(address,uint256,bytes,uint256,uint256,bytes)'](
+            to,
+            value,
+            data,
+            gas,
+            validUntil,
+            signatures,
+          )
+      : await contract
+          .connect(submitter)
+          .populateTransaction['execTransaction(address,uint256,bytes,uint256,bytes)'](
+            to,
+            value,
+            data,
+            gas,
+            signatures,
+          )
 
   const receipt = await checkRawTxnResult(input, submitter, errorMsg, contract)
   if (!errorMsg) {
@@ -149,22 +191,24 @@ export const isValidSignature = async (
   data: `0x${string}`,
   gas = constants.DEFAULT_GAS as number,
   nonce = BigNumber.from(0),
-  errorMsg?: string
+  errorMsg?: string,
+  validUntil: number = 0
 ) => {
-  const signatures = await prepareSignatures(contract, owners, to, value, data, gas, nonce)
+  const signatures = await prepareSignatures(contract, owners, to, value, data, gas, nonce, validUntil)
 
   // ethers v5 can't disambiguate overloaded functions by name alone, so we
-  // pin the 6-arg overload via the explicit fragment selector. The new
-  // 2-arg `isValidSignature(bytes32,bytes)` (EIP-1271) is the only overload
-  // available without an address first.
-  const sixArg = 'isValidSignature(address,uint256,bytes,uint256,uint256,bytes)'
+  // pin the overload via the explicit fragment selector. The new
+  // `isValidSignature(bytes32,bytes)` (EIP-1271) is the only overload
+  // available without an address first; the address-first overload is now
+  // 7-arg to carry `validUntil`.
+  const sevenArg = 'isValidSignature(address,uint256,bytes,uint256,uint256,uint256,bytes)'
 
   if (!errorMsg)
-    return await contract.connect(submitter)[sixArg](to, value, data, gas, nonce, signatures)
+    return await contract.connect(submitter)[sevenArg](to, value, data, gas, nonce, validUntil, signatures)
   else {
     const input = await contract
       .connect(submitter)
-      .populateTransaction[sixArg](to, value, data, gas, nonce, signatures)
+      .populateTransaction[sevenArg](to, value, data, gas, nonce, validUntil, signatures)
     await checkRawTxnResult(input, submitter, errorMsg, contract)
     return false
   }
@@ -243,7 +287,7 @@ export const removeOwner = async (
     ZERO,
     data,
     gas,
-    undefined,
+    errorMsg,
     extraEvents
   )
 
@@ -358,8 +402,7 @@ export const setTransferInactiveOwnershipAfter = async (
     extraEvents
   )
 
-  if (!errorMsg && (!extraEvents || !extraEvents.find((e) => e === 'TxFailure')))
-    expect(await contract.minimumTransferInactiveOwnershipAfter()).to.be.equal(transferInactiveOwnershipAfter)
+  if (!errorMsg) expect(await contract.minimumTransferInactiveOwnershipAfter()).to.be.equal(transferInactiveOwnershipAfter)
 }
 
 export const markNonceAsUsed = async (
@@ -386,8 +429,7 @@ export const markNonceAsUsed = async (
   )
   expect(await contract.isNonceUsed(nonce)).to.be.true
 
-  if (!errorMsg && (!extraEvents || !extraEvents.find((e) => e === 'TxFailure')))
-    expect(await contract.isNonceUsed(nonce)).to.be.false
+  if (!errorMsg) expect(await contract.isNonceUsed(nonce)).to.be.false
 }
 
 export const setOwnerSettings = async (
@@ -418,7 +460,7 @@ export const setOwnerSettings = async (
     extraEvents
   )
 
-  if (!errorMsg && (!extraEvents || !extraEvents.includes('TxFailure'))) {
+  if (!errorMsg) {
     const ownerSettings = await contract.ownerSettings(ownerToConfigure)
     expect(ownerSettings.lastAction).to.be.greaterThan(0)
     expect(ownerSettings.transferInactiveOwnershipAfter).to.be.equal(transferInactiveOwnershipAfter)
@@ -451,8 +493,9 @@ export const takeOverOwnership = async (
   }
 }
 
-/// @notice Calls the 6-arg `execTransaction` overload with a caller-supplied nonce.
-/// Returns the raw transaction result so callers can assert success/failure directly.
+/// @notice Calls the Extended-wallet `execTransaction` overload (now 7-arg in
+/// v0.3.0) with a caller-supplied nonce AND validUntil. Returns the raw
+/// transaction result so callers can assert success/failure directly.
 export const execTransactionWithNonce = async (
   contract: MyMultiSig | MyMultiSigExtended,
   submitter: Wallet,
@@ -462,16 +505,18 @@ export const execTransactionWithNonce = async (
   data: `0x${string}`,
   gas: number,
   nonce: BigNumber,
+  validUntil: number,
   signatures: string
 ) => {
   const input = await contract
     .connect(submitter)
-    .populateTransaction['execTransaction(address,uint256,bytes,uint256,uint256,bytes)'](
+    .populateTransaction['execTransaction(address,uint256,bytes,uint256,uint256,uint256,bytes)'](
       to,
       value,
       data,
       gas,
       nonce,
+      validUntil,
       signatures,
     )
   return await sendRawTxn(input, submitter, ethers, ethers.provider)
@@ -487,17 +532,19 @@ export const execTransactionWithNonceReverted = async (
   data: `0x${string}`,
   gas: number,
   nonce: BigNumber,
+  validUntil: number,
   signatures: string,
   errorMsg: string
 ) => {
   const input = await contract
     .connect(submitter)
-    .populateTransaction['execTransaction(address,uint256,bytes,uint256,uint256,bytes)'](
+    .populateTransaction['execTransaction(address,uint256,bytes,uint256,uint256,uint256,bytes)'](
       to,
       value,
       data,
       gas,
       nonce,
+      validUntil,
       signatures,
     )
   return await expect(

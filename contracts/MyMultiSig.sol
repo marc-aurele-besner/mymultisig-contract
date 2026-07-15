@@ -23,8 +23,14 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   ///         `getApprovedOwners` can return it without an extra off-chain indexer.
   mapping(bytes32 => address[]) private _approvedOwners;
 
+  /// @notice EIP-712 typehash for the per-transaction payload. Includes a
+  ///         `uint256 validUntil` deadline so signatures carry an explicit
+  ///         expiry. `validUntil == 0` means "no expiry" (matches Safe's
+  ///         convention). Adding the field invalidates every v0.2.0 payload
+  ///         on-chain — see `SignatureExpired` below and the v0.3.0 release
+  ///         notes.
   bytes32 private constant _TRANSACTION_TYPEHASH =
-    keccak256('Transaction(address to,uint256 value,bytes data,uint256 gas,uint96 nonce)');
+    keccak256('Transaction(address to,uint256 value,bytes data,uint256 gas,uint96 nonce,uint256 validUntil)');
 
   /// @notice EIP-1271 magic value: `isValidSignature(bytes32,bytes)` must return
   ///         this 4-byte value when the signature is valid. Equal to
@@ -72,6 +78,11 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   ///         encodes `(to, value, data, gas, nonce)` so each approval is
   ///         bound to a single, fully-specified transaction.
   event ApproveHash(address indexed owner, bytes32 indexed hash);
+  /// @notice Emitted when an owner withdraws a previous on-chain approval
+  ///         via `revokeApproval`. The owner is removed from both the
+  ///         per-hash approval map and the per-hash owner list, so a later
+  ///         `execTransaction` for the same hash loses this owner's vote.
+  event RevokeApproval(address indexed owner, bytes32 indexed hash);
   /// @notice Emitted at the end of every `multiRequest` call, once per batch,
   ///         carrying the per-call outcome arrays so off-chain consumers and
   ///         indexers can audit partial failures without replaying the inner
@@ -87,6 +98,22 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   error OnlyThisContract();
   error TooManyOwners();
   error InvalidSignatures();
+  /// @notice The signature was bound to a `validUntil` deadline that has
+  ///         already passed. Reverts from `_validateSignature` (the mutating
+  ///         path) so an `execTransaction` cannot execute a stale payload
+  ///         even if it still collects enough votes.
+  error SignatureExpired();
+  /// @notice Caller asked to revoke an approval they never recorded. Emitted
+  ///         by `revokeApproval(bytes32)` when the caller is an owner but
+  ///         has no entry in `_approvedHashes[hash]`.
+  error NotApproved();
+  /// @notice Emitted by `multiRequestStrict` when an inner call reverts.
+  ///         `index` is the 0-based position of the failing call in the
+  ///         batch; `reason` is the raw return data of that call so
+  ///         front-ends can decode the inner revert reason. The whole
+  ///         outer `execTransaction` reverts — no side effects from the
+  ///         batch persist.
+  error BatchCallFailed(uint256 index, bytes reason);
   error NotOwner();
   error NotEnoughGas();
   error OwnerAlreadyExists();
@@ -125,7 +152,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @notice Retrieves the contract version
   /// @return The version as a string memory.
   function version() public pure virtual returns (string memory) {
-    return '0.2.0';
+    return '0.3.0';
   }
 
   /// @notice Retrieves the current threshold value
@@ -181,7 +208,8 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @dev Idempotent per (owner, hash): calling twice with the same
   ///      arguments is a no-op (does not revert, does not double-count).
   ///      The owner's vote is stored until the matching transaction is
-  ///      executed or the nonce is invalidated via `markNonceAsUsed`.
+  ///      executed, the caller withdraws it via `revokeApproval`, or the
+  ///      nonce is invalidated via `markNonceAsUsed`.
   ///      Reverts with `NotOwner` if `msg.sender` is not a current owner.
   /// @param hash The EIP-712 transaction hash to approve.
   function approveHash(bytes32 hash) public virtual {
@@ -193,7 +221,56 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     emit ApproveHash(msg.sender, hash);
   }
 
-  /// @notice Executes a transaction
+  /// @notice Withdraws a previous `approveHash(hash)` vote. The caller is
+  ///         removed from `_approvedHashes[hash]` and `_approvedOwners[hash]`
+  ///         so any subsequent `execTransaction` for that hash loses this
+  ///         owner's vote. Use this to retract a vote before the matching
+  ///         transaction executes — the alternative is to bump the nonce
+  ///         (`incrementNonce` / `markNonceAsUsed`) which also clears every
+  ///         owner's approvals.
+  /// @dev    Self-only: an owner can only withdraw their OWN approval. We
+  ///      deliberately do NOT expose an admin-style revoke because the
+  ///      multisig has no privileged owner — every owner is equal.
+  ///      Idempotency: calling `revokeApproval` for a hash you never
+  ///      approved reverts with `NotApproved` (matches Safe's `disapproveHash`
+  ///      semantics and prevents silent double-revoke footguns).
+  ///      The owner's `lastAction` is NOT bumped — revoking is not a vote
+  ///      and should not reset inactivity timers (overridden in
+  ///      `MyMultiSigExtended`).
+  /// @param hash The EIP-712 transaction hash to revoke.
+  function revokeApproval(bytes32 hash) public virtual {
+    if (!_owners[msg.sender]) revert NotOwner();
+    if (!_approvedHashes[hash][msg.sender]) revert NotApproved();
+    _approvedHashes[hash][msg.sender] = false;
+    _removeApprovedOwner(hash, msg.sender);
+    emit RevokeApproval(msg.sender, hash);
+  }
+
+  /// @dev Removes `owner` from `_approvedOwners[hash]` using swap-and-pop —
+  ///      O(n) in the array length but `n <= ownerCount <= 65535`, and we
+  ///      avoid the storage-write cost of shifting every element. The
+  ///      caller has already cleared `_approvedHashes[hash][owner]`, so a
+  ///      no-op (owner not in the array) is impossible: the revert path in
+  ///      `revokeApproval` would have caught it.
+  function _removeApprovedOwner(bytes32 hash, address owner) private {
+    address[] storage arr = _approvedOwners[hash];
+    uint256 n = arr.length;
+    for (uint256 i = 0; i < n; ) {
+      unchecked {
+        if (arr[i] == owner) {
+          arr[i] = arr[n - 1];
+          arr.pop();
+          return;
+        }
+        ++i;
+      }
+    }
+  }
+
+  /// @notice Executes a transaction. Backwards-compatible entry point that
+  ///         pins `txnNonce` to the wallet's current nonce and uses
+  ///         `validUntil = 0` (no expiry). Callers that need a deadline
+  ///         should use the 6-arg overload below.
   /// @param to The address to which the transaction is made.
   /// @param value The amount of Ether to be transferred.
   /// @param data The data to be passed along with the transaction.
@@ -206,7 +283,30 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     uint256 txnGas,
     bytes memory signatures
   ) public payable virtual nonReentrant returns (bool success) {
-    success = _execTransaction(to, value, data, txnGas, _txnNonce, signatures);
+    success = _execTransaction(to, value, data, txnGas, _txnNonce, 0, signatures);
+    if (_txnNonce > uint96(2 ** 96 - 1000)) emit ContractEndOfLife(2 ** 96 - _txnNonce - 1);
+  }
+
+  /// @notice Executes a transaction with an explicit `validUntil` deadline.
+  ///         Pins `txnNonce` to the wallet's current nonce. Reverts with
+  ///         `SignatureExpired` if `validUntil != 0 && block.timestamp >
+  ///         validUntil` — the bound signatures must therefore include the
+  ///         same `validUntil` in their typed-data payload.
+  /// @param to The address to which the transaction is made.
+  /// @param value The amount of Ether to be transferred.
+  /// @param data The data to be passed along with the transaction.
+  /// @param txnGas The gas limit for the transaction.
+  /// @param validUntil Unix timestamp deadline; `0` disables the check.
+  /// @param signatures The signatures to be used for the transaction.
+  function execTransaction(
+    address to,
+    uint256 value,
+    bytes memory data,
+    uint256 txnGas,
+    uint256 validUntil,
+    bytes memory signatures
+  ) public payable virtual nonReentrant returns (bool success) {
+    success = _execTransaction(to, value, data, txnGas, _txnNonce, validUntil, signatures);
     if (_txnNonce > uint96(2 ** 96 - 1000)) emit ContractEndOfLife(2 ** 96 - _txnNonce - 1);
   }
 
@@ -216,6 +316,9 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @param data The data to be passed along with the transaction.
   /// @param txnGas The gas limit for the transaction.
   /// @param txnNonce The nonce for the transaction.
+  /// @param validUntil Unix timestamp after which the signature is no longer
+  ///        valid. `0` disables the deadline check (signatures never expire).
+  ///        Baked into the EIP-712 hash so the bound signatures must match.
   /// @param signatures The signatures to be used for the transaction.
   function _execTransaction(
     address to,
@@ -223,9 +326,10 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     bytes memory data,
     uint256 txnGas,
     uint256 txnNonce,
+    uint256 validUntil,
     bytes memory signatures
   ) internal virtual returns (bool success) {
-    if (!_validateSignature(to, value, data, txnGas, txnNonce, signatures)) revert InvalidSignatures();
+    if (!_validateSignature(to, value, data, txnGas, txnNonce, validUntil, signatures)) revert InvalidSignatures();
     _txnNonce++;
     uint256 gasBefore = gasleft();
     bytes memory returnData;
@@ -238,8 +342,19 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
       mstore(0x40, add(add(returnData, 0x20), and(add(size, 0x1f), not(0x1f))))
     }
     if (gasBefore - gasleft() >= txnGas) revert NotEnoughGas();
-    if (success) emit TransactionExecuted(msg.sender, to, value, data, txnGas, txnNonce);
-    else emit TxFailure(msg.sender, to, value, data, txnGas, txnNonce, returnData);
+    if (success) {
+      emit TransactionExecuted(msg.sender, to, value, data, txnGas, txnNonce);
+    } else if (returnData.length > 0) {
+      // The inner call reverted with a payload (e.g. a custom error such as
+      // `multiRequestStrict`'s BatchCallFailed). Bubble the revert so the
+      // caller can decode the actual reason — emitting TxFailure here would
+      // hide the structured error inside an opaque bytes blob.
+      assembly {
+        revert(add(returnData, 0x20), mload(returnData))
+      }
+    } else {
+      emit TxFailure(msg.sender, to, value, data, txnGas, txnNonce, returnData);
+    }
   }
 
   /// @notice Prepare multiple transactions
@@ -298,6 +413,57 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     emit MultiRequestExecuted(_txnNonce - 1, successes, returnData);
   }
 
+  /// @notice Atomic variant of `multiRequest`: executes the batch of inner
+  ///         calls in order and reverts the entire transaction on the FIRST
+  ///         failure. Use this when the batch must be all-or-nothing —
+  ///         typical for treasury operations where the second call depends
+  ///         on the first one's side effect (e.g. approve-then-swap).
+  /// @dev    Differs from `multiRequest` in three ways:
+  ///         1. On any inner-call failure the outer tx reverts. No
+  ///            `MultiRequestExecuted` event is emitted and no inner call's
+  ///            side effects persist (the EVM rolls back the whole tx).
+  ///         2. The failure path bubbles up `BatchCallFailed(index, reason)`
+  ///            where `index` is the position of the failing call and
+  ///            `reason` is its raw return data.
+  ///         3. Does NOT return `(successes, returnData)` because the
+  ///            success path is identical to a normal tx receipt.
+  ///         Like `multiRequest`, callable only via the wallet itself
+  ///         (the `onlyThis` modifier), so callers must route through
+  ///         `execTransaction` (and gather enough signatures).
+  /// @param to The address to call for each inner transaction. (array)
+  /// @param value The ETH value to forward for each inner call. (array)
+  /// @param data The calldata for each inner call. (array)
+  /// @param txGas The gas limit for each inner call. (array)
+  function multiRequestStrict(
+    address[] memory to,
+    uint256[] memory value,
+    bytes[] memory data,
+    uint256[] memory txGas
+  ) public payable virtual onlyThis {
+    uint256 qty = to.length;
+    for (uint256 i; i < qty; ) {
+      address to_ = to[i];
+      uint256 value_ = value[i];
+      bytes memory data_ = data[i];
+      uint256 txGas_ = txGas[i];
+      bool ok;
+      bytes memory returnData;
+      assembly {
+        ok := call(txGas_, to_, value_, add(data_, 0x20), mload(data_), 0, 0)
+        let size := returndatasize()
+        returnData := mload(0x40)
+        mstore(returnData, size)
+        returndatacopy(add(returnData, 0x20), 0, size)
+        // round size up to the next 32-byte word for the free-memory pointer
+        mstore(0x40, add(add(returnData, 0x20), and(add(size, 0x1f), not(0x1f))))
+      }
+      if (!ok) revert BatchCallFailed(i, returnData);
+      unchecked {
+        ++i;
+      }
+    }
+  }
+
   /// @notice EIP-1271 entry point. Validates `signature` (an ABI-encoded
   ///         `(address owner, bytes sig)[]` of owner votes) against `hash` and
   ///         returns the standard magic value iff the count of valid votes
@@ -348,6 +514,9 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   ///        overload pins this to `_txnNonce`; the 6-arg overload in
   ///        `MyMultiSigExtended` lets callers choose a custom nonce (e.g. a future
   ///        one inside the replay window).
+  /// @param validUntil Unix timestamp after which the signature is no longer
+  ///        valid. `0` disables the deadline check (signatures never expire).
+  ///        Baked into the EIP-712 hash so the bound signatures must match.
   /// @param signatures The signatures to be used for the transaction.
   /// @return valid True if the signature is valid, false otherwise.
   function isValidSignature(
@@ -356,9 +525,10 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     bytes memory data,
     uint256 txnGas,
     uint256 txnNonce,
+    uint256 validUntil,
     bytes memory signatures
   ) public view returns (bool valid) {
-    bytes32 txHash = generateHash(to, value, data, txnGas, txnNonce);
+    bytes32 txHash = generateHash(to, value, data, txnGas, txnNonce, validUntil);
     return _checkSignatures(txHash, txnNonce, signatures);
   }
 
@@ -473,6 +643,11 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @param txnNonce The nonce bound to the transaction. The 5-arg `execTransaction`
   ///        overload pins this to `_txnNonce`; the 6-arg overload in
   ///        `MyMultiSigExtended` lets callers choose a custom nonce.
+  /// @param validUntil Unix timestamp after which the signature is no longer
+  ///        valid. `0` disables the deadline check (signatures never expire).
+  ///        Baked into the EIP-712 hash so the bound signatures must match.
+  ///        Reverts with `SignatureExpired` if `validUntil != 0` and
+  ///        `block.timestamp > validUntil`.
   /// @param signatures The signatures to be used for the transaction.
   /// @return valid True if the signature is valid, false otherwise.
   function _validateSignature(
@@ -481,10 +656,12 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     bytes memory data,
     uint256 txnGas,
     uint256 txnNonce,
+    uint256 validUntil,
     bytes memory signatures
   ) internal virtual returns (bool valid) {
+    if (validUntil != 0 && block.timestamp > validUntil) revert SignatureExpired();
     uint16 threshold_ = _threshold;
-    bytes32 txHash = generateHash(to, value, data, txnGas, txnNonce);
+    bytes32 txHash = generateHash(to, value, data, txnGas, txnNonce, validUntil);
     // On-chain approvals count as votes and consume their (nonce, owner)
     // slot. An approved owner that was later removed from the wallet fails
     // the check and aborts the whole validation — no partial application.
@@ -638,14 +815,39 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     emit OwnerAdded(newOwner);
   }
 
+  /// @notice Builds the EIP-712 transaction hash for the given payload. The
+  ///         hash binds `(to, value, data, gas, nonce, validUntil)`; signers
+  ///         must therefore include `validUntil` in their typed-data payload
+  ///         or the resulting signature will not validate.
+  /// @param to The address to which the transaction is made.
+  /// @param value The amount of Ether to be transferred.
+  /// @param data The data to be passed along with the transaction.
+  /// @param txnGas The gas limit for the transaction.
+  /// @param txnNonce The nonce bound to the transaction.
+  /// @param validUntil Unix timestamp after which the signature is invalid;
+  ///        `0` means "no expiry".
   function generateHash(
     address to,
     uint256 value,
     bytes memory data,
     uint256 txnGas,
-    uint256 txnNonce
+    uint256 txnNonce,
+    uint256 validUntil
   ) public view virtual returns (bytes32) {
-    return _hashTypedDataV4(keccak256(abi.encode(_TRANSACTION_TYPEHASH, to, value, keccak256(data), txnGas, txnNonce)));
+    return
+      _hashTypedDataV4(
+        keccak256(
+          abi.encode(
+            _TRANSACTION_TYPEHASH,
+            to,
+            value,
+            keccak256(data),
+            txnGas,
+            txnNonce,
+            validUntil
+          )
+        )
+      );
   }
 
   /// @notice Returns the current transaction nonce
