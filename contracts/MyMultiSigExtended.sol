@@ -556,7 +556,9 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   ///         do NOT burn the cap.
   /// @dev    Re-uses the same EIP-712 typehash as `execTransaction`. Bound
   ///         to the same `(to, value, data, gas, nonce = _txnNonce,
-  ///         validUntil)` fields.
+  ///         validUntil)` fields. Bumps `_txnNonce` once the signature
+  ///         validates, so each signature is single-use — even when the
+  ///         inner call fails.
   function execTransactionWithSpendingAllowance(
     address to,
     uint256 value,
@@ -572,6 +574,10 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     bytes32 txHash = generateHashOp(to, value, data, txnGas, currentNonce, validUntil, 0);
     address recovered = _recoverSigner(signatures, txHash);
     if (recovered != msg.sender || !isOwner(recovered)) revert AllowanceRequiresSingleSigner();
+    // The hash is bound to `currentNonce`, so bumping the nonce consumes
+    // the signature. Mirrors `_execTransaction`: the bump happens right
+    // after signature validation, whether or not the inner call succeeds.
+    _bumpNonce();
     uint256 cap = _dailyLimitPerOwner[recovered];
     if (cap == 0) revert AllowanceLimitNotSet(recovered);
     _rolloverIfNeeded(recovered);
@@ -583,6 +589,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     success = _runLoggedCall(to, value, data, txnGas, currentNonce, validUntil);
     // Commit-on-success: failed inner calls don't burn the cap.
     if (success) _dailySpentByOwner[recovered] += value;
+    _emitEndOfLifeIfNear();
   }
 
   /// @dev Shared tail for the timelock (`executeScheduled`) and allowance
