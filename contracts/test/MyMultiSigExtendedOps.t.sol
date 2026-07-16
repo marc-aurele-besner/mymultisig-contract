@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import { Vm } from 'forge-std/Vm.sol';
 import { Helper } from './shared/helper.t.sol';
 import { MyMultiSigExtended } from '../MyMultiSigExtended.sol';
+import { PackedUserOperation } from '../interfaces/PackedUserOperation.sol';
 import './shared/mocks/MockEntryPoint.t.sol';
 
 /// @title MyMultiSigExtended Foundry tests
@@ -13,8 +14,10 @@ import './shared/mocks/MockEntryPoint.t.sol';
 ///            new execTransaction overloads.
 ///         3. The disabled legacy overloads revert with
 ///            `RequiresOperationByte()`.
-///         4. ERC-4337 `validateUserOp` rejects non-EntryPoint
-///            callers and approves honest ones.
+///         4. ERC-4337 v0.7: `validateUserOp` / `execute` are
+///            EntryPoint-gated, owners sign the EntryPoint's
+///            `userOpHash`, the prefund is paid, and the EntryPoint's
+///            2D nonces work independently of the wallet's own nonce.
 contract MyMultiSigExtendedTest is Helper {
   MyMultiSigExtended internal wallet;
   MockEntryPoint internal mockEntryPoint;
@@ -184,5 +187,155 @@ contract MyMultiSigExtendedTest is Helper {
       txnGas + 1_000,
       'DELEGATECALL should be bounded by txnGas, not gasleft()'
     );
+  }
+
+  // ---------- ERC-4337 v0.7 ----------
+
+  /// @dev Builds an op whose `callData` is the standard
+  ///      `execute(address,uint256,bytes)` call the EntryPoint relays to
+  ///      the account verbatim.
+  function _buildUserOp(
+    address to,
+    uint256 value,
+    bytes memory data,
+    uint256 opNonce
+  ) internal view returns (PackedUserOperation memory op) {
+    op = PackedUserOperation({
+      sender: address(wallet),
+      nonce: opNonce,
+      initCode: '',
+      callData: abi.encodeWithSignature('execute(address,uint256,bytes)', to, value, data),
+      accountGasLimits: bytes32(0),
+      preVerificationGas: 0,
+      gasFees: bytes32(0),
+      paymasterAndData: '',
+      signature: ''
+    });
+  }
+
+  /// @dev Owners vote on the EIP-191 wrap of the EntryPoint's
+  ///      `userOpHash` — raw `vm.sign` over the wallet's
+  ///      `userOpSigningHash`, no EIP-712 wallet-domain framing.
+  function _signUserOp(PackedUserOperation memory op, uint256 signerCount) internal view returns (bytes memory) {
+    bytes32 digest = wallet.userOpSigningHash(mockEntryPoint.getUserOpHash(op));
+    Vote[] memory votes = new Vote[](signerCount);
+    for (uint256 i = 0; i < signerCount; i++) {
+      (uint8 v, bytes32 r, bytes32 s) = vm.sign(OWNERS_PK[i], digest);
+      votes[i] = Vote({ owner: OWNERS[i], sig: abi.encodePacked(r, s, v) });
+    }
+    return abi.encode(votes);
+  }
+
+  function _handleOp(PackedUserOperation memory op) internal {
+    PackedUserOperation[] memory ops = new PackedUserOperation[](1);
+    ops[0] = op;
+    mockEntryPoint.handleOps(ops, payable(address(0xbeef)));
+  }
+
+  function test_userOp_executes_and_ignores_wallet_nonce() public {
+    vm.deal(address(wallet), 2 ether);
+    address recipient = address(0xa11ce);
+    uint96 walletNonceBefore = wallet.nonce();
+
+    PackedUserOperation memory op = _buildUserOp(recipient, 1 ether, '', mockEntryPoint.getNonce(address(wallet), 0));
+    op.signature = _signUserOp(op, 2);
+    _handleOp(op);
+
+    assertEq(recipient.balance, 1 ether, 'userOp should have transferred the ETH');
+    assertEq(wallet.nonce(), walletNonceBefore, 'wallet EIP-712 nonce must not move on the 4337 path');
+    assertEq(mockEntryPoint.getNonce(address(wallet), 0), 1, 'EntryPoint sequence should advance');
+    // The relayed callData is a plain `execute` call — the standard
+    // `account.call(userOp.callData)` flow, no custom tuple encoding.
+    assertEq(bytes4(mockEntryPoint.lastCallData()), wallet.execute.selector);
+  }
+
+  function test_userOp_2d_nonce_keys_are_independent() public {
+    vm.deal(address(wallet), 2 ether);
+    address recipient = address(0xa11ce);
+
+    // Two ops on distinct keys, no dependency on each other or on the
+    // wallet's internal nonce.
+    PackedUserOperation memory opKey0 = _buildUserOp(recipient, 0.5 ether, '', mockEntryPoint.getNonce(address(wallet), 0));
+    opKey0.signature = _signUserOp(opKey0, 2);
+    PackedUserOperation memory opKey5 = _buildUserOp(recipient, 0.5 ether, '', mockEntryPoint.getNonce(address(wallet), 5));
+    opKey5.signature = _signUserOp(opKey5, 2);
+
+    _handleOp(opKey5);
+    _handleOp(opKey0);
+    assertEq(recipient.balance, 1 ether);
+
+    // Replaying a consumed EntryPoint nonce fails in the EntryPoint.
+    vm.expectRevert(
+      abi.encodeWithSelector(MockEntryPoint.InvalidAccountNonce.selector, address(wallet), opKey0.nonce)
+    );
+    _handleOp(opKey0);
+  }
+
+  function test_userOp_pays_prefund() public {
+    vm.deal(address(wallet), 2 ether);
+    mockEntryPoint.setRequiredPrefund(0.25 ether);
+    address recipient = address(0xa11ce);
+
+    PackedUserOperation memory op = _buildUserOp(recipient, 1 ether, '', mockEntryPoint.getNonce(address(wallet), 0));
+    op.signature = _signUserOp(op, 2);
+    _handleOp(op);
+
+    assertEq(recipient.balance, 1 ether);
+    assertEq(
+      mockEntryPoint.balanceOf(address(wallet)),
+      0.25 ether,
+      'validateUserOp should have topped up the EntryPoint deposit'
+    );
+  }
+
+  function test_userOp_below_threshold_returns_sig_validation_failed() public {
+    vm.deal(address(wallet), 2 ether);
+    PackedUserOperation memory op = _buildUserOp(address(0xa11ce), 1 ether, '', mockEntryPoint.getNonce(address(wallet), 0));
+    // Only 1 of 2 required owner votes.
+    op.signature = _signUserOp(op, 1);
+    vm.expectRevert(
+      abi.encodeWithSelector(MockEntryPoint.SignatureValidationFailed.selector, address(wallet), uint256(1))
+    );
+    _handleOp(op);
+  }
+
+  function test_userOp_approveHash_votes_count() public {
+    vm.deal(address(wallet), 2 ether);
+    address recipient = address(0xa11ce);
+    PackedUserOperation memory op = _buildUserOp(recipient, 1 ether, '', mockEntryPoint.getNonce(address(wallet), 0));
+
+    // Both owners pre-approve the userOp digest on-chain; the op then
+    // needs no signature blob at all.
+    bytes32 digest = wallet.userOpSigningHash(mockEntryPoint.getUserOpHash(op));
+    vm.prank(OWNERS[0]);
+    wallet.approveHash(digest);
+    vm.prank(OWNERS[1]);
+    wallet.approveHash(digest);
+
+    _handleOp(op);
+    assertEq(recipient.balance, 1 ether);
+  }
+
+  function test_userOp_execute_respects_allowlist() public {
+    vm.deal(address(wallet), 2 ether);
+    // Enable the allowlist for some other target; the op's target is not on it.
+    vm.prank(address(wallet));
+    wallet.setAllowedTarget(address(0xd00d), true);
+
+    PackedUserOperation memory op = _buildUserOp(address(0xa11ce), 1 ether, '', mockEntryPoint.getNonce(address(wallet), 0));
+    op.signature = _signUserOp(op, 2);
+    vm.expectRevert(abi.encodeWithSignature('TargetNotAllowed(address)', address(0xa11ce)));
+    _handleOp(op);
+  }
+
+  function test_validateUserOp_rejects_non_entrypoint() public {
+    PackedUserOperation memory op = _buildUserOp(address(0xa11ce), 0, '', 0);
+    vm.expectRevert(abi.encodeWithSignature('NotEntryPoint()'));
+    wallet.validateUserOp(op, bytes32(0), 0);
+  }
+
+  function test_execute_rejects_non_entrypoint() public {
+    vm.expectRevert(abi.encodeWithSignature('NotEntryPoint()'));
+    wallet.execute(address(0xa11ce), 0, '');
   }
 }
