@@ -591,8 +591,9 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   ///         the public EIP-1271 `isValidSignature(bytes32,bytes)` and the
   ///         6-arg view `isValidSignature(address,...,bytes)`.
   /// @dev    On-chain `approveHash` approvals count as votes for the matching
-  ///         tx hash without any signature payload. An approved owner that was
-  ///         later removed from the wallet fails the owner check.
+  ///         tx hash without any signature payload. An approval from an
+  ///         address that is no longer an owner is skipped — it neither
+  ///         counts toward the threshold nor blocks the remaining votes.
   function _checkSignatures(
     bytes32 txHash,
     uint256 txnNonce,
@@ -604,8 +605,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     uint256 counted;
     for (uint256 i; i < approvedLength; ) {
       unchecked {
-        if (!_owners[approved[i]]) return false;
-        ++counted;
+        if (_owners[approved[i]]) ++counted;
         ++i;
       }
     }
@@ -732,17 +732,16 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   ) internal virtual returns (bool valid) {
     uint16 threshold_ = _threshold;
     // On-chain approvals count as votes and consume their (nonce, owner)
-    // slot. An approved owner that was later removed from the wallet fails
-    // the check and aborts the whole validation — no partial application.
+    // slot. An approval from an address that is no longer an owner, or whose
+    // (nonce, owner) slot is already consumed, is skipped — it neither counts
+    // toward the threshold nor blocks the remaining votes.
     address[] storage approved = _approvedOwners[txHash];
     uint256 approvedLength = approved.length;
     uint256 counted;
     for (uint256 i; i < approvedLength; ) {
       unchecked {
         address approvedOwner = approved[i];
-        if (!_owners[approvedOwner]) return false;
-        if (!_recordVote(txHash, txnNonce, approvedOwner)) return false;
-        ++counted;
+        if (_owners[approvedOwner] && _recordVote(txHash, txnNonce, approvedOwner)) ++counted;
         ++i;
       }
     }
