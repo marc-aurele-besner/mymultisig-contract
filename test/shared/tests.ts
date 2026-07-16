@@ -2594,6 +2594,13 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
 
     // -- Feature 3: Spending limits / allowance ----------------------------
     describe('Allowance (Feature 3)', function () {
+      it('advancedFeaturesEnabled sets the 0x08 bit once a daily limit is set', async function () {
+        expect(await contract.advancedFeaturesEnabled()).to.be.equal(0)
+        const cap = ethers.utils.parseEther('1')
+        await Helper.setDailySpendingLimit(contract, owner01, [owner01, owner02], owner01.address, cap)
+        expect(await contract.advancedFeaturesEnabled()).to.be.equal(0x08)
+      })
+
       it('single-signer path charges against the submitter cap', async function () {
         const cap = ethers.utils.parseEther('1')
         await Helper.setDailySpendingLimit(contract, owner01, [owner01, owner02], owner01.address, cap)

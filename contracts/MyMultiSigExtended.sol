@@ -56,6 +56,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   mapping(address => bool) internal _allowedTargets;
 
   // Allowance
+  bool internal _dailyLimitsEnabled; // first non-zero setDailySpendingLimit flips this on
   mapping(address => uint256) internal _dailyLimitPerOwner;
   mapping(address => uint256) internal _dailySpentByOwner;
   mapping(address => uint256) internal _lastPeriodResetByOwner;
@@ -546,6 +547,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
 
   function setDailySpendingLimit(address owner, uint256 limitWei) public virtual onlyThis {
     _dailyLimitPerOwner[owner] = limitWei;
+    if (limitWei > 0) _dailyLimitsEnabled = true;
     emit DailySpendingLimitSet(owner, limitWei);
   }
 
@@ -826,7 +828,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     if (_timelockDelay > 0) mask |= 0x01;
     if (_guard != address(0)) mask |= 0x02;
     if (_allowedTargetsEnabled) mask |= 0x04;
-    if (_dailyLimitPerOwner[address(0)] > 0) mask |= 0x08;
+    if (_dailyLimitsEnabled) mask |= 0x08;
     if (_modulesHead != address(0)) mask |= 0x10;
   }
 
