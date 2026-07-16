@@ -795,7 +795,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         expect(await contract.getApprovedOwners(hashN1)).to.have.lengthOf(1)
       })
 
-      it('Approving with an owner who was later removed makes isValidSignature false', async function () {
+      it('An owner who was removed can no longer call approveHash', async function () {
         const data = contract.interface.encodeFunctionData('replaceOwner(address,address)', [
           owner01.address,
           user01.address,
@@ -817,6 +817,119 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
           ['OwnerRemoved', 'OwnerAdded'],
         )
         await Helper.approveHash(contract, owner01, hash, Helper.errors.NOT_OWNER)
+      })
+
+      it('A stale approval from a removed owner is skipped and current owners can still execute', async function () {
+        // owner01 pre-approves the addOwner(user02) hash bound to nonce 1,
+        // then is replaced at nonce 0. The stale approval stays recorded in
+        // getApprovedOwners but must not count nor block: two signatures from
+        // current owners reach the threshold on their own.
+        const addUser02 = contract.interface.encodeFunctionData('addOwner(address)', [user02.address])
+        const hash = await contract.generateHash(
+          contract.address,
+          Helper.ZERO,
+          addUser02,
+          Helper.DEFAULT_GAS,
+          ethers.BigNumber.from(1),
+          0,
+        )
+        await Helper.approveHash(contract, owner01, hash)
+
+        const replaceData = contract.interface.encodeFunctionData('replaceOwner(address,address)', [
+          owner01.address,
+          user01.address,
+        ])
+        await Helper.execTransaction(
+          contract,
+          owner01,
+          [owner02, owner03],
+          contract.address,
+          Helper.ZERO,
+          replaceData,
+          Helper.DEFAULT_GAS,
+          undefined,
+          ['OwnerRemoved', 'OwnerAdded'],
+        )
+        expect(await contract.isOwner(owner01.address)).to.be.false
+        expect(await contract.getApprovedOwners(hash)).to.include(owner01.address)
+
+        const signatures = await Helper.prepareSignatures(
+          contract,
+          [owner02, owner03],
+          contract.address,
+          Helper.ZERO,
+          addUser02,
+          Helper.DEFAULT_GAS,
+          ethers.BigNumber.from(1),
+        )
+        await Helper.execTransaction(
+          contract,
+          owner02,
+          [owner02, owner03],
+          contract.address,
+          Helper.ZERO,
+          addUser02,
+          Helper.DEFAULT_GAS,
+          undefined,
+          ['OwnerAdded'],
+          signatures,
+        )
+        expect(await contract.isOwner(user02.address)).to.be.true
+      })
+
+      it('A stale approval from a removed owner does not count toward the threshold', async function () {
+        // Same setup as above, but the executor relies on the stale approval
+        // plus a single fresh signature: 1 valid vote < threshold (2), so the
+        // execution must revert with InvalidSignatures.
+        const addUser02 = contract.interface.encodeFunctionData('addOwner(address)', [user02.address])
+        const hash = await contract.generateHash(
+          contract.address,
+          Helper.ZERO,
+          addUser02,
+          Helper.DEFAULT_GAS,
+          ethers.BigNumber.from(1),
+          0,
+        )
+        await Helper.approveHash(contract, owner01, hash)
+
+        const replaceData = contract.interface.encodeFunctionData('replaceOwner(address,address)', [
+          owner01.address,
+          user01.address,
+        ])
+        await Helper.execTransaction(
+          contract,
+          owner01,
+          [owner02, owner03],
+          contract.address,
+          Helper.ZERO,
+          replaceData,
+          Helper.DEFAULT_GAS,
+          undefined,
+          ['OwnerRemoved', 'OwnerAdded'],
+        )
+
+        const signatures = await Helper.prepareSignatures(
+          contract,
+          [owner02],
+          contract.address,
+          Helper.ZERO,
+          addUser02,
+          Helper.DEFAULT_GAS,
+          ethers.BigNumber.from(1),
+        )
+        await Helper.execTransaction(
+          contract,
+          owner02,
+          [owner02],
+          contract.address,
+          Helper.ZERO,
+          addUser02,
+          Helper.DEFAULT_GAS,
+          Helper.errors.INVALID_SIGNATURES,
+          undefined,
+          signatures,
+        )
+        expect(await contract.isOwner(user02.address)).to.be.false
       })
     })
 
