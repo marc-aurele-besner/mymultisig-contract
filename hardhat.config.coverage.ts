@@ -76,7 +76,10 @@ const config: HardhatUserConfig = {
   defaultNetwork: 'hardhat',
   networks: {
     hardhat: {
-      blockGasLimit: 1200000000,
+      // v0.5.0 — same FUSAKA_TX_GAS_LIMIT bypass as the main
+      // `hardhat.config.ts` (16M is too small for the 108k deployer
+      // bytecode). Magic value lifts the per-tx cap.
+      blockGasLimit: 0x1fffffffffffff,
     },
     localhost: {
       accounts: {

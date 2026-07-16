@@ -41,7 +41,7 @@ const setupContract = async (
   // node's per-tx 16M cap can be hit by auto-estimation. Pass an
   // explicit `gasLimit` on every deploy so the auto-estimator doesn't
   // pick a number above the cap.
-  const DEPLOY_GAS = 30_000_000
+  const DEPLOY_GAS = 50_000_000
 
   // Get contract artifacts and deploy contract
   if (deployFactory) {
