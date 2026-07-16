@@ -133,14 +133,16 @@ const config: HardhatUserConfig = {
   defaultNetwork: 'hardhat',
   networks: {
     hardhat: {
-      // blockGasLimit: 1200000000,
-      // Bumped from 2.1M to 12M so the factory's `MyMultiSigDeployer` and
-      // `MyMultiSigExtendedDeployer` helper contracts can be deployed under
-      // the hardhat network. The post-v0.4.0 `MyMultiSigExtended` adds
-      // 13 new storage slots, 8 new errors, 14 new events, and ~10 new
-      // public functions; the deployer helpers' embedded bytecode pushes
-      // over 6M gas.
-      gas: 12000000,
+      // Hardhat's EdrProvider caps per-tx gas at `FUSAKA_TRANSACTION_GAS_LIMIT`
+      // (16,777,216) unless `blockGasLimit` is set to the magic value
+      // `0x1fffffffffffff`, in which case the cap is disabled. The v0.5.0
+      // `MyMultiSigExtended` deployer helpers embed a wallet whose
+      // bytecode now exceeds 16M; without this flag the deploy goes
+      // out of gas. Setting the magic value keeps the per-tx cap off
+      // (so `gas: 30_000_000` is honored) while still bounding block
+      // capacity at 30M for tests.
+      blockGasLimit: 0x1fffffffffffff,
+      gas: 30000000,
       gasPrice: 8000000000,
       // The wallet's bytecode is large enough (post-v0.4.0, the embedded
       // Extended bytecode pushes the deployer helpers a few hundred bytes

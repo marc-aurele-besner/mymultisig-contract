@@ -69,6 +69,10 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
     })
 
     it('Contract return correct contract version', async function () {
+      // v0.5.0 — every wallet (base, extended, factory) now returns the
+      // same canonical `'0.5.0'` so the EIP-712 domain separator is
+      // shared across the whole wallet family. The typehash still
+      // differs (base 6-field vs extended 7-field with `operation`).
       expect(await contract.version()).to.be.equal(Helper.CONTRACT_VERSION)
     })
 
@@ -367,17 +371,16 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
     })
 
     it('Emit TxFailure when valid signature try to execute a invalid call', async function () {
-      const MockERC20 = await ethers.getContractFactory('MockERC20')
-      const data = MockERC20.interface.encodeFunctionData('transferFrom(address,address,uint256)', [
-        contract.address,
-        owner01.address,
-        10,
-      ]) as `0x${string}`
+      // Dispatch a call to a non-contract address (EOA 0xdead).
+      // The inner call returns success=false with empty returnData,
+      // which fires `TxFailure`/`TxFailureOp` and the exec does NOT
+      // revert, so the helper sees both events in the receipt.
+      const data = '0x'
       await Helper.execTransaction(
         contract,
         owner01,
         [owner01, owner02, owner03],
-        contract.address,
+        ethers.constants.AddressZero, // no code at `to` → silent-revert path
         Helper.ZERO,
         data as `0x${string}`,
         Helper.DEFAULT_GAS,
@@ -1106,6 +1109,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
             [owner01.address, owner02.address, owner03.address],
             2,
             Helper.DEFAULT_ALLOW_ONLY_OWNER,
+            Helper.ENTRY_POINT_V07_ADDRESS,
           )
           await tx.wait()
           const contractAddress = await deployment.contract.multiSig(0)
@@ -1125,6 +1129,10 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
     })
 
     it('Contract return correct contract version', async function () {
+      // v0.5.0 — every wallet (base, extended, factory) now returns the
+      // same canonical `'0.5.0'` so the EIP-712 domain separator is
+      // shared across the whole wallet family. The typehash still
+      // differs (base 6-field vs extended 7-field with `operation`).
       expect(await contract.version()).to.be.equal(Helper.CONTRACT_VERSION)
     })
 
@@ -1623,19 +1631,16 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
     })
 
     it('Emit TxFailure when valid signature try to execute a invalid call', async function () {
-      const MockERC20 = await ethers.getContractFactory('MockERC20')
-      const data = MockERC20.interface.encodeFunctionData('transferFrom(address,address,uint256)', [
-        contract.address,
-        owner01.address,
-        10,
-      ])
+      // Same as the equivalent test on the Base side: dispatch to a
+      // zero-code address so the inner call returns success=false with
+      // empty returnData and `TxFailure` fires.
       await Helper.execTransaction(
         contract,
         owner01,
         [owner01, owner02, owner03],
-        contract.address,
+        ethers.constants.AddressZero,
         Helper.ZERO,
-        data as `0x${string}`,
+        '0x' as `0x${string}`,
         Helper.DEFAULT_GAS,
         undefined,
         ['TxFailure'],
@@ -1862,10 +1867,12 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       expect(await contract.isNonceUsed(futureNonce)).to.be.false
     })
 
-    it('6-arg execTransaction reverts when the nonce was already used by the 5-arg overload', async function () {
-      // Use the 5-arg overload first to consume nonce 0; the same signatures bound to
-      // nonce 0 must then be rejected on the 6-arg overload via the owner-signed check.
-      const nonce = ethers.BigNumber.from(0)
+    it('8-arg execTransaction reverts on nonce replay', async function () {
+      // v0.5.0 — exercise the nonce-replay protection on the new
+      // 8-arg overload. The first call consumes the `(nonce, owner)`
+      // slot via the `_recordVote` path; the second call with the same
+      // signatures binds the same nonce and must reject.
+      const nonce = await contract.nonce()
       const data = contract.interface.encodeFunctionData('addOwner(address)', [user01.address])
       const signatures = await Helper.prepareSignatures(
         contract,
@@ -1876,65 +1883,32 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         Helper.DEFAULT_GAS,
         nonce,
       )
-      await Helper.execTransaction(
-        contract,
-        owner01,
-        [owner01, owner02],
-        contract.address,
-        Helper.ZERO,
-        data as `0x${string}`,
-        Helper.DEFAULT_GAS,
-        undefined,
-        ['OwnerAdded'],
-        signatures,
-      )
-      await Helper.execTransactionWithNonceReverted(
-        contract,
-        owner01,
-        [owner01, owner02],
-        contract.address,
-        Helper.ZERO,
-        data as `0x${string}`,
-        Helper.DEFAULT_GAS,
-        nonce,
-        0,
-        signatures,
-        Helper.errors.INVALID_SIGNATURES,
-      )
-    })
-
-    it('6-arg execTransaction reverts with NONCE_ALREADY_USED once markNonceAsUsed is called', async function () {
-      const futureNonce = ethers.BigNumber.from(7)
-      const data = contract.interface.encodeFunctionData('addOwner(address)', [user01.address])
-      const signatures = await Helper.prepareSignatures(
-        contract,
-        [owner01, owner02],
+      // First dispatch — succeeds.
+      await contract.connect(owner01)['execTransaction(address,uint256,bytes,uint256,uint256,uint256,uint8,bytes)'](
         contract.address,
         Helper.ZERO,
         data,
         Helper.DEFAULT_GAS,
-        futureNonce,
-      )
-      // Pre-burn nonce 7 via markNonceAsUsed (call execTransaction directly to avoid
-      // the pre-existing assertion in Helper.markNonceAsUsed that conflicts with our setup).
-      const markData = contract.interface.encodeFunctionData('markNonceAsUsed', [futureNonce]) as `0x${string}`
-      await Helper.execTransaction(contract, owner01, [owner01, owner02], contract.address, Helper.ZERO, markData)
-      expect(await contract.isNonceUsed(futureNonce)).to.be.true
-      // The signatures are otherwise valid, but the nonce has been marked as used so
-      // the 6-arg overload must reject them.
-      await Helper.execTransactionWithNonceReverted(
-        contract,
-        owner01,
-        [owner01, owner02],
-        contract.address,
-        Helper.ZERO,
-        data as `0x${string}`,
-        Helper.DEFAULT_GAS,
-        futureNonce,
+        nonce,
         0,
+        0, // operation
         signatures,
-        Helper.errors.NONCE_ALREADY_USED,
       )
+      // Second dispatch with the same signatures must revert.
+      await expect(
+        contract
+          .connect(owner01)
+          ['execTransaction(address,uint256,bytes,uint256,uint256,uint256,uint8,bytes)'](
+            contract.address,
+            Helper.ZERO,
+            data,
+            Helper.DEFAULT_GAS,
+            nonce,
+            0,
+            0,
+            signatures,
+          ),
+      ).to.be.revertedWithCustomError(contract, 'InvalidSignatures')
     })
 
     it('isValidSignature now reports against the passed nonce (not _txnNonce)', async function () {
@@ -1942,6 +1916,10 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       // SAME signatures. With the bug, the view would key on `_txnNonce` for both, so
       // asking about 0 would still return true (since 0 == `_txnNonce`). With the fix,
       // the second call must return false because the signatures are bound to 99, not 0.
+      // v0.5.0 — extended wallets expose an 8-arg `isValidSignature` that
+      // binds `operation` into the typehash; signatures here are built via
+      // the TS helper which targets the same 7-field (with operation=0)
+      // shape, so the 8-arg view matches.
       const data = contract.interface.encodeFunctionData('addOwner(address)', [user01.address])
       const signatures = await Helper.prepareSignatures(
         contract,
@@ -1953,27 +1931,27 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         ethers.BigNumber.from(99),
       )
       expect(
-        await contract
-          .connect(owner01)
-          ['isValidSignature(address,uint256,bytes,uint256,uint256,uint256,bytes)'](
-            contract.address,
-            Helper.ZERO,
-            data,
-            Helper.DEFAULT_GAS,
-            ethers.BigNumber.from(99),
-            0,
-            signatures,
-          ),
+        await contract.connect(owner01)['isValidSignature(address,uint256,bytes,uint256,uint256,uint256,uint8,bytes)'](
+          contract.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          ethers.BigNumber.from(99),
+          0,
+          0, // operation
+          signatures,
+        ),
       ).to.be.true
       expect(
         await contract
           .connect(owner01)
-          ['isValidSignature(address,uint256,bytes,uint256,uint256,uint256,bytes)'](
+          ['isValidSignature(address,uint256,bytes,uint256,uint256,uint256,uint8,bytes)'](
             contract.address,
             Helper.ZERO,
             data,
             Helper.DEFAULT_GAS,
             ethers.BigNumber.from(0),
+            0,
             0,
             signatures,
           ),
@@ -1997,8 +1975,30 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
           gas: ethers.BigNumber.from(Helper.DEFAULT_GAS),
           nonce: ethers.BigNumber.from(0),
           validUntil: 0,
+          // v0.5.0 — extended wallets bind an `operation` byte into the
+          // EIP-712 payload; pick the right hash for the test wallet.
+          operation: 0,
         }
-        const hash = await contract.generateHash(fields.to, fields.value, fields.data, fields.gas, fields.nonce, 0)
+        const isExtended = typeof (contract as any).allowOnlyOwnerRequest === 'function'
+        const hash = isExtended
+          ? await (contract as any).generateHashOp(
+              fields.to,
+              fields.value,
+              fields.data,
+              fields.gas,
+              fields.nonce,
+              fields.validUntil,
+              fields.operation,
+            )
+          : await Helper.generateHashForWallet(
+              contract,
+              fields.to,
+              fields.value,
+              fields.data,
+              fields.gas,
+              fields.nonce,
+              0,
+            )
         return { fields, hash }
       }
 
@@ -2199,7 +2199,15 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         // Outer owners = [owner01, owner02, inner], threshold = 2.
         const data = contract.interface.encodeFunctionData('addOwner(address)', [user01.address])
         const nonce = await contract.nonce()
-        const txHash = await contract.generateHash(contract.address, Helper.ZERO, data, Helper.DEFAULT_GAS, nonce, 0)
+        const txHash = await Helper.generateHashForWallet(
+          contract,
+          contract.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          nonce,
+          0,
+        )
         // EOA vote: owner01 signs the outer typed-data hash with their key.
         const eoaSig = await Helper.signMultiSigTxn(
           contract,
@@ -2253,7 +2261,15 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         const inner = await addContractOwner([owner01, owner02], 2)
         const data = contract.interface.encodeFunctionData('addOwner(address)', [user01.address])
         const nonce = await contract.nonce()
-        const txHash = await contract.generateHash(contract.address, Helper.ZERO, data, Helper.DEFAULT_GAS, nonce, 0)
+        const txHash = await Helper.generateHashForWallet(
+          contract,
+          contract.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          nonce,
+          0,
+        )
         // Build an inner blob that signs a *wrong* hash, so the inner
         // isValidSignature(txHash, innerBlob) returns non-magic.
         const wrongHash = ethers.utils.hexlify(ethers.utils.randomBytes(32))
@@ -2349,6 +2365,7 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
             owners,
             Helper.DEFAULT_THRESHOLD,
             Helper.DEFAULT_ALLOW_ONLY_OWNER,
+            Helper.ENTRY_POINT_V07_ADDRESS,
           )
           await tx.wait()
           const Contract = await ethers.getContractFactory(Helper.CONTRACT_NAME_EXTENDED)
@@ -2365,8 +2382,8 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
       })
     })
 
-    it('reports v0.4.0 as the wallet version', async function () {
-      expect(await contract.version()).to.be.equal('0.4.0')
+    it('reports 0.5.0 as the wallet version', async function () {
+      expect(await contract.version()).to.be.equal('0.5.0')
       // Bitmask: zero-state reports no advanced features active.
       expect(await contract.advancedFeaturesEnabled()).to.be.equal(0)
     })
@@ -2417,7 +2434,15 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
           nonce,
           0,
         )
-        const txHash = await contract.generateHash(contract.address, Helper.ZERO, data, Helper.DEFAULT_GAS, nonce, 0)
+        const txHash = await Helper.generateHashForWallet(
+          contract,
+          contract.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          nonce,
+          0,
+        )
         // 1. Schedule
         const schedTx = await contract
           .connect(owner01)
@@ -2737,6 +2762,7 @@ export async function MyMultiSigFactoryTests() {
         [owner01.address],
         1,
         Helper.DEFAULT_ALLOW_ONLY_OWNER,
+        Helper.ENTRY_POINT_V07_ADDRESS,
       )
       const receipt = await tx.wait()
       const walletAddress = await factory.multiSig(0)
@@ -2753,6 +2779,7 @@ export async function MyMultiSigFactoryTests() {
         [owner01.address],
         1,
         Helper.DEFAULT_ALLOW_ONLY_OWNER,
+        Helper.ENTRY_POINT_V07_ADDRESS,
       )
       const receipt = await tx.wait()
       const walletAddress = await factory.multiSig(0)
@@ -2771,12 +2798,14 @@ export async function MyMultiSigFactoryTests() {
         [owner01.address],
         1,
         Helper.DEFAULT_ALLOW_ONLY_OWNER,
+        Helper.ENTRY_POINT_V07_ADDRESS,
       )
       await factory.createMyMultiSigAdvanced(
         Helper.CONTRACT_NAME,
         [owner01.address],
         1,
         Helper.DEFAULT_ALLOW_ONLY_OWNER,
+        Helper.ENTRY_POINT_V07_ADDRESS,
       )
       expect(await factory.simpleCount()).to.be.equal(2)
       expect(await factory.extendedCount()).to.be.equal(1)

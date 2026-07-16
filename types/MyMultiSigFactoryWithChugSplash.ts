@@ -32,8 +32,8 @@ export interface MyMultiSigFactoryWithChugSplashInterface
   functions: {
     "advancedCount()": FunctionFragment;
     "createMultiSig(string,address[],uint16)": FunctionFragment;
-    "createMyMultiSigAdvanced(string,address[],uint16,bool)": FunctionFragment;
-    "createMyMultiSigExtended(string,address[],uint16,bool)": FunctionFragment;
+    "createMyMultiSigAdvanced(string,address[],uint16,bool,address)": FunctionFragment;
+    "createMyMultiSigExtended(string,address[],uint16,bool,address)": FunctionFragment;
     "creationType(uint256)": FunctionFragment;
     "creationTypeCount(uint8)": FunctionFragment;
     "creationTypeOf(address)": FunctionFragment;
@@ -94,7 +94,8 @@ export interface MyMultiSigFactoryWithChugSplashInterface
       PromiseOrValue<string>,
       PromiseOrValue<string>[],
       PromiseOrValue<BigNumberish>,
-      PromiseOrValue<boolean>
+      PromiseOrValue<boolean>,
+      PromiseOrValue<string>
     ]
   ): string;
   encodeFunctionData(
@@ -103,7 +104,8 @@ export interface MyMultiSigFactoryWithChugSplashInterface
       PromiseOrValue<string>,
       PromiseOrValue<string>[],
       PromiseOrValue<BigNumberish>,
-      PromiseOrValue<boolean>
+      PromiseOrValue<boolean>,
+      PromiseOrValue<string>
     ]
   ): string;
   encodeFunctionData(
@@ -295,6 +297,7 @@ export interface MyMultiSigFactoryWithChugSplash extends BaseContract {
       owners: PromiseOrValue<string>[],
       threshold: PromiseOrValue<BigNumberish>,
       isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
@@ -303,6 +306,7 @@ export interface MyMultiSigFactoryWithChugSplash extends BaseContract {
       owners: PromiseOrValue<string>[],
       threshold: PromiseOrValue<BigNumberish>,
       isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
@@ -378,6 +382,7 @@ export interface MyMultiSigFactoryWithChugSplash extends BaseContract {
     owners: PromiseOrValue<string>[],
     threshold: PromiseOrValue<BigNumberish>,
     isOnlyOwnerRequest: PromiseOrValue<boolean>,
+    entryPoint: PromiseOrValue<string>,
     overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
@@ -386,6 +391,7 @@ export interface MyMultiSigFactoryWithChugSplash extends BaseContract {
     owners: PromiseOrValue<string>[],
     threshold: PromiseOrValue<BigNumberish>,
     isOnlyOwnerRequest: PromiseOrValue<boolean>,
+    entryPoint: PromiseOrValue<string>,
     overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
@@ -461,6 +467,7 @@ export interface MyMultiSigFactoryWithChugSplash extends BaseContract {
       owners: PromiseOrValue<string>[],
       threshold: PromiseOrValue<BigNumberish>,
       isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
       overrides?: CallOverrides
     ): Promise<string>;
 
@@ -469,6 +476,7 @@ export interface MyMultiSigFactoryWithChugSplash extends BaseContract {
       owners: PromiseOrValue<string>[],
       threshold: PromiseOrValue<BigNumberish>,
       isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
       overrides?: CallOverrides
     ): Promise<string>;
 
@@ -564,6 +572,7 @@ export interface MyMultiSigFactoryWithChugSplash extends BaseContract {
       owners: PromiseOrValue<string>[],
       threshold: PromiseOrValue<BigNumberish>,
       isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
@@ -572,6 +581,7 @@ export interface MyMultiSigFactoryWithChugSplash extends BaseContract {
       owners: PromiseOrValue<string>[],
       threshold: PromiseOrValue<BigNumberish>,
       isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
@@ -648,6 +658,7 @@ export interface MyMultiSigFactoryWithChugSplash extends BaseContract {
       owners: PromiseOrValue<string>[],
       threshold: PromiseOrValue<BigNumberish>,
       isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
@@ -656,6 +667,7 @@ export interface MyMultiSigFactoryWithChugSplash extends BaseContract {
       owners: PromiseOrValue<string>[],
       threshold: PromiseOrValue<BigNumberish>,
       isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 

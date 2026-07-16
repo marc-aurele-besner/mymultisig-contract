@@ -149,13 +149,15 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     return _name;
   }
 
-  /// @notice Wallet version. Bumped to `'0.4.0'` for the four advanced
-  ///         features (timelock, guard, allowance, modules) added in
-  ///         `MyMultiSigExtended`. The EIP-712 domain separator is fixed
-  ///         at deploy time, so this only affects newly-deployed wallets;
-  ///         pre-existing wallets keep the version they were deployed with.
+  /// @notice Wallet version. Unified to `'0.5.0'` across every wallet
+  ///         class on v0.5.0 — same canonical value as
+  ///         `MyMultiSigExtended`, `MyMultiSigFactorable`, and the
+  ///         factory proxy. The EIP-712 domain separator is fixed at
+  ///         deploy time, so pre-existing wallets (deployed before this
+  ///         release) keep their original version while new deployments
+  ///         all bind to the v0.5.0 domain.
   function version() public pure virtual returns (string memory) {
-    return '0.4.0';
+    return '0.5.0';
   }
 
   /// @notice Retrieves the current threshold value
@@ -287,7 +289,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     bytes memory signatures
   ) public payable virtual nonReentrant returns (bool success) {
     success = _execTransaction(to, value, data, txnGas, _txnNonce, 0, signatures);
-    if (_txnNonce > uint96(2 ** 96 - 1000)) emit ContractEndOfLife(2 ** 96 - _txnNonce - 1);
+    _emitEndOfLifeIfNear();
   }
 
   /// @notice Executes a transaction with an explicit `validUntil` deadline.
@@ -310,8 +312,50 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     bytes memory signatures
   ) public payable virtual nonReentrant returns (bool success) {
     success = _execTransaction(to, value, data, txnGas, _txnNonce, validUntil, signatures);
+    _emitEndOfLifeIfNear();
+  }
+
+  /// @notice Emits `ContractEndOfLife` once the nonce enters the last ~1000
+  ///         usable values. Shared by every `execTransaction` overload here
+  ///         and in `MyMultiSigExtended`.
+  function _emitEndOfLifeIfNear() internal virtual {
     if (_txnNonce > uint96(2 ** 96 - 1000)) emit ContractEndOfLife(2 ** 96 - _txnNonce - 1);
   }
+
+  /// @notice Shared low-level CALL wrapper: forwards `txnGas` to `to` with
+  ///         `value` and `data`, then copies the full returndata into a fresh
+  ///         memory buffer. Every raw call in the wallet family routes
+  ///         through here so the assembly exists exactly once.
+  function _rawCall(
+    uint256 txnGas,
+    address to,
+    uint256 value,
+    bytes memory data
+  ) internal virtual returns (bool success, bytes memory returnData) {
+    assembly {
+      success := call(txnGas, to, value, add(data, 0x20), mload(data), 0, 0)
+      let size := returndatasize()
+      returnData := mload(0x40)
+      mstore(returnData, size)
+      returndatacopy(add(returnData, 0x20), 0, size)
+      // round size up to the next 32-byte word for the free-memory pointer
+      mstore(0x40, add(add(returnData, 0x20), and(add(size, 0x1f), not(0x1f))))
+    }
+  }
+
+  /// @notice Reverts with `returnData` as the raw revert payload, bubbling an
+  ///         inner call's structured error to the outer caller unchanged.
+  function _revertWith(bytes memory returnData) internal pure {
+    assembly {
+      revert(add(returnData, 0x20), mload(returnData))
+    }
+  }
+
+  /// @notice Per-inner-call hook run before each `multiRequest` /
+  ///         `multiRequestStrict` inner call. No-op here;
+  ///         `MyMultiSigExtended` overrides it to run its timelock / guard /
+  ///         allowlist gates per inner call without re-implementing the loops.
+  function _beforeInnerCall(address /* to */, uint256 /* value */, bytes memory /* data */) internal virtual {}
 
   /// @notice Executes a transaction (internal)
   /// @param to The address to which the transaction is made.
@@ -333,17 +377,10 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     bytes memory signatures
   ) internal virtual returns (bool success) {
     if (!_validateSignature(to, value, data, txnGas, txnNonce, validUntil, signatures)) revert InvalidSignatures();
-    _txnNonce++;
+    _bumpNonce();
     uint256 gasBefore = gasleft();
     bytes memory returnData;
-    assembly {
-      success := call(txnGas, to, value, add(data, 0x20), mload(data), 0, 0)
-      let size := returndatasize()
-      returnData := mload(0x40)
-      mstore(returnData, size)
-      returndatacopy(add(returnData, 0x20), 0, size)
-      mstore(0x40, add(add(returnData, 0x20), and(add(size, 0x1f), not(0x1f))))
-    }
+    (success, returnData) = _rawCall(txnGas, to, value, data);
     if (gasBefore - gasleft() >= txnGas) revert NotEnoughGas();
     if (success) {
       emit TransactionExecuted(msg.sender, to, value, data, txnGas, txnNonce);
@@ -352,9 +389,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
       // `multiRequestStrict`'s BatchCallFailed). Bubble the revert so the
       // caller can decode the actual reason — emitting TxFailure here would
       // hide the structured error inside an opaque bytes blob.
-      assembly {
-        revert(add(returnData, 0x20), mload(returnData))
-      }
+      _revertWith(returnData);
     } else {
       emit TxFailure(msg.sender, to, value, data, txnGas, txnNonce, returnData);
     }
@@ -390,23 +425,8 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     successes = new bool[](qty);
     returnData = new bytes[](qty);
     for (uint256 i; i < qty; ) {
-      address to_ = to[i];
-      uint256 value_ = value[i];
-      bytes memory data_ = data[i];
-      uint256 txGas_ = txGas[i];
-      bool callSuccess;
-      bytes memory callReturnData;
-      assembly {
-        callSuccess := call(txGas_, to_, value_, add(data_, 0x20), mload(data_), 0, 0)
-        let size := returndatasize()
-        callReturnData := mload(0x40)
-        mstore(callReturnData, size)
-        returndatacopy(add(callReturnData, 0x20), 0, size)
-        // round size up to the next 32-byte word for the free-memory pointer
-        mstore(0x40, add(add(callReturnData, 0x20), and(add(size, 0x1f), not(0x1f))))
-      }
-      successes[i] = callSuccess;
-      returnData[i] = callReturnData;
+      _beforeInnerCall(to[i], value[i], data[i]);
+      (successes[i], returnData[i]) = _rawCall(txGas[i], to[i], value[i], data[i]);
       unchecked {
         ++i;
       }
@@ -445,21 +465,8 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   ) public payable virtual onlyThis {
     uint256 qty = to.length;
     for (uint256 i; i < qty; ) {
-      address to_ = to[i];
-      uint256 value_ = value[i];
-      bytes memory data_ = data[i];
-      uint256 txGas_ = txGas[i];
-      bool ok;
-      bytes memory returnData;
-      assembly {
-        ok := call(txGas_, to_, value_, add(data_, 0x20), mload(data_), 0, 0)
-        let size := returndatasize()
-        returnData := mload(0x40)
-        mstore(returnData, size)
-        returndatacopy(add(returnData, 0x20), 0, size)
-        // round size up to the next 32-byte word for the free-memory pointer
-        mstore(0x40, add(add(returnData, 0x20), and(add(size, 0x1f), not(0x1f))))
-      }
+      _beforeInnerCall(to[i], value[i], data[i]);
+      (bool ok, bytes memory returnData) = _rawCall(txGas[i], to[i], value[i], data[i]);
       if (!ok) revert BatchCallFailed(i, returnData);
       unchecked {
         ++i;
@@ -663,8 +670,22 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     bytes memory signatures
   ) internal virtual returns (bool valid) {
     if (validUntil != 0 && block.timestamp > validUntil) revert SignatureExpired();
-    uint16 threshold_ = _threshold;
     bytes32 txHash = generateHash(to, value, data, txnGas, txnNonce, validUntil);
+    return _validateSignatureForHash(txHash, txnNonce, signatures);
+  }
+
+  /// @notice Mutating vote-counting core shared by `_validateSignature` and
+  ///         `MyMultiSigExtended`'s 7-field (`operation`-bound) validator.
+  ///         Counts on-chain approvals plus decoded signature votes against
+  ///         `txHash`, consuming each vote's `(nonce, owner)` slot via
+  ///         `_recordVote`. The caller is responsible for any expiry /
+  ///         used-nonce pre-checks and for computing the right typed-data hash.
+  function _validateSignatureForHash(
+    bytes32 txHash,
+    uint256 txnNonce,
+    bytes memory signatures
+  ) internal virtual returns (bool valid) {
+    uint16 threshold_ = _threshold;
     // On-chain approvals count as votes and consume their (nonce, owner)
     // slot. An approved owner that was later removed from the wallet fails
     // the check and aborts the whole validation — no partial application.
@@ -857,6 +878,15 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @notice Increments the transaction nonce, can be use to invalidate previous signatures
   /// @dev This function can only be called inside a multisig transaction.
   function incrementNonce() public virtual onlyThis {
+    _txnNonce++;
+  }
+
+  /// @dev Mutation hook so internal `_execTransaction` / v0.5.0's
+  ///      `_execExtended` can bump the nonce without going through the
+  ///      `onlyThis`-guarded `incrementNonce()` public entry (calling
+  ///      that from inside `execTransaction` would revert because the
+  ///      external caller's `msg.sender` is not `address(this)`).
+  function _bumpNonce() internal virtual {
     _txnNonce++;
   }
 

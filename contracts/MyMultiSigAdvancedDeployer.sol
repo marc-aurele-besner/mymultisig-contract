@@ -29,13 +29,15 @@ contract MyMultiSigAdvancedDeployer is IMyMultiSigAdvancedDeployer {
     string memory contractName_,
     address[] memory owners_,
     uint16 threshold_,
-    bool isOnlyOwnerRequest_
+    bool isOnlyOwnerRequest_,
+    address entryPoint_
   ) external override returns (address contractAddress) {
     contractAddress = IMyMultiSigExtendedDeployer(extendedDeployer).deployMyMultiSigExtended(
       contractName_,
       owners_,
       threshold_,
-      isOnlyOwnerRequest_
+      isOnlyOwnerRequest_,
+      entryPoint_
     );
   }
 }

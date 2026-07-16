@@ -3,18 +3,20 @@ pragma solidity 0.8.24;
 
 import './MyMultiSig.sol';
 import './interfaces/ITransactionGuard.sol';
+import './interfaces/IAccount.sol';
+import './interfaces/IEntryPoint.sol';
+import './interfaces/PackedUserOperation.sol';
 
-/// @title MyMultiSigExtended (v0.4.0)
-/// @notice Inactivity / delegate handover from v0.3.0, plus four opt-in
-///         v0.4.0 features: timelock on sensitive admin calls, pluggable
-///         transaction guard with a built-in target allowlist, per-owner
-///         daily spending allowance, and a Safe-style enabled module
-///         registry. All four v0.4.0 features are disabled by default, so
-///         existing wallets (and existing signatures) behave unchanged
-///         until the new setters are called.
-/// @dev    New storage is appended at the END of the contract body to
-///         avoid colliding with any future base-wallet addition.
-contract MyMultiSigExtended is MyMultiSig {
+/// @title MyMultiSigExtended (v0.5.0)
+/// @notice v0.3.0 inactivity / delegate handover, v0.4.0 opt-in
+///         features (timelock, guard, allowlist, allowance, modules),
+///         and v0.5.0 additions: an `operation` byte on
+///         `execTransaction` (0 = CALL, 1 = DELEGATECALL gated to
+///         `to == address(this)`) and ERC-4337 v0.7 account abstraction.
+///         All four v0.4.0 features remain disabled by default.
+/// @dev    Storage is appended at the END of each release so later
+///         versions never collide with earlier storage slots.
+contract MyMultiSigExtended is MyMultiSig, IAccount {
   // --- v0.3.0 state ---
   bool private _onlyOwnerRequest;
   uint256 private _minimumTransferInactiveOwnershipAfter;
@@ -33,7 +35,12 @@ contract MyMultiSigExtended is MyMultiSig {
   // Timelock
   uint256 internal _timelockDelay; // 0 = disabled
   uint256 internal _sensitiveValueThreshold; // 0 = value-cap disabled
-  mapping(bytes4 => bool) internal _sensitiveSelectors;
+  /// @dev Tri-state override of the built-in default sensitive-selector set
+  ///      (see `_isDefaultSensitiveSelector`): 0 = use the default set,
+  ///      1 = forced sensitive, 2 = forced not sensitive. Keeping the
+  ///      defaults in code instead of 10 constructor SSTOREs makes every
+  ///      wallet deployment ~220k gas cheaper with identical semantics.
+  mapping(bytes4 => uint8) internal _sensitiveSelectorOverride;
   mapping(bytes32 => uint256) internal _readyAt; // 0 = unscheduled, max = executed
   mapping(bytes32 => uint256) internal _scheduledValidUntil;
 
@@ -92,6 +99,12 @@ contract MyMultiSigExtended is MyMultiSig {
   error ModuleNotFound(address module);
   error InvalidModuleOperation(uint256 operation);
 
+  // --- v0.5.0 custom errors ---
+  error InvalidOperation(uint8 operation);
+  error NotEntryPoint();
+  error InvalidNonce(uint256 expected, uint256 got);
+  error RequiresOperationByte();
+
   // --- v0.4.0 events (v0.3.0 events live in MyMultiSig.sol) ---
 
   event TimelockDelaySet(uint256 delay);
@@ -121,36 +134,50 @@ contract MyMultiSigExtended is MyMultiSig {
   // ---------------------------------------------------------------------------
   // Constructor
   // ---------------------------------------------------------------------------
+  /// @custom:oz-upgrades-unsafe-allow constructor
+  /// @dev    v0.5.0 adds an `entryPoint_` constructor arg. Existing
+  ///         v0.4.0 on-chain instances of `MyMultiSigExtended` are
+  ///         frozen at their original bytecode — they continue to use
+  ///         `version() == '0.4.0'` and do NOT have the v0.5.0 surface.
   constructor(
     string memory name_,
     address[] memory owners_,
     uint16 threshold_,
-    bool isOnlyOwnerRequest_
+    bool isOnlyOwnerRequest_,
+    address entryPoint_
   ) MyMultiSig(name_, owners_, threshold_) {
     _onlyOwnerRequest = isOnlyOwnerRequest_;
 
-    // Default sensitive-selector set: once `_timelockDelay` is non-zero,
-    // every privileged admin here must go through `scheduleTransaction`.
-    // Owners can prune this list via `setSensitiveSelector(sel, false)`.
-    _sensitiveSelectors[bytes4(keccak256('addOwner(address)'))] = true;
-    _sensitiveSelectors[bytes4(keccak256('removeOwner(address)'))] = true;
-    _sensitiveSelectors[bytes4(keccak256('replaceOwner(address,address)'))] = true;
-    _sensitiveSelectors[bytes4(keccak256('changeThreshold(uint16)'))] = true;
-    _sensitiveSelectors[bytes4(keccak256('setTransferInactiveOwnershipAfter(uint256)'))] = true;
-    _sensitiveSelectors[bytes4(keccak256('setOwnerSettings(address,uint256,address)'))] = true;
-    _sensitiveSelectors[bytes4(keccak256('markNonceAsUsed(uint256)'))] = true;
-    _sensitiveSelectors[bytes4(keccak256('enableModule(address)'))] = true;
-    _sensitiveSelectors[bytes4(keccak256('disableModule(address,address)'))] = true;
-    _sensitiveSelectors[bytes4(keccak256('setTimelockDelay(uint256)'))] = true;
+    // The default sensitive-selector set lives in code — see
+    // `_isDefaultSensitiveSelector`. Once `_timelockDelay` is non-zero,
+    // every privileged admin call there must go through
+    // `scheduleTransaction`. Owners can prune the set via
+    // `setSensitiveSelector(sel, false)`.
+
+    if (entryPoint_ == address(0)) revert InvalidOperation(0);
+    ENTRY_POINT = IEntryPoint(entryPoint_);
   }
 
   // ---------------------------------------------------------------------------
-  // v0.4.0 version override
+  // v0.5.0 immutable + version override
   // ---------------------------------------------------------------------------
 
-  /// @notice Wallet version.
+  /// @notice Pinned EntryPoint for ERC-4337 v0.7 operations. Frozen at
+  ///         deploy time; the address is part of the wallet's on-chain
+  ///         identity (the wallet won't accept a UserOp from any other
+  ///         EntryPoint). The canonical EntryPoint v0.7 address is
+  ///         `0x0000000071727De22E5E9d8BDe0dFeC0CEB6a7d7` and is the
+  ///         same on every EVM chain.
+  /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+  IEntryPoint public immutable ENTRY_POINT;
+
+  /// @notice Wallet version. Unified to `'0.5.0'` across every wallet
+  ///         class on this release. The EIP-712 domain separator is
+  ///         therefore shared with `MyMultiSig` and the factory; only
+  ///         the typehash differs here (a 7-field hash binds the
+  ///         `operation` byte; the base wallet uses a 6-field hash).
   function version() public pure virtual override returns (string memory) {
-    return '0.4.0';
+    return '0.5.0';
   }
 
   // ---------------------------------------------------------------------------
@@ -181,30 +208,28 @@ contract MyMultiSigExtended is MyMultiSig {
     return _noncesUsed[nonce];
   }
 
-  /// @notice Executes a transaction
-  /// @param to The address to which the transaction is made.
-  /// @param value The amount of Ether to be transferred.
-  /// @param data The data to be passed along with the transaction.
-  /// @param txnGas The gas limit for the transaction.
-  /// @param txnNonce The nonce bound to the transaction. Lets callers pick a
-  ///        nonce inside the replay window (any value in `[0, 2^96 - 1]`),
-  ///        enabling signers to pre-sign for a future nonce (e.g. `_txnNonce + N`)
-  ///        so the tx can be replayed later by anyone holding the signatures.
-  ///        Reverts if `txnNonce` has already been marked as used via
-  ///        `markNonceAsUsed`.
-  /// @param validUntil Unix timestamp after which the signature is invalid;
-  ///        `0` disables the deadline check.
-  /// @param signatures The signatures to be used for the transaction.
+  /// @notice v0.5.0 — DISABLED overload of the v0.4.0 7-arg
+  ///         `execTransaction(to, value, data, gas, txnNonce,
+  ///         validUntil, signatures)` (with `txnNonce + validUntil` but
+  ///         no `operation` byte). v0.5.0 binds the operation byte into
+  ///         the EIP-712 payload; callers must use one of the new
+  ///         6/7/8-arg overloads at the bottom of this contract that
+  ///         include `operation`. Reverts with
+  ///         `RequiresOperationByte()`.
   function execTransaction(
-    address to,
-    uint256 value,
-    bytes memory data,
-    uint256 txnGas,
-    uint256 txnNonce,
-    uint256 validUntil,
-    bytes memory signatures
-  ) public payable virtual nonReentrant returns (bool success) {
-    success = _execTransaction(to, value, data, txnGas, txnNonce, validUntil, signatures);
+    address /* to */,
+    uint256 /* value */,
+    bytes memory /* data */,
+    uint256 /* txnGas */,
+    uint256 /* txnNonce */,
+    uint256 /* validUntil */,
+    bytes memory /* signatures */
+  ) public payable virtual nonReentrant returns (bool /* success */) {
+    // v0.5.0 requires the `operation` byte on the EIP-712 payload. The
+    // v0.4.0 7-arg overload (with `txnNonce + validUntil` but no
+    // `operation`) is unreachable; callers must use one of the new
+    // overloads at the bottom of this contract.
+    revert RequiresOperationByte();
   }
 
   // ---------------------------------------------------------------------------
@@ -320,7 +345,27 @@ contract MyMultiSigExtended is MyMultiSig {
   }
 
   function isSensitiveSelector(bytes4 sel) public view virtual returns (bool) {
-    return _sensitiveSelectors[sel];
+    uint8 overridden = _sensitiveSelectorOverride[sel];
+    if (overridden != 0) return overridden == 1;
+    return _isDefaultSensitiveSelector(sel);
+  }
+
+  /// @dev The built-in default sensitive-selector set, kept in code so the
+  ///      constructor doesn't pay 10 cold SSTOREs per deployment. Every
+  ///      privileged admin selector of the wallet family is listed;
+  ///      `setSensitiveSelector` overrides win over this default.
+  function _isDefaultSensitiveSelector(bytes4 sel) internal pure virtual returns (bool) {
+    return
+      sel == bytes4(keccak256('addOwner(address)')) ||
+      sel == bytes4(keccak256('removeOwner(address)')) ||
+      sel == bytes4(keccak256('replaceOwner(address,address)')) ||
+      sel == bytes4(keccak256('changeThreshold(uint16)')) ||
+      sel == bytes4(keccak256('setTransferInactiveOwnershipAfter(uint256)')) ||
+      sel == bytes4(keccak256('setOwnerSettings(address,uint256,address)')) ||
+      sel == bytes4(keccak256('markNonceAsUsed(uint256)')) ||
+      sel == bytes4(keccak256('enableModule(address)')) ||
+      sel == bytes4(keccak256('disableModule(address,address)')) ||
+      sel == bytes4(keccak256('setTimelockDelay(uint256)'));
   }
 
   /// @notice Returns the unix timestamp a scheduled tx is ready to execute at.
@@ -353,7 +398,7 @@ contract MyMultiSigExtended is MyMultiSig {
   }
 
   function setSensitiveSelector(bytes4 sel, bool isSensitive) public virtual onlyThis {
-    _sensitiveSelectors[sel] = isSensitive;
+    _sensitiveSelectorOverride[sel] = isSensitive ? 1 : 2;
     emit SensitiveSelectorSet(sel, isSensitive);
   }
 
@@ -374,11 +419,16 @@ contract MyMultiSigExtended is MyMultiSig {
     bytes memory signatures
   ) public payable virtual nonReentrant returns (bytes32 txHash) {
     if (_timelockDelay == 0) revert ZeroDelayForSensitive();
-    txHash = generateHash(to, value, data, txnGas, txnNonce, validUntil);
+    // v0.5.0 — extended wallets sign over the 7-field typehash so the
+    // timelock-ready hash must match it. operation is locked to 0 here:
+    // timelock only applies to admin calls (CALL, not DELEGATECALL).
+    txHash = generateHashOp(to, value, data, txnGas, txnNonce, validUntil, 0);
     if (_readyAt[txHash] != 0) revert AlreadyScheduled(txHash);
     if (validUntil != 0 && block.timestamp > validUntil) revert SignatureExpired();
-    if (!_validateSignature(to, value, data, txnGas, txnNonce, validUntil, signatures))
-      revert InvalidSignatures();
+    // Use the v0.5.0 mutating validator (records per-`(nonce, owner)`
+    // slot via `_recordVote`) so schedules consume the same vote slot
+    // a direct `execTransaction` would, blocking replays.
+    if (!_validateSignatureOp(txHash, txnNonce, validUntil, signatures)) revert InvalidSignatures();
     if (!_isSensitive(to, _selectorOf(data), value)) revert NotSensitive();
     uint256 readyAt = block.timestamp + _timelockDelay;
     // `_readyAt == 0` is the "not scheduled" sentinel — bump to `1` to avoid it.
@@ -408,7 +458,7 @@ contract MyMultiSigExtended is MyMultiSig {
     uint256 validUntil,
     bytes memory signatures
   ) public payable virtual nonReentrant returns (bool success) {
-    bytes32 txHash = generateHash(to, value, data, txnGas, txnNonce, validUntil);
+    bytes32 txHash = generateHashOp(to, value, data, txnGas, txnNonce, validUntil, 0);
     uint256 ready = _readyAt[txHash];
     if (ready == 0 || ready == type(uint256).max) revert NotScheduled(txHash);
     if (block.timestamp < ready) revert TimelockNotReady(txHash, ready, block.timestamp);
@@ -423,15 +473,7 @@ contract MyMultiSigExtended is MyMultiSig {
     // execute (e.g., to invalidate a pending admin call).
     if (_noncesUsed[txnNonce]) revert NonceAlreadyUsed();
 
-    bytes memory returnData;
-    success = _doLowLevelCall(gasleft(), to, value, data, txnGas, returnData);
-    if (!success && returnData.length > 0) _bubbleRevert(returnData);
-    if (success) {
-      emit TransactionExecuted(msg.sender, to, value, data, txnGas, txnNonce);
-      _postExecChecks(to, value, data, txnGas, txnNonce, validUntil);
-    } else {
-      emit TxFailure(msg.sender, to, value, data, txnGas, txnNonce, returnData);
-    }
+    success = _runLoggedCall(to, value, data, txnGas, txnNonce, validUntil);
     emit ScheduledTransactionExecuted(txHash, msg.sender);
   }
 
@@ -444,7 +486,7 @@ contract MyMultiSigExtended is MyMultiSig {
     uint256 txnNonce,
     uint256 validUntil
   ) public virtual onlyThis {
-    bytes32 txHash = generateHash(to, value, data, txnGas, txnNonce, validUntil);
+    bytes32 txHash = generateHashOp(to, value, data, txnGas, txnNonce, validUntil, 0);
     if (_readyAt[txHash] == 0) revert NotScheduled(txHash);
     delete _readyAt[txHash];
     delete _scheduledValidUntil[txHash];
@@ -524,7 +566,9 @@ contract MyMultiSigExtended is MyMultiSig {
   ) public payable virtual nonReentrant returns (bool success) {
     if (signatures.length != 65) revert AllowanceRequiresSingleSigner();
     uint96 currentNonce = nonce();
-    bytes32 txHash = generateHash(to, value, data, txnGas, currentNonce, validUntil);
+    // v0.5.0 — Extended wallets bind `operation` into the EIP-712 typehash;
+    // the allowance path uses the new 7-field typehash with operation = 0.
+    bytes32 txHash = generateHashOp(to, value, data, txnGas, currentNonce, validUntil, 0);
     address recovered = _recoverSigner(signatures, txHash);
     if (recovered != msg.sender || !isOwner(recovered)) revert AllowanceRequiresSingleSigner();
     uint256 cap = _dailyLimitPerOwner[recovered];
@@ -535,45 +579,32 @@ contract MyMultiSigExtended is MyMultiSig {
 
     _preExecChecksGuard(to, value, data);
 
-    bytes memory returnData;
-    success = _doLowLevelCall(gasleft(), to, value, data, txnGas, returnData);
-    if (!success && returnData.length > 0) _bubbleRevert(returnData);
-    if (success) {
-      // Commit-on-success: failed inner calls don't burn the cap.
-      _dailySpentByOwner[recovered] += value;
-      emit TransactionExecuted(msg.sender, to, value, data, txnGas, currentNonce);
-      _postExecChecks(to, value, data, txnGas, currentNonce, validUntil);
-    } else {
-      emit TxFailure(msg.sender, to, value, data, txnGas, currentNonce, returnData);
-    }
+    success = _runLoggedCall(to, value, data, txnGas, currentNonce, validUntil);
+    // Commit-on-success: failed inner calls don't burn the cap.
+    if (success) _dailySpentByOwner[recovered] += value;
   }
 
-  /// @dev Low-level `call` mirroring `MyMultiSig.sol:336-343`. Captures
-  ///      returndata in `returnDataOut`. `gasBudget` is currently unused —
-  ///      the call uses `txnGas` directly — and is kept for symmetry.
-  function _doLowLevelCall(
-    uint256 gasBudget,
+  /// @dev Shared tail for the timelock (`executeScheduled`) and allowance
+  ///      paths: run the inner call via the base `_rawCall`, bubble a
+  ///      payload-carrying revert, and emit the standard success / failure
+  ///      events (+ the silent post-exec guard hook on success).
+  function _runLoggedCall(
     address to,
     uint256 value,
     bytes memory data,
     uint256 txnGas,
-    bytes memory returnDataOut
+    uint256 txnNonce,
+    uint256 validUntil
   ) internal returns (bool success) {
-    assembly {
-      success := call(txnGas, to, value, add(data, 0x20), mload(data), 0, 0)
-      let size := returndatasize()
-      returnDataOut := mload(0x40)
-      mstore(returnDataOut, size)
-      returndatacopy(add(returnDataOut, 0x20), 0, size)
-      mstore(0x40, add(add(returnDataOut, 0x20), and(add(size, 0x1f), not(0x1f))))
-    }
-    gasBudget;
-  }
-
-  /// @dev Revert with raw returndata, mirroring `MyMultiSig.sol:352-354`.
-  function _bubbleRevert(bytes memory returnData) internal pure {
-    assembly {
-      revert(add(returnData, 0x20), mload(returnData))
+    bytes memory returnData;
+    (success, returnData) = _rawCall(txnGas, to, value, data);
+    if (success) {
+      emit TransactionExecuted(msg.sender, to, value, data, txnGas, txnNonce);
+      _postExecChecks(to, value, data, txnGas, txnNonce, validUntil);
+    } else if (returnData.length > 0) {
+      _revertWith(returnData);
+    } else {
+      emit TxFailure(msg.sender, to, value, data, txnGas, txnNonce, returnData);
     }
   }
 
@@ -667,25 +698,12 @@ contract MyMultiSigExtended is MyMultiSig {
     uint256 gasBefore = gasleft();
     bytes memory returnData;
     if (operation == 0) {
-      assembly {
-        success := call(gasBefore, to, value, add(data, 0x20), mload(data), 0, 0)
-        let size := returndatasize()
-        returnData := mload(0x40)
-        mstore(returnData, size)
-        returndatacopy(add(returnData, 0x20), 0, size)
-        mstore(0x40, add(add(returnData, 0x20), and(add(size, 0x1f), not(0x1f))))
-      }
+      (success, returnData) = _rawCall(gasBefore, to, value, data);
     } else {
-      // DELEGATECALL — `to` MUST be address(this).
+      // DELEGATECALL — `to` MUST be address(this); the module's code runs
+      // in the wallet's storage context.
       if (to != address(this)) revert InvalidModuleOperation(1);
-      assembly {
-        success := delegatecall(gasBefore, caller(), add(data, 0x20), mload(data), 0, 0)
-        let size := returndatasize()
-        returnData := mload(0x40)
-        mstore(returnData, size)
-        returndatacopy(add(returnData, 0x20), 0, size)
-        mstore(0x40, add(add(returnData, 0x20), and(add(size, 0x1f), not(0x1f))))
-      }
+      (success, returnData) = _rawDelegateCall(gasBefore, msg.sender, data);
     }
 
     if (success) {
@@ -699,9 +717,7 @@ contract MyMultiSigExtended is MyMultiSig {
         }
       }
     } else if (returnData.length > 0) {
-      assembly {
-        revert(add(returnData, 0x20), mload(returnData))
-      }
+      _revertWith(returnData);
     }
 
     emit ModuleTransactionExecuted(msg.sender, to, value, data, operation, success);
@@ -768,7 +784,7 @@ contract MyMultiSigExtended is MyMultiSig {
   ) internal virtual {
     address guardContract = _guard;
     if (guardContract != address(0)) {
-      bytes32 txHash = generateHash(to, value, data, txnGas, txnNoncePostBump, validUntil);
+      bytes32 txHash = generateHashOp(to, value, data, txnGas, txnNoncePostBump, validUntil, 0);
       try ITransactionGuard(guardContract).checkAfterExecution(txHash, true) {} catch (bytes memory reason) {
         emit PostExecutionGuardFailed(guardContract, reason);
       }
@@ -776,78 +792,15 @@ contract MyMultiSigExtended is MyMultiSig {
   }
 
   // ---------------------------------------------------------------------------
-  // v0.4.0 — multiRequest overrides that run the guard per inner call
+  // v0.4.0 — per-inner-call gate for multiRequest / multiRequestStrict
   // ---------------------------------------------------------------------------
 
-  /// @notice Override of `multiRequest` that runs guard + allowlist per inner call.
-  function multiRequest(
-    address[] memory to,
-    uint256[] memory value,
-    bytes[] memory data,
-    uint256[] memory txGas
-  ) public payable virtual override onlyThis returns (bool[] memory successes, bytes[] memory returnData) {
-    uint256 qty = to.length;
-    successes = new bool[](qty);
-    returnData = new bytes[](qty);
-    for (uint256 i; i < qty; ) {
-      _preExecChecks(to[i], value[i], data[i]);
-      address to_ = to[i];
-      uint256 value_ = value[i];
-      bytes memory data_ = data[i];
-      uint256 txGas_ = txGas[i];
-      bool callSuccess;
-      bytes memory callReturnData;
-      assembly {
-        callSuccess := call(txGas_, to_, value_, add(data_, 0x20), mload(data_), 0, 0)
-        let size := returndatasize()
-        callReturnData := mload(0x40)
-        mstore(callReturnData, size)
-        returndatacopy(add(callReturnData, 0x20), 0, size)
-        mstore(0x40, add(add(callReturnData, 0x20), and(add(size, 0x1f), not(0x1f))))
-      }
-      successes[i] = callSuccess;
-      returnData[i] = callReturnData;
-      unchecked {
-        ++i;
-      }
-    }
-    // The base already bumped `_txnNonce` in `_execTransaction` before this
-    // function is reached, so the outer transaction's nonce is one less than
-    // the current `nonce()` view.
-    uint96 outerNonce = nonce();
-    emit MultiRequestExecuted(outerNonce - 1, successes, returnData);
-  }
-
-  /// @notice Override of `multiRequestStrict` that runs guard + allowlist per
-  ///         inner call (reverts entire batch on first inner failure).
-  function multiRequestStrict(
-    address[] memory to,
-    uint256[] memory value,
-    bytes[] memory data,
-    uint256[] memory txGas
-  ) public payable virtual override onlyThis {
-    uint256 qty = to.length;
-    for (uint256 i; i < qty; ) {
-      _preExecChecks(to[i], value[i], data[i]);
-      address to_ = to[i];
-      uint256 value_ = value[i];
-      bytes memory data_ = data[i];
-      uint256 txGas_ = txGas[i];
-      bool ok;
-      bytes memory returnData;
-      assembly {
-        ok := call(txGas_, to_, value_, add(data_, 0x20), mload(data_), 0, 0)
-        let size := returndatasize()
-        returnData := mload(0x40)
-        mstore(returnData, size)
-        returndatacopy(add(returnData, 0x20), 0, size)
-        mstore(0x40, add(add(returnData, 0x20), and(add(size, 0x1f), not(0x1f))))
-      }
-      if (!ok) revert BatchCallFailed(i, returnData);
-      unchecked {
-        ++i;
-      }
-    }
+  /// @notice Runs the v0.4.0 gates (timelock reverse-route, guard,
+  ///         allowlist) before every inner call of the base `multiRequest` /
+  ///         `multiRequestStrict` loops. The base calls this hook per item,
+  ///         so the batch loops themselves live only in `MyMultiSig.sol`.
+  function _beforeInnerCall(address to, uint256 value, bytes memory data) internal virtual override {
+    _preExecChecks(to, value, data);
   }
 
   // ---------------------------------------------------------------------------
@@ -884,7 +837,7 @@ contract MyMultiSigExtended is MyMultiSig {
   ///      either the wallet itself at a registered sensitive selector, or
   ///      the value meets the configured wei threshold.
   function _isSensitive(address to, bytes4 sel, uint256 value) internal view returns (bool) {
-    if (to == address(this) && _sensitiveSelectors[sel]) return true;
+    if (to == address(this) && isSensitiveSelector(sel)) return true;
     if (_sensitiveValueThreshold > 0 && value >= _sensitiveValueThreshold) return true;
     return false;
   }
@@ -912,5 +865,299 @@ contract MyMultiSigExtended is MyMultiSig {
       _dailySpentByOwner[owner] = 0;
       _lastPeriodResetByOwner[owner] = block.timestamp;
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // v0.5.0 — `operation` byte on execTransaction + ERC-4337 v0.7
+  // ---------------------------------------------------------------------------
+
+  /// @notice v0.5.0 EIP-712 typehash (binds `operation`).
+  bytes32 private constant _TRANSACTION_TYPEHASH_OP =
+    keccak256(
+      'Transaction(address to,uint256 value,bytes data,uint256 gas,uint96 nonce,uint256 validUntil,uint8 operation)'
+    );
+
+  /// @notice ERC-4337 v0.7 `validationData` magic values.
+  uint256 private constant _SIG_VALIDATION_SUCCESS = 0;
+  uint256 private constant _SIG_VALIDATION_FAILED = 1;
+
+  /// @notice v0.5.0 events. The base `TransactionExecuted` / `TxFailure`
+  ///         / `ContractEndOfLife` events still fire so existing indexers
+  ///         keep working; these carry `operation` so off-chain consumers
+  ///         can distinguish CALL vs DELEGATECALL.
+  event TransactionExecutedOp(
+    address indexed sender,
+    address indexed to,
+    uint256 indexed value,
+    bytes data,
+    uint256 txnGas,
+    uint256 txnNonce,
+    uint8 operation
+  );
+  event TxFailureOp(
+    address indexed sender,
+    address indexed to,
+    uint256 indexed value,
+    bytes data,
+    uint256 txnGas,
+    uint256 txnNonce,
+    uint8 operation,
+    bytes reason
+  );
+  event UserOpExecuted(bytes32 indexed userOpHash, uint256 indexed nonce);
+
+  // --------- execTransaction overloads with operation byte ---------
+
+  function execTransaction(
+    address to,
+    uint256 value,
+    bytes memory data,
+    uint256 txnGas,
+    uint8 operation,
+    bytes memory signatures
+  ) public payable virtual nonReentrant returns (bool success) {
+    success = _execExtended(to, value, data, txnGas, nonce(), 0, operation, signatures);
+    _emitEndOfLifeIfNear();
+  }
+
+  function execTransaction(
+    address to,
+    uint256 value,
+    bytes memory data,
+    uint256 txnGas,
+    uint256 validUntil,
+    uint8 operation,
+    bytes memory signatures
+  ) public payable virtual nonReentrant returns (bool success) {
+    success = _execExtended(to, value, data, txnGas, nonce(), validUntil, operation, signatures);
+    _emitEndOfLifeIfNear();
+  }
+
+  function execTransaction(
+    address to,
+    uint256 value,
+    bytes memory data,
+    uint256 txnGas,
+    uint256 txnNonce,
+    uint256 validUntil,
+    uint8 operation,
+    bytes memory signatures
+  ) public payable virtual nonReentrant returns (bool success) {
+    success = _execExtended(to, value, data, txnGas, txnNonce, validUntil, operation, signatures);
+    _emitEndOfLifeIfNear();
+  }
+
+  // Disabled overrides — the v0.4.0 overloads (no `operation` byte) are
+  // unreachable on v0.5.0. The actual `override` lives at the original
+  // 7-arg declaration further up in this file.
+
+  function execTransaction(
+    address /* to */,
+    uint256 /* value */,
+    bytes memory /* data */,
+    uint256 /* txnGas */,
+    bytes memory /* signatures */
+  ) public payable virtual override returns (bool /* success */) {
+    revert RequiresOperationByte();
+  }
+
+  function execTransaction(
+    address /* to */,
+    uint256 /* value */,
+    bytes memory /* data */,
+    uint256 /* txnGas */,
+    uint256 /* validUntil */,
+    bytes memory /* signatures */
+  ) public payable virtual override returns (bool /* success */) {
+    revert RequiresOperationByte();
+  }
+
+  // --------- EIP-712 hash + signature helpers ---------
+
+  /// @notice EIP-712 typed-data hash. 7-field, binds `operation`.
+  function generateHashOp(
+    address to,
+    uint256 value,
+    bytes memory data,
+    uint256 txnGas,
+    uint256 txnNonce,
+    uint256 validUntil,
+    uint8 operation
+  ) public view returns (bytes32) {
+    return
+      _hashTypedDataV4(
+        keccak256(
+          abi.encode(
+            _TRANSACTION_TYPEHASH_OP,
+            to,
+            value,
+            keccak256(data),
+            txnGas,
+            txnNonce,
+            validUntil,
+            operation
+          )
+        )
+      );
+  }
+
+  /// @notice 7-arg view `isValidSignature` overload.
+  function isValidSignature(
+    address to,
+    uint256 value,
+    bytes memory data,
+    uint256 txnGas,
+    uint256 txnNonce,
+    uint256 validUntil,
+    uint8 operation,
+    bytes memory signatures
+  ) public view returns (bool valid) {
+    bytes32 txHash = generateHashOp(to, value, data, txnGas, txnNonce, validUntil, operation);
+    return _checkSignaturesOp(txHash, txnNonce, validUntil, signatures);
+  }
+
+  /// @dev View-side validator for the 7-field (`operation`-bound) hash:
+  ///      rejects used nonces and expired deadlines, then defers to the
+  ///      base `_checkSignatures` vote-counting core (the hash already
+  ///      binds `operation`, so the counting logic is identical).
+  function _checkSignaturesOp(
+    bytes32 txHash,
+    uint256 txnNonce,
+    uint256 validUntil,
+    bytes memory signatures
+  ) internal view returns (bool valid) {
+    if (_noncesUsed[txnNonce]) return false;
+    if (validUntil != 0 && block.timestamp > validUntil) return false;
+    return _checkSignatures(txHash, txnNonce, signatures);
+  }
+
+  /// @dev Mutating-side validator that records each vote's
+  ///      `(nonce, owner)` slot via `_recordVote`. Defers to the base
+  ///      `_validateSignatureForHash` core after the nonce / expiry gates.
+  function _validateSignatureOp(
+    bytes32 txHash,
+    uint256 txnNonce,
+    uint256 validUntil,
+    bytes memory signatures
+  ) internal returns (bool valid) {
+    if (_noncesUsed[txnNonce]) return false;
+    if (validUntil != 0 && block.timestamp > validUntil) revert SignatureExpired();
+    return _validateSignatureForHash(txHash, txnNonce, signatures);
+  }
+
+  // --------- Internal exec orchestrator ---------
+
+  function _execExtended(
+    address to,
+    uint256 value,
+    bytes memory data,
+    uint256 txnGas,
+    uint256 txnNonce,
+    uint256 validUntil,
+    uint8 operation,
+    bytes memory signatures
+  ) internal virtual returns (bool success) {
+    if (validUntil != 0 && block.timestamp > validUntil) revert SignatureExpired();
+    if (operation > 1) revert InvalidOperation(operation);
+    if (operation == 1 && to != address(this)) revert InvalidOperation(operation);
+
+    // Run the same v0.4.0 pre-exec gates (timelock reverse-route, guard,
+    // allowlist) the base `_execTransaction` override does. Without this,
+    // v0.5.0 calls bypassing the v0.4.0 overloads would skip these gates.
+    _preExecChecks(to, value, data);
+
+    bytes32 txHash = generateHashOp(to, value, data, txnGas, txnNonce, validUntil, operation);
+    if (!_validateSignatureOp(txHash, txnNonce, validUntil, signatures)) revert InvalidSignatures();
+
+    _bumpNonce();
+
+    uint256 gasBefore = gasleft();
+    bytes memory returnData;
+    if (operation == 0) {
+      (success, returnData) = _rawCall(txnGas, to, value, data);
+    } else {
+      (success, returnData) = _rawDelegateCall(gasBefore, to, data);
+    }
+    if (gasBefore - gasleft() >= txnGas) revert NotEnoughGas();
+    if (success) {
+      emit TransactionExecuted(msg.sender, to, value, data, txnGas, txnNonce);
+      emit TransactionExecutedOp(msg.sender, to, value, data, txnGas, txnNonce, operation);
+    } else if (returnData.length > 0) {
+      _revertWith(returnData);
+    } else {
+      emit TxFailure(msg.sender, to, value, data, txnGas, txnNonce, returnData);
+      emit TxFailureOp(msg.sender, to, value, data, txnGas, txnNonce, operation, returnData);
+    }
+  }
+
+  /// @dev Shared DELEGATECALL wrapper (the CALL twin, `_rawCall`, lives in
+  ///      the base wallet). `_execExtended` targets `address(this)`; the
+  ///      module path targets the calling module — both run the target's
+  ///      code in this wallet's storage context.
+  function _rawDelegateCall(
+    uint256 gasBudget,
+    address target,
+    bytes memory data
+  ) internal virtual returns (bool success, bytes memory returnData) {
+    assembly {
+      success := delegatecall(gasBudget, target, add(data, 0x20), mload(data), 0, 0)
+      let size := returndatasize()
+      returnData := mload(0x40)
+      mstore(returnData, size)
+      returndatacopy(add(returnData, 0x20), 0, size)
+      mstore(0x40, add(add(returnData, 0x20), and(add(size, 0x1f), not(0x1f))))
+    }
+  }
+
+  // --------- ERC-4337 v0.7 ---------
+
+  /// @notice IAccount.validateUserOp (v0.7). Caller must be `ENTRY_POINT`;
+  ///         requires `userOp.sender == address(this)`, `operation == 0`,
+  ///         `userOp.nonce == _txnNonce`, and threshold-reached
+  ///         signatures. Returns 0 on success, 1 (`SIG_VALIDATION_FAILED`)
+  ///         on failure.
+  function validateUserOp(
+    PackedUserOperation calldata userOp,
+    bytes32 /* userOpHash */,
+    uint256 /* missingAccountFunds */
+  ) external view override returns (uint256 validationData) {
+    if (msg.sender != address(ENTRY_POINT)) revert NotEntryPoint();
+    if (userOp.sender != address(this)) revert InvalidNonce(uint256(uint160(address(this))), uint256(uint160(userOp.sender)));
+
+    (address to, uint256 value, bytes memory data, uint256 txnGas, uint256 validUntil, uint8 operation) =
+      _decodeUserOpCallData(userOp.callData);
+
+    if (operation != 0) revert InvalidOperation(operation);
+    uint256 expectedNonce = nonce();
+    if (userOp.nonce != expectedNonce) revert InvalidNonce(expectedNonce, userOp.nonce);
+    bytes32 txHash = generateHashOp(to, value, data, txnGas, expectedNonce, validUntil, operation);
+    if (!_checkSignaturesOp(txHash, expectedNonce, validUntil, userOp.signature)) {
+      return _SIG_VALIDATION_FAILED;
+    }
+    return _SIG_VALIDATION_SUCCESS;
+  }
+
+  /// @notice EntryPoint-only execution path. Reconstructs the inner call
+  ///         from `userOp.callData` and runs it through `_execExtended`.
+  function executeUserOp(PackedUserOperation calldata userOp) external payable {
+    if (msg.sender != address(ENTRY_POINT)) revert NotEntryPoint();
+
+    bytes32 userOpHash = keccak256(userOp.callData);
+    (address to, uint256 value, bytes memory data, uint256 txnGas, uint256 validUntil, uint8 operation) =
+      _decodeUserOpCallData(userOp.callData);
+
+    _execExtended(to, value, data, txnGas, nonce(), validUntil, operation, userOp.signature);
+    emit UserOpExecuted(userOpHash, nonce());
+  }
+
+  /// @notice Bundler convention: `userOp.callData = abi.encode(to, value,
+  ///         data, gas, validUntil, operation)`. This is a non-standard
+  ///         inner encoding — reference `IExecute.execute` callers can
+  ///         still drive this wallet by encoding
+  ///         `func = abi.encodeCall(executeUserOp, abi.encode(...))`.
+  function _decodeUserOpCallData(
+    bytes calldata callData
+  ) internal pure returns (address to, uint256 value, bytes memory data, uint256 gas, uint256 validUntil, uint8 operation) {
+    return abi.decode(callData, (address, uint256, bytes, uint256, uint256, uint8));
   }
 }

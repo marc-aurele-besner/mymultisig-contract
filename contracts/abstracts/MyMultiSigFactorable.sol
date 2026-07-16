@@ -66,7 +66,7 @@ abstract contract MyMultiSigFactorable {
 
   /// @notice Retrieves the contract version
   function version() public pure returns (string memory) {
-    return '0.1.1';
+    return '0.5.0';
   }
 
   /// @notice Total multisigs created via this factory (all types combined).
@@ -167,18 +167,28 @@ abstract contract MyMultiSigFactorable {
     emit MyMultiSigCreated(msg.sender, contractAddress, _multiSigCount, contractName, owners, threshold);
   }
 
-  /// @notice Creates a new `MyMultiSigExtended` wallet via the Extended deployer.
+  /// @notice Creates a new `MyMultiSigExtended` wallet via the Extended
+  ///         deployer. v0.5.0 takes an EntryPoint address — the
+  ///         factory's caller is responsible for passing the canonical
+  ///         v0.7 EntryPoint (or zero to disable 4337; see notes).
+  /// @param entryPoint Canonical EntryPoint v0.7 address. Required to
+  ///        be non-zero so the wallet constructor's `InvalidOperation`
+  ///        check passes; pass the constant
+  ///        `0x0000000071727De22E5E9d8BDe0dFeC0CEB6a7d7` (same on every
+  ///        chain) for the typical case.
   function createMyMultiSigExtended(
     string memory contractName,
     address[] memory owners,
     uint16 threshold,
-    bool isOnlyOwnerRequest
+    bool isOnlyOwnerRequest,
+    address entryPoint
   ) public payable returns (address contractAddress) {
     contractAddress = IMyMultiSigExtendedDeployer(myMultiSigExtendedDeployer).deployMyMultiSigExtended(
       contractName,
       owners,
       threshold,
-      isOnlyOwnerRequest
+      isOnlyOwnerRequest,
+      entryPoint
     );
 
     _multiSigs[_multiSigCount] = contractAddress;
@@ -197,21 +207,24 @@ abstract contract MyMultiSigFactorable {
   }
 
   /// @notice Creates a new `MyMultiSigExtended`-class wallet via the Advanced
-  ///         deployer. Currently routes to the Extended deployer (the v0.4.0
-  ///         wallet bytecode is identical); the factory uses a separate code
-  ///         path so future Advanced-only features can ship without
-  ///         re-deploying the wallet.
+  ///         deployer. Currently routes to the Extended deployer (the
+  ///         v0.4.0 / v0.5.0 wallet bytecode is identical); the factory
+  ///         uses a separate code path so future Advanced-only features
+  ///         can ship without re-deploying the wallet. Same
+  ///         `entryPoint` semantics as `createMyMultiSigExtended`.
   function createMyMultiSigAdvanced(
     string memory contractName,
     address[] memory owners,
     uint16 threshold,
-    bool isOnlyOwnerRequest
+    bool isOnlyOwnerRequest,
+    address entryPoint
   ) public payable returns (address contractAddress) {
     contractAddress = IMyMultiSigAdvancedDeployer(myMultiSigAdvancedDeployer).deployMyMultiSigAdvanced(
       contractName,
       owners,
       threshold,
-      isOnlyOwnerRequest
+      isOnlyOwnerRequest,
+      entryPoint
     );
 
     _multiSigs[_multiSigCount] = contractAddress;

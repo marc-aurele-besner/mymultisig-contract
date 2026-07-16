@@ -6,6 +6,7 @@ interface IMyMultiSigExtendedDeployer {
     string memory contractName_,
     address[] memory owners_,
     uint16 threshold_,
-    bool isOnlyOwnerRequest_
+    bool isOnlyOwnerRequest_,
+    address entryPoint_
   ) external returns (address contractAddress);
 }

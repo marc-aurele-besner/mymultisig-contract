@@ -65,11 +65,11 @@ v0.3.0 hardens the wallet against three treasury pain points:
 
 3. **`multiRequestStrict(address[], uint256[], bytes[], uint256[])`.** New atomic-batch entry point: reverts the whole transaction on first failure (no partial side effects, no `MultiRequestExecuted` event). Use it when the second call depends on the first (e.g. approve-then-swap). Failure bubbles as `BatchCallFailed(uint256 index, bytes reason)`. The original `multiRequest` continues to be best-effort — every call runs, partial failures are surfaced via the existing `successes[]` / `returnData[]` arrays.
 
-As of v0.4.0 both `MyMultiSig` and `MyMultiSigExtended` return `'0.4.0'` from `version()`. The EIP-712 domain separator is fixed at deploy time, so wallets deployed against this release (or later) bind signatures to that version. Helpers in `test/shared/signatures.ts`, `test/shared/functions.ts`, and the Foundry equivalents have been updated to thread `validUntil` through the typehash; see the test suite for usage patterns.
+As of v0.5.0 every wallet class — `MyMultiSig`, `MyMultiSigExtended`, `MyMultiSigFactorable`, and the `MyMultiSigFactory` proxy — returns the same canonical `'0.5.0'` from `version()`. The EIP-712 domain separator is fixed at deploy time and is now shared across the wallet family; only the typehash differs (base 6-field vs extended 7-field with `operation`). Helpers in `test/shared/signatures.ts`, `test/shared/functions.ts`, and the Foundry equivalents have been updated to thread `validUntil` / `operation` through the right typehash; see the test suite for usage patterns.
 
 ## 🛡️ v0.4.0 — Timelock, Guard, Allowances, Modules
 
-`MyMultiSigExtended` v0.4.0 adds four optional features, all **disabled by default** so previously-deployed wallets behave unchanged until the new setters are called. Both wallets now return `'0.4.0'` from `version()`.
+`MyMultiSigExtended` v0.4.0 adds four optional features, all **disabled by default** so previously-deployed wallets behave unchanged until the new setters are called. Every wallet class returns `'0.5.0'` from `version()` (as of v0.5.0).
 
 ### 1. ⏰ Timelock on sensitive calls
 
@@ -150,6 +150,63 @@ bool isExtended(address wallet);    // true for Extended + Advanced
 
 - `MyMultiSig.verifyNonce(uint256)` removed (zero references).
 - `MyMultiSig._changeThreshold` now emits `ThresholdChanged(uint256)` (event declared at line 52 but never previously emitted).
+
+## 🚀 v0.5.0 — DELEGATECALL op + ERC-4337 rolled into `MyMultiSigExtended`
+
+> ⚠️ **v0.5.0 ships the new wallet features as additions to the existing `MyMultiSigExtended` class — there is no separate wallet contract beyond `MyMultiSigExtended`.** All wallets deployed through the factory after this release are `MyMultiSigExtended` instances that now also expose the `operation` byte and the `IAccount` surface.
+
+`MyMultiSigExtended` v0.5.0 adds three forward-looking capabilities on top of the existing v0.4.0 features (timelock, guard, allowance, modules):
+
+### 1. 🛡️ `operation` byte on the owner-signed `execTransaction`
+
+A new `uint8 operation` parameter is bound into the EIP-712 typed-data payload. Three new `execTransaction` overloads:
+
+```solidity
+execTransaction(to, value, data, gas, operation, signatures) -> success
+execTransaction(to, value, data, gas, validUntil, operation, signatures) -> success
+execTransaction(to, value, data, gas, txnNonce, validUntil, operation, signatures) -> success
+```
+
+`operation == 0` (default) → standard CALL. `operation == 1` → DELEGATECALL into `to`, gated to **`to == address(this)`** (mirrors the same gating already used by `MyMultiSigExtended.execTransactionFromModule`). Anything else reverts with the new custom error `InvalidOperation(uint8 op)`.
+
+⚠️ **Breaking**: the pre-existing 5/6/7-arg `execTransaction` overloads on `MyMultiSigExtended` are **disabled** — they now revert with `RequiresOperationByte()`. All frontends must switch to the new overloads that include `operation`. The base `MyMultiSig` wallet is **untouched** and continues to expose the old 5/6-arg signatures against the v0.4.0 typehash.
+
+⚠️ **EIP-712 footer changed.** The new typehash binds `operation`:
+```
+Transaction(address to, uint256 value, bytes data, uint256 gas, uint96 nonce, uint256 validUntil, uint8 operation)
+```
+Existing v0.4.0 `MyMultiSigExtended` signatures do **not** validate on v0.5.0 wallets because the typehash includes `operation`. Migrate your off-chain signer to bind `operation` (default `0`) into the typed data before deploying.
+
+### 2. ⚡ ERC-4337 v0.7 account abstraction
+
+`MyMultiSigExtended` implements `IAccount` against an immutable `IEntryPoint` v0.7 address passed at construction. The canonical EntryPoint v0.7 address (same on every EVM chain) is `0x0000000071727De22E5E9d8BDe0dFeC0CEB6a7d7`.
+
+Constructor signature: `new MyMultiSigExtended(name, owners, threshold, isOnlyOwnerRequest, entryPoint)`. Bundler flow:
+
+1. Bundler calls `EntryPoint.handleOps([userOp], beneficiary)`.
+2. EntryPoint calls the wallet's `validateUserOp(PackedUserOperation, bytes32 userOpHash, uint256 missingAccountFunds)`. Returns `0` on success / `1` (`SIG_VALIDATION_FAILED`) on failure. Requires `msg.sender == ENTRY_POINT`, `userOp.sender == address(this)`, `operation == 0`, `userOp.nonce == _txnNonce`, and threshold reached via the same signature-validation path used by `execTransaction`.
+3. EntryPoint funds execution and calls `executeUserOp(PackedUserOperation)`, which reconstructs the inner call from `userOp.callData = abi.encode(address to, uint256 value, bytes data, uint256 gas, uint256 validUntil, uint8 operation)` and runs it through the gated `_execExtended` path.
+
+Paymaster support drops out naturally: a paymaster can pre-fund via `EntryPoint.depositTo(address(this))`; bundlers assemble UserOps with `paymasterAndData != 0` and the wallet's `validateUserOp` is permissive on value-funded flows.
+
+### 3. 🌐 CREATE2 deterministic wallets (deferred to a follow-up)
+
+The original v0.5.0 plan called for a CREATE2-based factory path (`Clones.cloneDeterministic` against a dedicated implementation). That work would require converting `MyMultiSigExtended` into `Initializable` (a non-trivial storage layout shift on a non-upgradeable wallet), so it was **deferred to a follow-up release** to keep this PR focused. The v0.5.0 factory stores the same deployer trio as v0.4.0 (`MyMultiSigDeployer`, `MyMultiSigExtendedDeployer`, `MyMultiSigAdvancedDeployer`).
+
+When CREATE2 ships, the plan is:
+- Make `MyMultiSigExtended` `Initializable`; `MyMultiSigExtendedDeployer` calls `new MyMultiSigExtendedProxy()` followed by `initialize(name, owners, threshold, isOnlyOwnerRequest, entryPoint)`.
+- The factory holds an immutable `myMultiSigExtendedImpl` (the wallet implementation used as a `Clones.cloneDeterministic` target) and uses `OZ Clones.cloneDeterministic(salt, myMultiSigExtendedImpl)` to deploy.
+
+### Migration story
+
+Existing v0.4.0 wallets (deployed before this release) stay frozen at their original bytecode — they bind to the old 6-field EIP-712 typehash and the same EIP-712 domain separator format but with `version() == '0.5.0'` (matching the unified v0.5.0 versioning) and do **not** have the v0.5.0 operation-byte surface. To migrate, the owners redeploy `MyMultiSigExtended` with the new constructor (passing `entryPoint`) and move funds.
+
+### Cleanups bundled with v0.5.0
+
+- **Single canonical version `0.5.0` across every contract.** `MyMultiSig.version()`, `MyMultiSigExtended.version()`, `MyMultiSigFactorable.version()`, `MyMultiSigFactory.version()` (inherited), `package.json`, and the `CONTRACT_VERSION` TS constant all return `'0.5.0'`. The EIP-712 domain separator is therefore shared across the whole wallet family; only the typehash differs.
+- `MyMultiSigExtendedDeployer.deployMyMultiSigExtended(...)` and `MyMultiSigAdvancedDeployer.deployMyMultiSigAdvanced(...)` now take an `entryPoint` argument and forward it through.
+- `MyMultiSigFactorable.createMyMultiSigExtended(...)` and `createMyMultiSigAdvanced(...)` now take an `entryPoint` and forward it.
+- New custom errors: `InvalidOperation(uint8)`, `NotEntryPoint()`, `InvalidNonce(expected, got)`, `RequiresOperationByte()`. New events: `TransactionExecutedOp(...)`, `TxFailureOp(...)`, `UserOpExecuted(bytes32 userOpHash, uint256 nonce)`.
 
 ## 🔧 Install Dependencies
 

@@ -1,5 +1,6 @@
 import { ethers, network } from 'hardhat'
 import Helper from '../test/shared'
+import extendedConstants from '../constants/extended'
 
 let provider: any
 let owner01: any
@@ -36,9 +37,14 @@ async function main() {
     'MyMultiSigExtendedDeployer',
     await contract.myMultiSigExtendedDeployer()
   )
+
   console.log(`Contract MyMultiSig Factory deployed to ${contract.address}`)
   console.log(`  -> MyMultiSigDeployer:        ${myMultiSigDeployer.address}`)
   console.log(`  -> MyMultiSigExtendedDeployer: ${myMultiSigExtendedDeployer.address}`)
+  console.log(`v0.5.0 deploy helpers:`)
+  console.log(`  -> Canonical CREATE2 deployer: ${extendedConstants.CANONICAL_CREATE2_DEPLOYER}`)
+  console.log(`  -> Factory salt (hex):         ${Buffer.from(extendedConstants.FACTORY_SALT).toString('hex')}`)
+  console.log(`  -> EntryPoint v0.7 address:    ${extendedConstants.ENTRY_POINT_V07_ADDRESS}`)
 }
 
 main().catch((error) => {

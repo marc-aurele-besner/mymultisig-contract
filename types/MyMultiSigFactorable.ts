@@ -31,8 +31,8 @@ export interface MyMultiSigFactorableInterface extends utils.Interface {
   functions: {
     "advancedCount()": FunctionFragment;
     "createMultiSig(string,address[],uint16)": FunctionFragment;
-    "createMyMultiSigAdvanced(string,address[],uint16,bool)": FunctionFragment;
-    "createMyMultiSigExtended(string,address[],uint16,bool)": FunctionFragment;
+    "createMyMultiSigAdvanced(string,address[],uint16,bool,address)": FunctionFragment;
+    "createMyMultiSigExtended(string,address[],uint16,bool,address)": FunctionFragment;
     "creationType(uint256)": FunctionFragment;
     "creationTypeCount(uint8)": FunctionFragment;
     "creationTypeOf(address)": FunctionFragment;
@@ -93,7 +93,8 @@ export interface MyMultiSigFactorableInterface extends utils.Interface {
       PromiseOrValue<string>,
       PromiseOrValue<string>[],
       PromiseOrValue<BigNumberish>,
-      PromiseOrValue<boolean>
+      PromiseOrValue<boolean>,
+      PromiseOrValue<string>
     ]
   ): string;
   encodeFunctionData(
@@ -102,7 +103,8 @@ export interface MyMultiSigFactorableInterface extends utils.Interface {
       PromiseOrValue<string>,
       PromiseOrValue<string>[],
       PromiseOrValue<BigNumberish>,
-      PromiseOrValue<boolean>
+      PromiseOrValue<boolean>,
+      PromiseOrValue<string>
     ]
   ): string;
   encodeFunctionData(
@@ -294,6 +296,7 @@ export interface MyMultiSigFactorable extends BaseContract {
       owners: PromiseOrValue<string>[],
       threshold: PromiseOrValue<BigNumberish>,
       isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
@@ -302,6 +305,7 @@ export interface MyMultiSigFactorable extends BaseContract {
       owners: PromiseOrValue<string>[],
       threshold: PromiseOrValue<BigNumberish>,
       isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
@@ -377,6 +381,7 @@ export interface MyMultiSigFactorable extends BaseContract {
     owners: PromiseOrValue<string>[],
     threshold: PromiseOrValue<BigNumberish>,
     isOnlyOwnerRequest: PromiseOrValue<boolean>,
+    entryPoint: PromiseOrValue<string>,
     overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
@@ -385,6 +390,7 @@ export interface MyMultiSigFactorable extends BaseContract {
     owners: PromiseOrValue<string>[],
     threshold: PromiseOrValue<BigNumberish>,
     isOnlyOwnerRequest: PromiseOrValue<boolean>,
+    entryPoint: PromiseOrValue<string>,
     overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
@@ -460,6 +466,7 @@ export interface MyMultiSigFactorable extends BaseContract {
       owners: PromiseOrValue<string>[],
       threshold: PromiseOrValue<BigNumberish>,
       isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
       overrides?: CallOverrides
     ): Promise<string>;
 
@@ -468,6 +475,7 @@ export interface MyMultiSigFactorable extends BaseContract {
       owners: PromiseOrValue<string>[],
       threshold: PromiseOrValue<BigNumberish>,
       isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
       overrides?: CallOverrides
     ): Promise<string>;
 
@@ -563,6 +571,7 @@ export interface MyMultiSigFactorable extends BaseContract {
       owners: PromiseOrValue<string>[],
       threshold: PromiseOrValue<BigNumberish>,
       isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
@@ -571,6 +580,7 @@ export interface MyMultiSigFactorable extends BaseContract {
       owners: PromiseOrValue<string>[],
       threshold: PromiseOrValue<BigNumberish>,
       isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
@@ -647,6 +657,7 @@ export interface MyMultiSigFactorable extends BaseContract {
       owners: PromiseOrValue<string>[],
       threshold: PromiseOrValue<BigNumberish>,
       isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
@@ -655,6 +666,7 @@ export interface MyMultiSigFactorable extends BaseContract {
       owners: PromiseOrValue<string>[],
       threshold: PromiseOrValue<BigNumberish>,
       isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 

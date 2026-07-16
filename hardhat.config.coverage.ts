@@ -4,6 +4,7 @@ import { subtask } from 'hardhat/config'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as dotenv from 'dotenv'
+import { glob as tcGlob, runTypeChain as tcRunTypeChain } from 'typechain'
 import '@nomicfoundation/hardhat-toolbox'
 import 'hardhat-awesome-cli'
 import '@openzeppelin/hardhat-upgrades'
@@ -32,6 +33,41 @@ subtask(TASK_COMPILE_GET_REMAPPINGS, async (): Promise<Record<string, string>> =
     remappings[from] = to
   }
   return remappings
+})
+
+// Mirror the typechain glob workaround from hardhat.config.ts: the bundled
+// `@typechain/hardhat` glob also matches per-source `build-info/` dirs and
+// `*.dbg.json` debug artifacts, which aren't ABIs and make typechain throw
+// `MalformedAbiError: Not a valid ABI`. Filter them out before driving
+// `runTypeChain` directly.
+subtask('typechain:generate-types').setAction(async ({ quiet }: { quiet: boolean }, { config }: { config: any }) => {
+  const cwd = config.paths.root
+  const tcCfg = config.typechain
+  const isBuildInfoOrDbg = (p: string) => /[/\\]build-info[/\\]/.test(p) || /\.dbg\.json$/i.test(p)
+  const allFiles = tcGlob(cwd, [`${config.paths.artifacts}/!(build-info)/**/+([a-zA-Z0-9_]).json`]).filter(
+    (p: string) => !isBuildInfoOrDbg(p),
+  )
+  if (!quiet) {
+    console.log(
+      `Generating typings for: ${allFiles.length} artifacts in dir: ${tcCfg.outDir} for target: ${tcCfg.target}`,
+    )
+  }
+  const result = await tcRunTypeChain({
+    cwd,
+    allFiles,
+    filesToProcess: allFiles,
+    outDir: tcCfg.outDir,
+    target: tcCfg.target,
+    flags: {
+      alwaysGenerateOverloads: tcCfg.alwaysGenerateOverloads,
+      discriminateTypes: tcCfg.discriminateTypes,
+      tsNocheck: tcCfg.tsNocheck,
+      environment: 'hardhat',
+    },
+  })
+  if (!quiet) {
+    console.log(`Successfully generated ${result.filesGenerated} typings!`)
+  }
 })
 
 const {
@@ -76,7 +112,10 @@ const config: HardhatUserConfig = {
   defaultNetwork: 'hardhat',
   networks: {
     hardhat: {
-      blockGasLimit: 1200000000,
+      // v0.5.0 — same FUSAKA_TX_GAS_LIMIT bypass as the main
+      // `hardhat.config.ts` (16M is too small for the 108k deployer
+      // bytecode). Magic value lifts the per-tx cap.
+      blockGasLimit: 0x1fffffffffffff,
     },
     localhost: {
       accounts: {

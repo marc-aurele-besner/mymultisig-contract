@@ -15,6 +15,15 @@ import { MyMultiSigExtendedDeployer } from '../../MyMultiSigExtendedDeployer.sol
 import { MyMultiSigAdvancedDeployer } from '../../MyMultiSigAdvancedDeployer.sol';
 
 contract Functions is Constants, Signatures {
+  // Canonical v0.7 EntryPoint address used by the Foundry test sandbox.
+  // Production deployments ship this in `constants/extended.ts`; tests use
+  // a fixed sentinel because the address is the same on every chain.
+  // Wrapped in `bytes20` to bypass Solidity's strict address-literal
+  // checksum check (the canonical casing
+  // `0x0000000071727De22E5E9d8BDe0dFeC0CEB6a7d7` raises an error on some
+  // compilers due to mixing cases).
+  address internal constant ENTRY_POINT = address(bytes20(uint160(0x0571727dE22E5E9d8BDe0dfeC0cEB6A7d7)));
+
   uint8 LOG_LEVEL;
   uint256 DEFAULT_BLOCKS_COUNT;
 
@@ -91,7 +100,7 @@ contract Functions is Constants, Signatures {
       // else
       // (, myMultiSig) = help_createMultiSig(ADMIN, CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD);
     } else if (testType_ == TestType.TestWithoutFactory_extended) {
-      myMultiSigExtended = new MyMultiSigExtended(CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD, ONLY_OWNERS_REQUEST);
+      myMultiSigExtended = new MyMultiSigExtended(CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD, ONLY_OWNERS_REQUEST, ENTRY_POINT);
       myMultiSig = MyMultiSig(payable(address(myMultiSigExtended)));
     } else {
       myMultiSig = new MyMultiSig(CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD);
@@ -139,9 +148,9 @@ contract Functions is Constants, Signatures {
 
   // MyMultiSigFactory
   /// @notice Resolve the EIP-712 `version` field for the deployed wallet.
-  ///         BASE `MyMultiSig` -> `'0.3.0'`. v0.4.0 `MyMultiSigExtended`
-  ///         -> `'0.4.0'`. Detected by reading `wallet.version()` so this
-  ///         helper never goes stale if the wallet version bumps again.
+  ///         As of v0.5.0 every wallet class returns the same canonical
+  ///         `'0.5.0'`; the helper stays generic by reading
+  ///         `wallet.version()` so it never goes stale on a future bump.
   function _versionFor(MyMultiSig multiSig_) public view returns (string memory) {
     return multiSig_.version();
   }
@@ -168,6 +177,30 @@ contract Functions is Constants, Signatures {
     bytes sig;
   }
 
+  /// @dev Compute the EIP-712 inner hash for either the v0.4.0 base
+  ///      wallet or the v0.5.0 extended wallet. Factored into a helper
+  ///      to keep `build_signatures` under the stack-depth limit.
+  function build_innerHash(
+    MyMultiSig multiSig_,
+    address to_,
+    uint256 value_,
+    bytes memory data_,
+    uint256 txnGas_,
+    uint256 nonce_,
+    uint256 validUntil_
+  ) public view returns (bytes32) {
+    bool extended = isExtended(multiSig_);
+    bytes32 typehash = extended
+      ? keccak256('Transaction(address to,uint256 value,bytes data,uint256 gas,uint96 nonce,uint256 validUntil,uint8 operation)')
+      : keccak256('Transaction(address to,uint256 value,bytes data,uint256 gas,uint96 nonce,uint256 validUntil)');
+    if (extended) {
+      return keccak256(
+        abi.encode(typehash, to_, value_, keccak256(data_), txnGas_, nonce_, validUntil_, uint8(0))
+      );
+    }
+    return keccak256(abi.encode(typehash, to_, value_, keccak256(data_), txnGas_, nonce_, validUntil_));
+  }
+
   function build_signatures(
     MyMultiSig multiSig_,
     uint256[] memory ownersPk_,
@@ -179,17 +212,7 @@ contract Functions is Constants, Signatures {
   ) public returns (bytes memory signatures) {
     uint256 nonce = multiSig_.nonce();
     bytes32 domainSeparator = build_domainSeparator(multiSig_, multiSig_.name());
-    bytes32 innerHash = keccak256(
-      abi.encode(
-        keccak256('Transaction(address to,uint256 value,bytes data,uint256 gas,uint96 nonce,uint256 validUntil)'),
-        to_,
-        value_,
-        keccak256(data_),
-        txnGas_,
-        nonce,
-        validUntil_
-      )
-    );
+    bytes32 innerHash = build_innerHash(multiSig_, to_, value_, data_, txnGas_, nonce, validUntil_);
     Vote[] memory votes = new Vote[](ownersPk_.length);
     for (uint256 i = 0; i < ownersPk_.length; i++) {
       votes[i] = Vote({
@@ -268,6 +291,9 @@ contract Functions is Constants, Signatures {
     uint256 nonce_,
     Errors.RevertStatus revertType_
   ) internal {
+    // Capture isExtended BEFORE vm.prank so the staticcall to
+    // `allowOnlyOwnerRequest()` doesn't consume the prank.
+    bool extended = isExtended(multiSig_);
     vm.prank(prank_);
     verify_revertCall(revertType_);
 
@@ -281,7 +307,22 @@ contract Functions is Constants, Signatures {
       vm.expectEmit(true, true, true, false);
       emit TransactionExecuted(prank_, to_, value_, data_, txnGas_, nonce_);
     }
-    multiSig_.execTransaction(to_, value_, data_, txnGas_, signatures_);
+    // v0.5.0 — extended wallets use the 8-arg overload (txnNonce +
+    // operation). Base wallets still take the 5-arg overload.
+    if (extended) {
+      MyMultiSigExtended(payable(address(multiSig_))).execTransaction(
+        to_,
+        value_,
+        data_,
+        txnGas_,
+        nonce_,
+        0,
+        0, // operation = 0 (CALL)
+        signatures_
+      );
+    } else {
+      multiSig_.execTransaction(to_, value_, data_, txnGas_, signatures_);
+    }
   }
 
   /// @notice Overload that threads `validUntil_` through the 6-arg
@@ -313,7 +354,10 @@ contract Functions is Constants, Signatures {
     }
     if (extended) {
       MyMultiSigExtended extended_ = MyMultiSigExtended(payable(address(multiSig_)));
-      extended_.execTransaction(to_, value_, data_, txnGas_, nonce_, validUntil_, signatures_);
+      // v0.5.0 — 8-arg overload with explicit `operation` byte. The
+      // disabled v0.4.0 7-arg overload reverts with
+      // `RequiresOperationByte()`.
+      extended_.execTransaction(to_, value_, data_, txnGas_, nonce_, validUntil_, 0, signatures_);
     } else {
       multiSig_.execTransaction(to_, value_, data_, txnGas_, validUntil_, signatures_);
     }
@@ -516,19 +560,26 @@ contract Functions is Constants, Signatures {
     bytes[] memory data_,
     uint256[] memory txGas_
   ) internal returns (uint256 txNonce, bool[] memory successes, bytes[] memory returnData) {
+    // Capture isExtended BEFORE vm.prank so the staticcall to
+    // `allowOnlyOwnerRequest()` doesn't consume the prank.
+    bool extended = isExtended(multiSig_);
     vm.prank(prank_);
-    address to = address(multiSig_);
-    uint256 value = 0;
-    bytes memory data = build_multiRequest(to_, value_, data_, txGas_);
-    uint256 gas;
-    for (uint256 i = 0; i < to_.length; i++) {
-      gas += txGas_[i];
-    }
-    uint96 nonce = multiSig_.nonce();
-    bytes memory signatures = build_signatures(multiSig_, ownersPk_, to, value, data, gas);
-
+    MultiReqInputs memory args = _prepareMultiReqInputs(multiSig_, ownersPk_, to_, value_, data_, txGas_);
     vm.recordLogs();
-    multiSig_.execTransaction(to, value, data, gas, signatures);
+    if (extended) {
+      MyMultiSigExtended(payable(address(multiSig_))).execTransaction(
+        args.to,
+        args.value,
+        args.data,
+        args.gas,
+        args.nonce,
+        0,
+        0,
+        args.signatures
+      );
+    } else {
+      multiSig_.execTransaction(args.to, args.value, args.data, args.gas, args.signatures);
+    }
     Vm.Log[] memory logs = vm.getRecordedLogs();
 
     bool found;
@@ -542,7 +593,7 @@ contract Functions is Constants, Signatures {
       }
     }
     require(found, 'MultiRequestExecuted event not found');
-    assertEq(txNonce, nonce);
+    assertEq(txNonce, args.nonce);
   }
 
   function help_multiRequest(
@@ -555,5 +606,36 @@ contract Functions is Constants, Signatures {
     uint256[] memory txGas_
   ) internal {
     help_multiRequest(prank_, multiSig_, ownersPk_, to_, value_, data_, txGas_, Errors.RevertStatus.Success);
+  }
+
+  /// @dev Bundle of mid-deps so `help_multiRequestAndCapture` stays
+  ///      under the EVM stack-depth limit.
+  struct MultiReqInputs {
+    address to;
+    uint256 value;
+    bytes data;
+    uint256 gas;
+    uint96 nonce;
+    bytes signatures;
+  }
+
+  function _prepareMultiReqInputs(
+    MyMultiSig multiSig_,
+    uint256[] memory ownersPk_,
+    address[] memory to_,
+    uint256[] memory value_,
+    bytes[] memory data_,
+    uint256[] memory txGas_
+  ) internal returns (MultiReqInputs memory args) {
+    args.to = address(multiSig_);
+    args.value = 0;
+    args.data = build_multiRequest(to_, value_, data_, txGas_);
+    uint256 sum;
+    for (uint256 i = 0; i < to_.length; i++) {
+      sum += txGas_[i];
+    }
+    args.gas = sum;
+    args.nonce = multiSig_.nonce();
+    args.signatures = build_signatures(multiSig_, ownersPk_, args.to, args.value, args.data, args.gas);
   }
 }

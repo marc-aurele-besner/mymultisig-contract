@@ -20,5 +20,12 @@ jobs:
         run: yarn hardhat compile
       - name: Hardhat Test
         run: yarn hardhat test
+      # Build re-runs AFTER tests so regenerated ABI + typechain artifacts
+      # are consistent with what callers (mymultisig.app frontend) consume.
+      # Move this step before `Hardhat Test` if you want to test against
+      # the published ABI shape; the current order ensures tests always
+      # pass against the latest in-tree code.
+      - name: Hardhat Build (ABI / typechain)
+        run: yarn build
       - name: Hardhat Coverage
         run: yarn coverage
