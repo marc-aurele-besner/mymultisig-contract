@@ -166,6 +166,18 @@ abstract contract MyMultiSigFactorable {
     _multiSigCount = newCount;
   }
 
+  /// @notice The effective salt forwarded to a deployer for a
+  ///         deterministic (CREATE2) creation by `creator` with `salt`.
+  /// @dev    Mixes the creator into the salt so two creators using the same
+  ///         salt never race for the same address. The wallet address is
+  ///         fully determined by (factory address, deployer address, creator,
+  ///         salt, constructor arguments) — identical inputs on any chain
+  ///         where the factory and deployers sit at the same addresses yield
+  ///         the same wallet address.
+  function computeSalt(address creator, bytes32 salt) public pure returns (bytes32) {
+    return keccak256(abi.encode(creator, salt));
+  }
+
   /// @notice Creates a new base `MyMultiSig` wallet.
   /// @param contractName The wallet's name (shown in the EIP-712 domain).
   /// @param owners The owners list.
@@ -180,6 +192,49 @@ abstract contract MyMultiSigFactorable {
     uint256 newCount = _recordMultiSig(contractAddress, MyMultiSigFactorableModels.CreationType.SIMPLE);
 
     emit MyMultiSigCreated(msg.sender, contractAddress, newCount, contractName, owners, threshold);
+  }
+
+  /// @notice Creates a new base `MyMultiSig` wallet at a deterministic
+  ///         (CREATE2) address, predictable via `predictMultiSigAddress`.
+  /// @dev    Reverts if a wallet was already created with the same creator,
+  ///         salt and constructor arguments.
+  /// @param contractName The wallet's name (shown in the EIP-712 domain).
+  /// @param owners The owners list.
+  /// @param threshold The minimum sigs required to execute a transaction.
+  /// @param salt Creator-chosen salt.
+  function createDeterministicMultiSig(
+    string memory contractName,
+    address[] memory owners,
+    uint16 threshold,
+    bytes32 salt
+  ) public payable returns (address contractAddress) {
+    contractAddress = IMyMultiSigDeployer(myMultiSigDeployer).deployMyMultiSigDeterministic(
+      computeSalt(msg.sender, salt),
+      contractName,
+      owners,
+      threshold
+    );
+
+    uint256 newCount = _recordMultiSig(contractAddress, MyMultiSigFactorableModels.CreationType.SIMPLE);
+
+    emit MyMultiSigCreated(msg.sender, contractAddress, newCount, contractName, owners, threshold);
+  }
+
+  /// @notice Predicts the address `createDeterministicMultiSig` deploys to
+  ///         when called by `creator` with the same salt and arguments.
+  function predictMultiSigAddress(
+    address creator,
+    string memory contractName,
+    address[] memory owners,
+    uint16 threshold,
+    bytes32 salt
+  ) public view returns (address contractAddress) {
+    contractAddress = IMyMultiSigDeployer(myMultiSigDeployer).predictMyMultiSigAddress(
+      computeSalt(creator, salt),
+      contractName,
+      owners,
+      threshold
+    );
   }
 
   /// @notice Creates a new `MyMultiSigExtended` wallet via the Extended
@@ -210,6 +265,57 @@ abstract contract MyMultiSigFactorable {
     emit MyMultiSigCreated(msg.sender, contractAddress, newCount, contractName, owners, threshold);
   }
 
+  /// @notice Creates a new `MyMultiSigExtended` wallet at a deterministic
+  ///         (CREATE2) address, predictable via
+  ///         `predictMyMultiSigExtendedAddress`. Same `entryPoint` semantics
+  ///         as `createMyMultiSigExtended`.
+  /// @dev    Reverts if a wallet was already created with the same creator,
+  ///         salt and constructor arguments.
+  /// @param salt Creator-chosen salt.
+  function createDeterministicMyMultiSigExtended(
+    string memory contractName,
+    address[] memory owners,
+    uint16 threshold,
+    bool isOnlyOwnerRequest,
+    address entryPoint,
+    bytes32 salt
+  ) public payable returns (address contractAddress) {
+    contractAddress = IMyMultiSigExtendedDeployer(myMultiSigExtendedDeployer).deployMyMultiSigExtendedDeterministic(
+      computeSalt(msg.sender, salt),
+      contractName,
+      owners,
+      threshold,
+      isOnlyOwnerRequest,
+      entryPoint
+    );
+
+    uint256 newCount = _recordMultiSig(contractAddress, MyMultiSigFactorableModels.CreationType.EXTENDED);
+
+    emit MyMultiSigCreated(msg.sender, contractAddress, newCount, contractName, owners, threshold);
+  }
+
+  /// @notice Predicts the address `createDeterministicMyMultiSigExtended`
+  ///         deploys to when called by `creator` with the same salt and
+  ///         arguments.
+  function predictMyMultiSigExtendedAddress(
+    address creator,
+    string memory contractName,
+    address[] memory owners,
+    uint16 threshold,
+    bool isOnlyOwnerRequest,
+    address entryPoint,
+    bytes32 salt
+  ) public view returns (address contractAddress) {
+    contractAddress = IMyMultiSigExtendedDeployer(myMultiSigExtendedDeployer).predictMyMultiSigExtendedAddress(
+      computeSalt(creator, salt),
+      contractName,
+      owners,
+      threshold,
+      isOnlyOwnerRequest,
+      entryPoint
+    );
+  }
+
   /// @notice Creates a new `MyMultiSigExtended`-class wallet via the Advanced
   ///         deployer. Currently routes to the Extended deployer (the
   ///         wallet bytecode is identical); the factory
@@ -234,5 +340,57 @@ abstract contract MyMultiSigFactorable {
     uint256 newCount = _recordMultiSig(contractAddress, MyMultiSigFactorableModels.CreationType.ADVANCED);
 
     emit MyMultiSigCreated(msg.sender, contractAddress, newCount, contractName, owners, threshold);
+  }
+
+  /// @notice Creates a new Advanced wallet at a deterministic (CREATE2)
+  ///         address, predictable via `predictMyMultiSigAdvancedAddress`.
+  ///         Same `entryPoint` semantics as `createMyMultiSigExtended`.
+  /// @dev    Reverts if a wallet was already created with the same creator,
+  ///         salt and constructor arguments. Advanced deploys live in the
+  ///         Advanced deployer's salt namespace, so they never collide with
+  ///         Extended deploys sharing the same salt and arguments.
+  /// @param salt Creator-chosen salt.
+  function createDeterministicMyMultiSigAdvanced(
+    string memory contractName,
+    address[] memory owners,
+    uint16 threshold,
+    bool isOnlyOwnerRequest,
+    address entryPoint,
+    bytes32 salt
+  ) public payable returns (address contractAddress) {
+    contractAddress = IMyMultiSigAdvancedDeployer(myMultiSigAdvancedDeployer).deployMyMultiSigAdvancedDeterministic(
+      computeSalt(msg.sender, salt),
+      contractName,
+      owners,
+      threshold,
+      isOnlyOwnerRequest,
+      entryPoint
+    );
+
+    uint256 newCount = _recordMultiSig(contractAddress, MyMultiSigFactorableModels.CreationType.ADVANCED);
+
+    emit MyMultiSigCreated(msg.sender, contractAddress, newCount, contractName, owners, threshold);
+  }
+
+  /// @notice Predicts the address `createDeterministicMyMultiSigAdvanced`
+  ///         deploys to when called by `creator` with the same salt and
+  ///         arguments.
+  function predictMyMultiSigAdvancedAddress(
+    address creator,
+    string memory contractName,
+    address[] memory owners,
+    uint16 threshold,
+    bool isOnlyOwnerRequest,
+    address entryPoint,
+    bytes32 salt
+  ) public view returns (address contractAddress) {
+    contractAddress = IMyMultiSigAdvancedDeployer(myMultiSigAdvancedDeployer).predictMyMultiSigAdvancedAddress(
+      computeSalt(creator, salt),
+      contractName,
+      owners,
+      threshold,
+      isOnlyOwnerRequest,
+      entryPoint
+    );
   }
 }
