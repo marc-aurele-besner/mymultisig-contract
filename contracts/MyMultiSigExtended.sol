@@ -353,8 +353,11 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   }
 
   /// @dev The built-in default sensitive-selector set, kept in code so the
-  ///      constructor doesn't pay 10 cold SSTOREs per deployment. Every
-  ///      privileged admin selector of the wallet family is listed;
+  ///      constructor doesn't pay one cold SSTORE per selector per
+  ///      deployment. Every privileged admin selector of the wallet family
+  ///      is listed — including the setters that weaken a protection
+  ///      (guard, allowlist, allowance, and the sensitive-set itself), so
+  ///      the timelock cannot be sidestepped by reconfiguring it;
   ///      `setSensitiveSelector` overrides win over this default.
   function _isDefaultSensitiveSelector(bytes4 sel) internal pure virtual returns (bool) {
     return
@@ -367,7 +370,13 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
       sel == bytes4(keccak256('markNonceAsUsed(uint256)')) ||
       sel == bytes4(keccak256('enableModule(address)')) ||
       sel == bytes4(keccak256('disableModule(address,address)')) ||
-      sel == bytes4(keccak256('setTimelockDelay(uint256)'));
+      sel == bytes4(keccak256('setTimelockDelay(uint256)')) ||
+      sel == bytes4(keccak256('setSensitiveValueThreshold(uint256)')) ||
+      sel == bytes4(keccak256('setSensitiveSelector(bytes4,bool)')) ||
+      sel == bytes4(keccak256('setGuard(address)')) ||
+      sel == bytes4(keccak256('setAllowedTarget(address,bool)')) ||
+      sel == bytes4(keccak256('disableAllowlist()')) ||
+      sel == bytes4(keccak256('setDailySpendingLimit(address,uint256)'));
   }
 
   /// @notice Returns the unix timestamp a scheduled tx is ready to execute at.
@@ -387,7 +396,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   // ---------------------------------------------------------------------------
 
   /// @notice Sets the per-call timelock delay. `setTimelockDelay` itself is
-  ///         a sensitive selector (registered in the constructor), so
+  ///         a sensitive selector (in the built-in default set), so
   ///         reducing the delay also goes through the slow path.
   function setTimelockDelay(uint256 delay) public virtual onlyThis {
     if (delay > type(uint88).max) revert DelayTooLong();
