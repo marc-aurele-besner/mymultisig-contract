@@ -7,20 +7,14 @@ import './abstracts/MyMultiSigFactorable.sol';
 
 /// @title MyMultiSigFactory
 /// @notice The upgradeable factory proxy implementation. Bundles:
-///         - the v0.4.0 / v0.5.0 factory bookkeeping
-///           (`MyMultiSigFactorable`),
+///         - the factory bookkeeping (`MyMultiSigFactorable`),
 ///         - an `Initializable` proxy setup so the contract can sit
 ///           behind a TransparentUpgradeableProxy and be upgraded in
 ///           place.
 ///
-/// @dev    v0.5.0 simplified the factory back to the v0.4.0 constructor
-///         shape — there is no separate `MyMultiSigExtended` deployer /
-///         implementation slot. `MyMultiSigExtended` is now the
-///         v0.5.0 wallet; the same `MyMultiSigExtendedDeployer` deploys
-///         it (now taking an `entryPoint_` argument). The factory
-///         already stores that deployer as an immutable; nothing
-///         changes on the factory's storage side beyond the wallet
-///         class itself gaining the new constructor arg.
+/// @dev    All three wallet deployers are stored as immutables on
+///         `MyMultiSigFactorable`; the factory itself holds no wallet
+///         creation bytecode.
 contract MyMultiSigFactory is MyMultiSigFactorable, Initializable {
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor(
@@ -35,9 +29,8 @@ contract MyMultiSigFactory is MyMultiSigFactorable, Initializable {
     )
   {}
 
-  /// @notice Bootstrap initializer for chains that have not yet shipped
-  ///         the v0.4.0 factory. Implemented as `external initializer`
-  ///         so the proxy upgrade passes OZ's hardhat-upgrades layout
-  ///         check on first deploy.
+  /// @notice Bootstrap initializer for first-time proxy deployments.
+  ///         Implemented as `external initializer` so the deployment
+  ///         passes OZ's hardhat-upgrades layout check.
   function initialize() external initializer {}
 }

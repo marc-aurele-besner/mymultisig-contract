@@ -143,10 +143,9 @@ abstract contract MyMultiSigFactorable {
 
   /// @dev Shared post-deploy bookkeeping for the three `create*` entry
   ///      points. Reads `_multiSigCount` / `_multiSigCreatorCount` once into
-  ///      locals instead of re-loading them for every mapping write, and
-  ///      keeps the bookkeeping bytecode in one place.
-  /// @return newCount The post-increment global count — the same value the
-  ///         `MyMultiSigCreated` event has always carried as `contractIndex`.
+  ///      locals and touches each storage slot exactly once.
+  /// @return newCount The post-increment global count, emitted by the
+  ///         callers as the `contractIndex` of `MyMultiSigCreated`.
   function _recordMultiSig(
     address contractAddress,
     MyMultiSigFactorableModels.CreationType kind
@@ -184,9 +183,8 @@ abstract contract MyMultiSigFactorable {
   }
 
   /// @notice Creates a new `MyMultiSigExtended` wallet via the Extended
-  ///         deployer. v0.5.0 takes an EntryPoint address — the
-  ///         factory's caller is responsible for passing the canonical
-  ///         v0.7 EntryPoint (or zero to disable 4337; see notes).
+  ///         deployer. The caller is responsible for passing the
+  ///         canonical v0.7 EntryPoint address.
   /// @param entryPoint Canonical EntryPoint v0.7 address. Required to
   ///        be non-zero so the wallet constructor's `InvalidOperation`
   ///        check passes; pass the constant
@@ -214,7 +212,7 @@ abstract contract MyMultiSigFactorable {
 
   /// @notice Creates a new `MyMultiSigExtended`-class wallet via the Advanced
   ///         deployer. Currently routes to the Extended deployer (the
-  ///         v0.4.0 / v0.5.0 wallet bytecode is identical); the factory
+  ///         wallet bytecode is identical); the factory
   ///         uses a separate code path so future Advanced-only features
   ///         can ship without re-deploying the wallet. Same
   ///         `entryPoint` semantics as `createMyMultiSigExtended`.

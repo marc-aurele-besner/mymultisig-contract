@@ -26,9 +26,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @notice EIP-712 typehash for the per-transaction payload. Includes a
   ///         `uint256 validUntil` deadline so signatures carry an explicit
   ///         expiry. `validUntil == 0` means "no expiry" (matches Safe's
-  ///         convention). Adding the field invalidates every v0.2.0 payload
-  ///         on-chain — see `SignatureExpired` below and the v0.3.0 release
-  ///         notes.
+  ///         convention).
   bytes32 private constant _TRANSACTION_TYPEHASH =
     keccak256('Transaction(address to,uint256 value,bytes data,uint256 gas,uint96 nonce,uint256 validUntil)');
 
@@ -148,13 +146,10 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     return _name;
   }
 
-  /// @notice Wallet version. Unified to `'0.5.0'` across every wallet
-  ///         class on v0.5.0 — same canonical value as
-  ///         `MyMultiSigExtended`, `MyMultiSigFactorable`, and the
-  ///         factory proxy. The EIP-712 domain separator is fixed at
-  ///         deploy time, so pre-existing wallets (deployed before this
-  ///         release) keep their original version while new deployments
-  ///         all bind to the v0.5.0 domain.
+  /// @notice Wallet version — the same canonical value across every wallet
+  ///         class (`MyMultiSigExtended`, `MyMultiSigFactorable`, and the
+  ///         factory proxy). Part of the EIP-712 domain separator, which is
+  ///         fixed at deploy time.
   function version() public pure virtual returns (string memory) {
     return '0.5.0';
   }
@@ -696,9 +691,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @notice Decodes an ABI-encoded `(address owner, bytes sig)[]` blob.
   ///         Centralized so the vote-counting cores (`_checkSignatures` and
   ///         `_validateSignatureForHash`) decode identically. Returns an
-  ///         empty array if the input is empty. The decoded `Vote[]` is
-  ///         consumed directly — no parallel-array copy — so each validation
-  ///         skips two array allocations and a copy loop.
+  ///         empty array if the input is empty.
   function _decodeVotes(bytes memory signatures) internal pure virtual returns (Vote[] memory) {
     if (signatures.length == 0) return new Vote[](0);
     return abi.decode(signatures, (Vote[]));
@@ -850,7 +843,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     _txnNonce++;
   }
 
-  /// @dev Mutation hook so internal `_execTransaction` / v0.5.0's
+  /// @dev Mutation hook so internal `_execTransaction` /
   ///      `_execExtended` can bump the nonce without going through the
   ///      `onlyThis`-guarded `incrementNonce()` public entry (calling
   ///      that from inside `execTransaction` would revert because the

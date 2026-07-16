@@ -7,13 +7,12 @@ import './interfaces/IAccount.sol';
 import './interfaces/IEntryPoint.sol';
 import './interfaces/PackedUserOperation.sol';
 
-/// @title MyMultiSigExtended (v0.5.0)
-/// @notice v0.3.0 inactivity / delegate handover, v0.4.0 opt-in
-///         features (timelock, guard, allowlist, allowance, modules),
-///         and v0.5.0 additions: an `operation` byte on
+/// @title MyMultiSigExtended
+/// @notice Extends `MyMultiSig` with inactivity / delegate handover,
+///         opt-in features (timelock, guard, allowlist, allowance,
+///         modules — all disabled by default), an `operation` byte on
 ///         `execTransaction` (0 = CALL, 1 = DELEGATECALL gated to
-///         `to == address(this)`) and ERC-4337 v0.7 account abstraction.
-///         All four v0.4.0 features remain disabled by default.
+///         `to == address(this)`), and ERC-4337 v0.7 account abstraction.
 /// @dev    Storage is appended at the END of each release so later
 ///         versions never collide with earlier storage slots.
 contract MyMultiSigExtended is MyMultiSig, IAccount {
@@ -34,10 +33,9 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
 
   // Hot-path feature gates. `_guard`, `_allowedTargetsEnabled` and
   // `_timelockDelay` are all read by `_preExecChecks` on EVERY
-  // `execTransaction`, so they are packed into a single storage slot
-  // (160 + 8 + 88 bits): one cold SLOAD per exec instead of three
-  // (~4200 gas saved on the default disabled-features path). The uint88
-  // delay caps at ~9.8e18 years — effectively unbounded;
+  // `execTransaction`, so they share a single storage slot
+  // (160 + 8 + 88 bits) and the gates pay one cold SLOAD per exec. The
+  // uint88 delay caps at ~9.8e18 years — effectively unbounded;
   // `setTimelockDelay` enforces the cap.
   address internal _guard;
   bool internal _allowedTargetsEnabled; // first `setAllowedTarget` flips this on
@@ -47,9 +45,9 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   uint256 internal _sensitiveValueThreshold; // 0 = value-cap disabled
   /// @dev Tri-state override of the built-in default sensitive-selector set
   ///      (see `_isDefaultSensitiveSelector`): 0 = use the default set,
-  ///      1 = forced sensitive, 2 = forced not sensitive. Keeping the
-  ///      defaults in code instead of 10 constructor SSTOREs makes every
-  ///      wallet deployment ~220k gas cheaper with identical semantics.
+  ///      1 = forced sensitive, 2 = forced not sensitive. The default set
+  ///      lives in code, not storage, so wallet deployment pays no
+  ///      per-selector SSTOREs.
   mapping(bytes4 => uint8) internal _sensitiveSelectorOverride;
   mapping(bytes32 => uint256) internal _readyAt; // 0 = unscheduled, max = executed
   mapping(bytes32 => uint256) internal _scheduledValidUntil;
@@ -147,10 +145,8 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   // Constructor
   // ---------------------------------------------------------------------------
   /// @custom:oz-upgrades-unsafe-allow constructor
-  /// @dev    v0.5.0 adds an `entryPoint_` constructor arg. Existing
-  ///         v0.4.0 on-chain instances of `MyMultiSigExtended` are
-  ///         frozen at their original bytecode — they continue to use
-  ///         `version() == '0.4.0'` and do NOT have the v0.5.0 surface.
+  /// @dev    `entryPoint_` pins the ERC-4337 EntryPoint for the wallet's
+  ///         lifetime and must be non-zero.
   constructor(
     string memory name_,
     address[] memory owners_,
@@ -183,17 +179,16 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   IEntryPoint public immutable ENTRY_POINT;
 
-  /// @notice Wallet version. Unified to `'0.5.0'` across every wallet
-  ///         class on this release. The EIP-712 domain separator is
-  ///         therefore shared with `MyMultiSig` and the factory; only
-  ///         the typehash differs here (a 7-field hash binds the
-  ///         `operation` byte; the base wallet uses a 6-field hash).
+  /// @notice Wallet version — same canonical value as the base wallet and
+  ///         the factory, so the EIP-712 domain separator is shared; only
+  ///         the typehash differs (a 7-field hash binds the `operation`
+  ///         byte; the base wallet uses a 6-field hash).
   function version() public pure virtual override returns (string memory) {
     return '0.5.0';
   }
 
   // ---------------------------------------------------------------------------
-  // v0.3.0 view / read functions (unchanged)
+  // v0.3.0 view / read functions
   // ---------------------------------------------------------------------------
 
   /// @notice Retrieves if the contract only accepts owner requests (use for UI and other integrations)
@@ -220,14 +215,11 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     return _noncesUsed[nonce];
   }
 
-  /// @notice v0.5.0 — DISABLED overload of the v0.4.0 7-arg
-  ///         `execTransaction(to, value, data, gas, txnNonce,
-  ///         validUntil, signatures)` (with `txnNonce + validUntil` but
-  ///         no `operation` byte). v0.5.0 binds the operation byte into
-  ///         the EIP-712 payload; callers must use one of the new
-  ///         6/7/8-arg overloads at the bottom of this contract that
-  ///         include `operation`. Reverts with
-  ///         `RequiresOperationByte()`.
+  /// @notice Disabled overload: this wallet binds the `operation` byte
+  ///         into the EIP-712 payload, so `execTransaction` calls without
+  ///         an `operation` argument always revert with
+  ///         `RequiresOperationByte()`. Use one of the `operation`-carrying
+  ///         overloads declared at the bottom of this contract.
   function execTransaction(
     address /* to */,
     uint256 /* value */,
@@ -237,15 +229,11 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     uint256 /* validUntil */,
     bytes memory /* signatures */
   ) public payable virtual nonReentrant returns (bool /* success */) {
-    // v0.5.0 requires the `operation` byte on the EIP-712 payload. The
-    // v0.4.0 7-arg overload (with `txnNonce + validUntil` but no
-    // `operation`) is unreachable; callers must use one of the new
-    // overloads at the bottom of this contract.
     revert RequiresOperationByte();
   }
 
   // ---------------------------------------------------------------------------
-  // v0.3.0 overrides (unchanged)
+  // v0.3.0 overrides
   // ---------------------------------------------------------------------------
 
   /// @notice Bumps `lastAction` for the owner whenever their vote is recorded
@@ -302,7 +290,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   }
 
   // ---------------------------------------------------------------------------
-  // v0.3.0 mutators (unchanged)
+  // v0.3.0 mutators
   // ---------------------------------------------------------------------------
 
   function setOnlyOwnerRequest(bool isOnlyOwnerRequest) public virtual onlyThis {
@@ -432,13 +420,13 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     bytes memory signatures
   ) public payable virtual nonReentrant returns (bytes32 txHash) {
     if (_timelockDelay == 0) revert ZeroDelayForSensitive();
-    // v0.5.0 — extended wallets sign over the 7-field typehash so the
+    // Extended wallets sign over the 7-field typehash, so the
     // timelock-ready hash must match it. operation is locked to 0 here:
     // timelock only applies to admin calls (CALL, not DELEGATECALL).
     txHash = generateHashOp(to, value, data, txnGas, txnNonce, validUntil, 0);
     if (_readyAt[txHash] != 0) revert AlreadyScheduled(txHash);
     if (validUntil != 0 && block.timestamp > validUntil) revert SignatureExpired();
-    // Use the v0.5.0 mutating validator (records per-`(nonce, owner)`
+    // Use the mutating validator (records per-`(nonce, owner)`
     // slot via `_recordVote`) so schedules consume the same vote slot
     // a direct `execTransaction` would, blocking replays.
     if (!_validateSignatureOp(txHash, txnNonce, validUntil, signatures)) revert InvalidSignatures();
@@ -579,8 +567,8 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   ) public payable virtual nonReentrant returns (bool success) {
     if (signatures.length != 65) revert AllowanceRequiresSingleSigner();
     uint96 currentNonce = nonce();
-    // v0.5.0 — Extended wallets bind `operation` into the EIP-712 typehash;
-    // the allowance path uses the new 7-field typehash with operation = 0.
+    // Extended wallets bind `operation` into the EIP-712 typehash; the
+    // allowance path uses the 7-field typehash with operation = 0.
     bytes32 txHash = generateHashOp(to, value, data, txnGas, currentNonce, validUntil, 0);
     address recovered = _recoverSigner(signatures, txHash);
     if (recovered != msg.sender || !isOwner(recovered)) revert AllowanceRequiresSingleSigner();
@@ -740,7 +728,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   // v0.4.0 — _execTransaction orchestrator + per-feature pre/post hooks
   // ---------------------------------------------------------------------------
 
-  /// @notice v0.4.0 override: pre-checks → base path → post-check (silent).
+  /// @notice Orchestrator override: pre-checks → base path → post-check (silent).
   function _execTransaction(
     address to,
     uint256 value,
@@ -808,7 +796,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   // v0.4.0 — per-inner-call gate for multiRequest / multiRequestStrict
   // ---------------------------------------------------------------------------
 
-  /// @notice Runs the v0.4.0 gates (timelock reverse-route, guard,
+  /// @notice Runs the pre-exec gates (timelock reverse-route, guard,
   ///         allowlist) before every inner call of the base `multiRequest` /
   ///         `multiRequestStrict` loops. The base calls this hook per item,
   ///         so the batch loops themselves live only in `MyMultiSig.sol`.
@@ -855,9 +843,9 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     return false;
   }
 
-  /// @dev ECDSA recovery for the allowance path. Mirrors `MyMultiSig.sol:595-599`
-  ///      but operates on `bytes memory` directly. Returns `address(0)` on
-  ///      malformed input; the caller verifies against `msg.sender` and owners.
+  /// @dev ECDSA recovery for the allowance path. Mirrors the ECDSA branch
+  ///      of `_validateVote`. Returns `address(0)` on malformed input; the
+  ///      caller verifies against `msg.sender` and owners.
   function _recoverSigner(bytes memory sig, bytes32 txHash) internal pure virtual returns (address) {
     bytes32 r;
     bytes32 s;
@@ -884,7 +872,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   // v0.5.0 — `operation` byte on execTransaction + ERC-4337 v0.7
   // ---------------------------------------------------------------------------
 
-  /// @notice v0.5.0 EIP-712 typehash (binds `operation`).
+  /// @notice EIP-712 typehash for the 7-field payload (binds `operation`).
   bytes32 private constant _TRANSACTION_TYPEHASH_OP =
     keccak256(
       'Transaction(address to,uint256 value,bytes data,uint256 gas,uint96 nonce,uint256 validUntil,uint8 operation)'
@@ -894,10 +882,11 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   uint256 private constant _SIG_VALIDATION_SUCCESS = 0;
   uint256 private constant _SIG_VALIDATION_FAILED = 1;
 
-  /// @notice v0.5.0 events. The base `TransactionExecuted` / `TxFailure`
-  ///         / `ContractEndOfLife` events still fire so existing indexers
-  ///         keep working; these carry `operation` so off-chain consumers
-  ///         can distinguish CALL vs DELEGATECALL.
+  /// @notice Operation-carrying twins of the base `TransactionExecuted` /
+  ///         `TxFailure` events. The base events fire alongside these so
+  ///         indexers that only know the base surface keep working; the
+  ///         `operation` field lets off-chain consumers distinguish CALL
+  ///         from DELEGATECALL.
   event TransactionExecutedOp(
     address indexed sender,
     address indexed to,
@@ -960,9 +949,9 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     _emitEndOfLifeIfNear();
   }
 
-  // Disabled overrides — the v0.4.0 overloads (no `operation` byte) are
-  // unreachable on v0.5.0. The actual `override` lives at the original
-  // 7-arg declaration further up in this file.
+  // Disabled overrides — the base wallet's overloads without an
+  // `operation` byte always revert on this wallet; callers must use the
+  // `operation`-carrying overloads above.
 
   function execTransaction(
     address /* to */,
@@ -1074,9 +1063,9 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     if (operation > 1) revert InvalidOperation(operation);
     if (operation == 1 && to != address(this)) revert InvalidOperation(operation);
 
-    // Run the same v0.4.0 pre-exec gates (timelock reverse-route, guard,
-    // allowlist) the base `_execTransaction` override does. Without this,
-    // v0.5.0 calls bypassing the v0.4.0 overloads would skip these gates.
+    // Run the same pre-exec gates (timelock reverse-route, guard,
+    // allowlist) as the `_execTransaction` override, so every exec entry
+    // point hits them.
     _preExecChecks(to, value, data);
 
     bytes32 txHash = generateHashOp(to, value, data, txnGas, txnNonce, validUntil, operation);
