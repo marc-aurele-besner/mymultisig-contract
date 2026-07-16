@@ -1096,7 +1096,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     if (operation == 0) {
       (success, returnData) = _rawCall(txnGas, to, value, data);
     } else {
-      (success, returnData) = _rawDelegateCall(gasBefore, to, data);
+      (success, returnData) = _rawDelegateCall(txnGas, to, data);
     }
     if (gasBefore - gasleft() >= txnGas) revert NotEnoughGas();
     if (success) {
