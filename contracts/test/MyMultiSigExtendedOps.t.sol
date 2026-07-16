@@ -125,4 +125,62 @@ contract MyMultiSigExtendedTest is Helper {
     bytes memory expected = abi.encodeWithSignature('InvalidOperation(uint8)', uint8(1));
     assertEq(reason, expected);
   }
+
+  // ---------- DELEGATECALL honors txnGas ----------
+
+  function test_delegatecall_honors_txnGas() public {
+    // Regression: `_execExtended` used to forward `gasleft()` to the
+    // inner DELEGATECALL, so the inner call could consume far more than
+    // `txnGas` (up to ~9M gas in a Foundry test). With `txnGas = 50_000`
+    // and `approveHash(bytes32)` (~95k gas), the pre-fix code ran the
+    // inner call to completion then tripped `NotEnoughGas`. The fix
+    // forwards `txnGas` instead, so the inner call is bounded by the
+    // user's budget and OOGs cleanly — saving ~45k gas of execution.
+    //
+    // We measure the test-side gas used by `execTransaction` (via
+    // `gasleft()` deltas around a try/catch) and assert it's well below
+    // the ~230k the bug burns. `approveHash` is the only wallet entry
+    // point that's not `onlyThis` (so DELEGATECALL into `address(this)`
+    // can reach it without reverting).
+
+    bytes32 hash = keccak256('mymultisig:test:delegatecall:txnGas');
+    bytes memory data = abi.encodeWithSignature('approveHash(bytes32)', hash);
+    uint256 txnGas = 50_000;
+    uint256 nonce = wallet.nonce();
+    uint8 operation = 1; // DELEGATECALL
+
+    bytes32 domainSeparator = build_domainSeparator(wallet, wallet.name());
+    // `signature_signHashed` wraps `structHash` with EIP-712 framing; the
+    // wallet's `generateHashOp` would add that framing for us, so pass the
+    // raw struct hash here instead of the wallet's framed digest.
+    bytes32 typehash = keccak256(
+      'Transaction(address to,uint256 value,bytes data,uint256 gas,uint96 nonce,uint256 validUntil,uint8 operation)'
+    );
+    bytes32 structHash = keccak256(
+      abi.encode(typehash, address(wallet), uint256(0), keccak256(data), txnGas, nonce, uint256(0), operation)
+    );
+    Vote[] memory votes = new Vote[](2);
+    votes[0] = Vote({ owner: OWNERS[0], sig: signature_signHashed(OWNERS_PK[0], domainSeparator, structHash) });
+    votes[1] = Vote({ owner: OWNERS[1], sig: signature_signHashed(OWNERS_PK[1], domainSeparator, structHash) });
+    bytes memory signatures = abi.encode(votes);
+
+    vm.prank(OWNERS[0]);
+    uint256 gasBefore = gasleft();
+    // Both the bug and the fix revert with `NotEnoughGas` (the inner
+    // call needs ~95k and the budget is 50k), so we catch the revert to
+    // keep measuring.
+    try wallet.execTransaction(address(wallet), 0, data, txnGas, nonce, 0, operation, signatures) returns (
+      bool
+    ) {
+      revert('expected NotEnoughGas revert');
+    } catch { }
+    uint256 gasAfter = gasleft();
+    uint256 gasUsed = gasBefore - gasAfter;
+
+    // Bug (~195k gasUsed): inner call fully executes (~69k gas).
+    // Fix (~176k gasUsed): inner call OOGs at the budget (~50k gas).
+    // The ~19k difference is what we want to catch — the bug lets the
+    // inner call burn up to gasleft() instead of `txnGas`.
+    assertLt(gasUsed, 185_000, 'DELEGATECALL should be bounded by txnGas');
+  }
 }
