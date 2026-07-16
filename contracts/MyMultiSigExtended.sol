@@ -35,7 +35,12 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   // Timelock
   uint256 internal _timelockDelay; // 0 = disabled
   uint256 internal _sensitiveValueThreshold; // 0 = value-cap disabled
-  mapping(bytes4 => bool) internal _sensitiveSelectors;
+  /// @dev Tri-state override of the built-in default sensitive-selector set
+  ///      (see `_isDefaultSensitiveSelector`): 0 = use the default set,
+  ///      1 = forced sensitive, 2 = forced not sensitive. Keeping the
+  ///      defaults in code instead of 10 constructor SSTOREs makes every
+  ///      wallet deployment ~220k gas cheaper with identical semantics.
+  mapping(bytes4 => uint8) internal _sensitiveSelectorOverride;
   mapping(bytes32 => uint256) internal _readyAt; // 0 = unscheduled, max = executed
   mapping(bytes32 => uint256) internal _scheduledValidUntil;
 
@@ -143,19 +148,11 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   ) MyMultiSig(name_, owners_, threshold_) {
     _onlyOwnerRequest = isOnlyOwnerRequest_;
 
-    // Default sensitive-selector set: once `_timelockDelay` is non-zero,
-    // every privileged admin here must go through `scheduleTransaction`.
-    // Owners can prune this list via `setSensitiveSelector(sel, false)`.
-    _sensitiveSelectors[bytes4(keccak256('addOwner(address)'))] = true;
-    _sensitiveSelectors[bytes4(keccak256('removeOwner(address)'))] = true;
-    _sensitiveSelectors[bytes4(keccak256('replaceOwner(address,address)'))] = true;
-    _sensitiveSelectors[bytes4(keccak256('changeThreshold(uint16)'))] = true;
-    _sensitiveSelectors[bytes4(keccak256('setTransferInactiveOwnershipAfter(uint256)'))] = true;
-    _sensitiveSelectors[bytes4(keccak256('setOwnerSettings(address,uint256,address)'))] = true;
-    _sensitiveSelectors[bytes4(keccak256('markNonceAsUsed(uint256)'))] = true;
-    _sensitiveSelectors[bytes4(keccak256('enableModule(address)'))] = true;
-    _sensitiveSelectors[bytes4(keccak256('disableModule(address,address)'))] = true;
-    _sensitiveSelectors[bytes4(keccak256('setTimelockDelay(uint256)'))] = true;
+    // The default sensitive-selector set lives in code — see
+    // `_isDefaultSensitiveSelector`. Once `_timelockDelay` is non-zero,
+    // every privileged admin call there must go through
+    // `scheduleTransaction`. Owners can prune the set via
+    // `setSensitiveSelector(sel, false)`.
 
     if (entryPoint_ == address(0)) revert InvalidOperation(0);
     ENTRY_POINT = IEntryPoint(entryPoint_);
@@ -348,7 +345,27 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   }
 
   function isSensitiveSelector(bytes4 sel) public view virtual returns (bool) {
-    return _sensitiveSelectors[sel];
+    uint8 overridden = _sensitiveSelectorOverride[sel];
+    if (overridden != 0) return overridden == 1;
+    return _isDefaultSensitiveSelector(sel);
+  }
+
+  /// @dev The built-in default sensitive-selector set, kept in code so the
+  ///      constructor doesn't pay 10 cold SSTOREs per deployment. Every
+  ///      privileged admin selector of the wallet family is listed;
+  ///      `setSensitiveSelector` overrides win over this default.
+  function _isDefaultSensitiveSelector(bytes4 sel) internal pure virtual returns (bool) {
+    return
+      sel == bytes4(keccak256('addOwner(address)')) ||
+      sel == bytes4(keccak256('removeOwner(address)')) ||
+      sel == bytes4(keccak256('replaceOwner(address,address)')) ||
+      sel == bytes4(keccak256('changeThreshold(uint16)')) ||
+      sel == bytes4(keccak256('setTransferInactiveOwnershipAfter(uint256)')) ||
+      sel == bytes4(keccak256('setOwnerSettings(address,uint256,address)')) ||
+      sel == bytes4(keccak256('markNonceAsUsed(uint256)')) ||
+      sel == bytes4(keccak256('enableModule(address)')) ||
+      sel == bytes4(keccak256('disableModule(address,address)')) ||
+      sel == bytes4(keccak256('setTimelockDelay(uint256)'));
   }
 
   /// @notice Returns the unix timestamp a scheduled tx is ready to execute at.
@@ -381,7 +398,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   }
 
   function setSensitiveSelector(bytes4 sel, bool isSensitive) public virtual onlyThis {
-    _sensitiveSelectors[sel] = isSensitive;
+    _sensitiveSelectorOverride[sel] = isSensitive ? 1 : 2;
     emit SensitiveSelectorSet(sel, isSensitive);
   }
 
@@ -456,15 +473,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     // execute (e.g., to invalidate a pending admin call).
     if (_noncesUsed[txnNonce]) revert NonceAlreadyUsed();
 
-    bytes memory returnData;
-    success = _doLowLevelCall(gasleft(), to, value, data, txnGas, returnData);
-    if (!success && returnData.length > 0) _bubbleRevert(returnData);
-    if (success) {
-      emit TransactionExecuted(msg.sender, to, value, data, txnGas, txnNonce);
-      _postExecChecks(to, value, data, txnGas, txnNonce, validUntil);
-    } else {
-      emit TxFailure(msg.sender, to, value, data, txnGas, txnNonce, returnData);
-    }
+    success = _runLoggedCall(to, value, data, txnGas, txnNonce, validUntil);
     emit ScheduledTransactionExecuted(txHash, msg.sender);
   }
 
@@ -570,45 +579,32 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
 
     _preExecChecksGuard(to, value, data);
 
-    bytes memory returnData;
-    success = _doLowLevelCall(gasleft(), to, value, data, txnGas, returnData);
-    if (!success && returnData.length > 0) _bubbleRevert(returnData);
-    if (success) {
-      // Commit-on-success: failed inner calls don't burn the cap.
-      _dailySpentByOwner[recovered] += value;
-      emit TransactionExecuted(msg.sender, to, value, data, txnGas, currentNonce);
-      _postExecChecks(to, value, data, txnGas, currentNonce, validUntil);
-    } else {
-      emit TxFailure(msg.sender, to, value, data, txnGas, currentNonce, returnData);
-    }
+    success = _runLoggedCall(to, value, data, txnGas, currentNonce, validUntil);
+    // Commit-on-success: failed inner calls don't burn the cap.
+    if (success) _dailySpentByOwner[recovered] += value;
   }
 
-  /// @dev Low-level `call` mirroring `MyMultiSig.sol:336-343`. Captures
-  ///      returndata in `returnDataOut`. `gasBudget` is currently unused —
-  ///      the call uses `txnGas` directly — and is kept for symmetry.
-  function _doLowLevelCall(
-    uint256 gasBudget,
+  /// @dev Shared tail for the timelock (`executeScheduled`) and allowance
+  ///      paths: run the inner call via the base `_rawCall`, bubble a
+  ///      payload-carrying revert, and emit the standard success / failure
+  ///      events (+ the silent post-exec guard hook on success).
+  function _runLoggedCall(
     address to,
     uint256 value,
     bytes memory data,
     uint256 txnGas,
-    bytes memory returnDataOut
+    uint256 txnNonce,
+    uint256 validUntil
   ) internal returns (bool success) {
-    assembly {
-      success := call(txnGas, to, value, add(data, 0x20), mload(data), 0, 0)
-      let size := returndatasize()
-      returnDataOut := mload(0x40)
-      mstore(returnDataOut, size)
-      returndatacopy(add(returnDataOut, 0x20), 0, size)
-      mstore(0x40, add(add(returnDataOut, 0x20), and(add(size, 0x1f), not(0x1f))))
-    }
-    gasBudget;
-  }
-
-  /// @dev Revert with raw returndata, mirroring `MyMultiSig.sol:352-354`.
-  function _bubbleRevert(bytes memory returnData) internal pure {
-    assembly {
-      revert(add(returnData, 0x20), mload(returnData))
+    bytes memory returnData;
+    (success, returnData) = _rawCall(txnGas, to, value, data);
+    if (success) {
+      emit TransactionExecuted(msg.sender, to, value, data, txnGas, txnNonce);
+      _postExecChecks(to, value, data, txnGas, txnNonce, validUntil);
+    } else if (returnData.length > 0) {
+      _revertWith(returnData);
+    } else {
+      emit TxFailure(msg.sender, to, value, data, txnGas, txnNonce, returnData);
     }
   }
 
@@ -702,25 +698,12 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     uint256 gasBefore = gasleft();
     bytes memory returnData;
     if (operation == 0) {
-      assembly {
-        success := call(gasBefore, to, value, add(data, 0x20), mload(data), 0, 0)
-        let size := returndatasize()
-        returnData := mload(0x40)
-        mstore(returnData, size)
-        returndatacopy(add(returnData, 0x20), 0, size)
-        mstore(0x40, add(add(returnData, 0x20), and(add(size, 0x1f), not(0x1f))))
-      }
+      (success, returnData) = _rawCall(gasBefore, to, value, data);
     } else {
-      // DELEGATECALL — `to` MUST be address(this).
+      // DELEGATECALL — `to` MUST be address(this); the module's code runs
+      // in the wallet's storage context.
       if (to != address(this)) revert InvalidModuleOperation(1);
-      assembly {
-        success := delegatecall(gasBefore, caller(), add(data, 0x20), mload(data), 0, 0)
-        let size := returndatasize()
-        returnData := mload(0x40)
-        mstore(returnData, size)
-        returndatacopy(add(returnData, 0x20), 0, size)
-        mstore(0x40, add(add(returnData, 0x20), and(add(size, 0x1f), not(0x1f))))
-      }
+      (success, returnData) = _rawDelegateCall(gasBefore, msg.sender, data);
     }
 
     if (success) {
@@ -734,9 +717,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
         }
       }
     } else if (returnData.length > 0) {
-      assembly {
-        revert(add(returnData, 0x20), mload(returnData))
-      }
+      _revertWith(returnData);
     }
 
     emit ModuleTransactionExecuted(msg.sender, to, value, data, operation, success);
@@ -811,78 +792,15 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   }
 
   // ---------------------------------------------------------------------------
-  // v0.4.0 — multiRequest overrides that run the guard per inner call
+  // v0.4.0 — per-inner-call gate for multiRequest / multiRequestStrict
   // ---------------------------------------------------------------------------
 
-  /// @notice Override of `multiRequest` that runs guard + allowlist per inner call.
-  function multiRequest(
-    address[] memory to,
-    uint256[] memory value,
-    bytes[] memory data,
-    uint256[] memory txGas
-  ) public payable virtual override onlyThis returns (bool[] memory successes, bytes[] memory returnData) {
-    uint256 qty = to.length;
-    successes = new bool[](qty);
-    returnData = new bytes[](qty);
-    for (uint256 i; i < qty; ) {
-      _preExecChecks(to[i], value[i], data[i]);
-      address to_ = to[i];
-      uint256 value_ = value[i];
-      bytes memory data_ = data[i];
-      uint256 txGas_ = txGas[i];
-      bool callSuccess;
-      bytes memory callReturnData;
-      assembly {
-        callSuccess := call(txGas_, to_, value_, add(data_, 0x20), mload(data_), 0, 0)
-        let size := returndatasize()
-        callReturnData := mload(0x40)
-        mstore(callReturnData, size)
-        returndatacopy(add(callReturnData, 0x20), 0, size)
-        mstore(0x40, add(add(callReturnData, 0x20), and(add(size, 0x1f), not(0x1f))))
-      }
-      successes[i] = callSuccess;
-      returnData[i] = callReturnData;
-      unchecked {
-        ++i;
-      }
-    }
-    // The base already bumped `_txnNonce` in `_execTransaction` before this
-    // function is reached, so the outer transaction's nonce is one less than
-    // the current `nonce()` view.
-    uint96 outerNonce = nonce();
-    emit MultiRequestExecuted(outerNonce - 1, successes, returnData);
-  }
-
-  /// @notice Override of `multiRequestStrict` that runs guard + allowlist per
-  ///         inner call (reverts entire batch on first inner failure).
-  function multiRequestStrict(
-    address[] memory to,
-    uint256[] memory value,
-    bytes[] memory data,
-    uint256[] memory txGas
-  ) public payable virtual override onlyThis {
-    uint256 qty = to.length;
-    for (uint256 i; i < qty; ) {
-      _preExecChecks(to[i], value[i], data[i]);
-      address to_ = to[i];
-      uint256 value_ = value[i];
-      bytes memory data_ = data[i];
-      uint256 txGas_ = txGas[i];
-      bool ok;
-      bytes memory returnData;
-      assembly {
-        ok := call(txGas_, to_, value_, add(data_, 0x20), mload(data_), 0, 0)
-        let size := returndatasize()
-        returnData := mload(0x40)
-        mstore(returnData, size)
-        returndatacopy(add(returnData, 0x20), 0, size)
-        mstore(0x40, add(add(returnData, 0x20), and(add(size, 0x1f), not(0x1f))))
-      }
-      if (!ok) revert BatchCallFailed(i, returnData);
-      unchecked {
-        ++i;
-      }
-    }
+  /// @notice Runs the v0.4.0 gates (timelock reverse-route, guard,
+  ///         allowlist) before every inner call of the base `multiRequest` /
+  ///         `multiRequestStrict` loops. The base calls this hook per item,
+  ///         so the batch loops themselves live only in `MyMultiSig.sol`.
+  function _beforeInnerCall(address to, uint256 value, bytes memory data) internal virtual override {
+    _preExecChecks(to, value, data);
   }
 
   // ---------------------------------------------------------------------------
@@ -919,7 +837,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   ///      either the wallet itself at a registered sensitive selector, or
   ///      the value meets the configured wei threshold.
   function _isSensitive(address to, bytes4 sel, uint256 value) internal view returns (bool) {
-    if (to == address(this) && _sensitiveSelectors[sel]) return true;
+    if (to == address(this) && isSensitiveSelector(sel)) return true;
     if (_sensitiveValueThreshold > 0 && value >= _sensitiveValueThreshold) return true;
     return false;
   }
@@ -999,7 +917,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     bytes memory signatures
   ) public payable virtual nonReentrant returns (bool success) {
     success = _execExtended(to, value, data, txnGas, nonce(), 0, operation, signatures);
-    if (nonce() > uint96(2 ** 96 - 1000)) emit ContractEndOfLife(2 ** 96 - nonce() - 1);
+    _emitEndOfLifeIfNear();
   }
 
   function execTransaction(
@@ -1012,7 +930,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     bytes memory signatures
   ) public payable virtual nonReentrant returns (bool success) {
     success = _execExtended(to, value, data, txnGas, nonce(), validUntil, operation, signatures);
-    if (nonce() > uint96(2 ** 96 - 1000)) emit ContractEndOfLife(2 ** 96 - nonce() - 1);
+    _emitEndOfLifeIfNear();
   }
 
   function execTransaction(
@@ -1026,7 +944,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     bytes memory signatures
   ) public payable virtual nonReentrant returns (bool success) {
     success = _execExtended(to, value, data, txnGas, txnNonce, validUntil, operation, signatures);
-    if (nonce() > uint96(2 ** 96 - 1000)) emit ContractEndOfLife(2 ** 96 - nonce() - 1);
+    _emitEndOfLifeIfNear();
   }
 
   // Disabled overrides — the v0.4.0 overloads (no `operation` byte) are
@@ -1098,9 +1016,10 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     return _checkSignaturesOp(txHash, txnNonce, validUntil, signatures);
   }
 
-  /// @dev Reads base-wallet state via `threshold` / `isOwner` /
-  ///      `getApprovedOwners` accessors since the base's storage vars
-  ///      are `private`.
+  /// @dev View-side validator for the 7-field (`operation`-bound) hash:
+  ///      rejects used nonces and expired deadlines, then defers to the
+  ///      base `_checkSignatures` vote-counting core (the hash already
+  ///      binds `operation`, so the counting logic is identical).
   function _checkSignaturesOp(
     bytes32 txHash,
     uint256 txnNonce,
@@ -1109,30 +1028,12 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   ) internal view returns (bool valid) {
     if (_noncesUsed[txnNonce]) return false;
     if (validUntil != 0 && block.timestamp > validUntil) return false;
-    uint16 threshold_ = threshold();
-    address[] memory approved = getApprovedOwners(txHash);
-    uint256 counted;
-    for (uint256 i; i < approved.length; ) {
-      unchecked {
-        if (!isOwner(approved[i])) return false;
-        ++counted;
-        ++i;
-      }
-    }
-    if (counted >= threshold_) return true;
-    (address[] memory owners, bytes[] memory sigs) = _decodeVotes(signatures);
-    for (uint256 i = 0; i < owners.length; ) {
-      unchecked {
-        if (counted >= threshold_) break;
-        if (_validateVote(txHash, owners[i], sigs[i])) ++counted;
-        ++i;
-      }
-    }
-    return counted >= threshold_;
+    return _checkSignatures(txHash, txnNonce, signatures);
   }
 
   /// @dev Mutating-side validator that records each vote's
-  ///      `(nonce, owner)` slot via `_recordVote`.
+  ///      `(nonce, owner)` slot via `_recordVote`. Defers to the base
+  ///      `_validateSignatureForHash` core after the nonce / expiry gates.
   function _validateSignatureOp(
     bytes32 txHash,
     uint256 txnNonce,
@@ -1141,28 +1042,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   ) internal returns (bool valid) {
     if (_noncesUsed[txnNonce]) return false;
     if (validUntil != 0 && block.timestamp > validUntil) revert SignatureExpired();
-    uint16 threshold_ = threshold();
-    uint256 counted;
-    address[] memory approved = getApprovedOwners(txHash);
-    for (uint256 i; i < approved.length; ) {
-      unchecked {
-        address approvedOwner = approved[i];
-        if (!isOwner(approvedOwner)) return false;
-        if (!_recordVote(txHash, txnNonce, approvedOwner)) return false;
-        ++counted;
-        ++i;
-      }
-    }
-    if (counted >= threshold_) return true;
-    (address[] memory owners, bytes[] memory sigs) = _decodeVotes(signatures);
-    for (uint256 i = 0; i < owners.length; ) {
-      unchecked {
-        if (counted >= threshold_) break;
-        if (_validateVote(txHash, owners[i], sigs[i]) && _recordVote(txHash, txnNonce, owners[i])) ++counted;
-        ++i;
-      }
-    }
-    return counted >= threshold_;
+    return _validateSignatureForHash(txHash, txnNonce, signatures);
   }
 
   // --------- Internal exec orchestrator ---------
@@ -1194,51 +1074,33 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     uint256 gasBefore = gasleft();
     bytes memory returnData;
     if (operation == 0) {
-      (success, returnData) = _lowLevelCall(txnGas, to, value, data);
+      (success, returnData) = _rawCall(txnGas, to, value, data);
     } else {
-      (success, returnData) = _lowLevelDelegateCall(gasBefore, to, data);
+      (success, returnData) = _rawDelegateCall(gasBefore, to, data);
     }
     if (gasBefore - gasleft() >= txnGas) revert NotEnoughGas();
     if (success) {
       emit TransactionExecuted(msg.sender, to, value, data, txnGas, txnNonce);
       emit TransactionExecutedOp(msg.sender, to, value, data, txnGas, txnNonce, operation);
     } else if (returnData.length > 0) {
-      assembly {
-        revert(add(returnData, 0x20), mload(returnData))
-      }
+      _revertWith(returnData);
     } else {
       emit TxFailure(msg.sender, to, value, data, txnGas, txnNonce, returnData);
       emit TxFailureOp(msg.sender, to, value, data, txnGas, txnNonce, operation, returnData);
     }
   }
 
-  /// @dev Thin assembly wrapper for the CALL branch.
-  function _lowLevelCall(
+  /// @dev Shared DELEGATECALL wrapper (the CALL twin, `_rawCall`, lives in
+  ///      the base wallet). `_execExtended` targets `address(this)`; the
+  ///      module path targets the calling module — both run the target's
+  ///      code in this wallet's storage context.
+  function _rawDelegateCall(
     uint256 gasBudget,
-    address to,
-    uint256 value,
+    address target,
     bytes memory data
   ) internal virtual returns (bool success, bytes memory returnData) {
     assembly {
-      success := call(gasBudget, to, value, add(data, 0x20), mload(data), 0, 0)
-      let size := returndatasize()
-      returnData := mload(0x40)
-      mstore(returnData, size)
-      returndatacopy(add(returnData, 0x20), 0, size)
-      mstore(0x40, add(add(returnData, 0x20), and(add(size, 0x1f), not(0x1f))))
-    }
-  }
-
-  /// @dev Thin assembly wrapper for the DELEGATECALL branch. `to` is
-  ///      verified equal to `address(this)` by `_execExtended` so the
-  ///      code at `to` runs in this wallet's storage context.
-  function _lowLevelDelegateCall(
-    uint256 gasBudget,
-    address to,
-    bytes memory data
-  ) internal virtual returns (bool success, bytes memory returnData) {
-    assembly {
-      success := delegatecall(gasBudget, to, add(data, 0x20), mload(data), 0, 0)
+      success := delegatecall(gasBudget, target, add(data, 0x20), mload(data), 0, 0)
       let size := returndatasize()
       returnData := mload(0x40)
       mstore(returnData, size)
