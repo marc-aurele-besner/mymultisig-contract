@@ -402,11 +402,16 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     bytes memory signatures
   ) public payable virtual nonReentrant returns (bytes32 txHash) {
     if (_timelockDelay == 0) revert ZeroDelayForSensitive();
-    txHash = generateHash(to, value, data, txnGas, txnNonce, validUntil);
+    // v0.5.0 — extended wallets sign over the 7-field typehash so the
+    // timelock-ready hash must match it. operation is locked to 0 here:
+    // timelock only applies to admin calls (CALL, not DELEGATECALL).
+    txHash = generateHashOp(to, value, data, txnGas, txnNonce, validUntil, 0);
     if (_readyAt[txHash] != 0) revert AlreadyScheduled(txHash);
     if (validUntil != 0 && block.timestamp > validUntil) revert SignatureExpired();
-    if (!_validateSignature(to, value, data, txnGas, txnNonce, validUntil, signatures))
-      revert InvalidSignatures();
+    // Use the v0.5.0 mutating validator (records per-`(nonce, owner)`
+    // slot via `_recordVote`) so schedules consume the same vote slot
+    // a direct `execTransaction` would, blocking replays.
+    if (!_validateSignatureOp(txHash, txnNonce, validUntil, signatures)) revert InvalidSignatures();
     if (!_isSensitive(to, _selectorOf(data), value)) revert NotSensitive();
     uint256 readyAt = block.timestamp + _timelockDelay;
     // `_readyAt == 0` is the "not scheduled" sentinel — bump to `1` to avoid it.
@@ -436,7 +441,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     uint256 validUntil,
     bytes memory signatures
   ) public payable virtual nonReentrant returns (bool success) {
-    bytes32 txHash = generateHash(to, value, data, txnGas, txnNonce, validUntil);
+    bytes32 txHash = generateHashOp(to, value, data, txnGas, txnNonce, validUntil, 0);
     uint256 ready = _readyAt[txHash];
     if (ready == 0 || ready == type(uint256).max) revert NotScheduled(txHash);
     if (block.timestamp < ready) revert TimelockNotReady(txHash, ready, block.timestamp);
@@ -472,7 +477,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     uint256 txnNonce,
     uint256 validUntil
   ) public virtual onlyThis {
-    bytes32 txHash = generateHash(to, value, data, txnGas, txnNonce, validUntil);
+    bytes32 txHash = generateHashOp(to, value, data, txnGas, txnNonce, validUntil, 0);
     if (_readyAt[txHash] == 0) revert NotScheduled(txHash);
     delete _readyAt[txHash];
     delete _scheduledValidUntil[txHash];
@@ -798,7 +803,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   ) internal virtual {
     address guardContract = _guard;
     if (guardContract != address(0)) {
-      bytes32 txHash = generateHash(to, value, data, txnGas, txnNoncePostBump, validUntil);
+      bytes32 txHash = generateHashOp(to, value, data, txnGas, txnNoncePostBump, validUntil, 0);
       try ITransactionGuard(guardContract).checkAfterExecution(txHash, true) {} catch (bytes memory reason) {
         emit PostExecutionGuardFailed(guardContract, reason);
       }
@@ -1050,21 +1055,6 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   }
 
   // --------- EIP-712 hash + signature helpers ---------
-
-  /// @notice Override of the v0.4.0 6-arg `generateHash` so callers that
-  ///         use the legacy signature shape (without an explicit
-  ///         `operation` byte) still produce a hash that matches the
-  ///         v0.5.0 wallet's typehash with operation = 0.
-  function generateHash(
-    address to,
-    uint256 value,
-    bytes memory data,
-    uint256 txnGas,
-    uint256 txnNonce,
-    uint256 validUntil
-  ) public view virtual override returns (bytes32) {
-    return generateHashOp(to, value, data, txnGas, txnNonce, validUntil, 0);
-  }
 
   /// @notice EIP-712 typed-data hash. 7-field, binds `operation`.
   function generateHashOp(

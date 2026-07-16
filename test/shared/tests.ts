@@ -371,13 +371,22 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
     })
 
     it('Emit TxFailure when valid signature try to execute a invalid call', async function () {
-      // v0.5.0 removal: the v0.4.0 6/7-arg `execTransaction` overloads
-      // are gone. Inner reverts with non-empty data bubble through
-      // `_execExtended`'s `assembly.revert(...)` path; `TxFailure` only
-      // fires on silent reverts (success=false, returnData empty).
-      // Replaced by the `multiRequest` partial-failure tests further down
-      // which exercise the silent-revert path directly.
-      expect(true).to.be.true
+      // Dispatch a call to a non-contract address (EOA 0xdead).
+      // The inner call returns success=false with empty returnData,
+      // which fires `TxFailure`/`TxFailureOp` and the exec does NOT
+      // revert, so the helper sees both events in the receipt.
+      const data = '0x'
+      await Helper.execTransaction(
+        contract,
+        owner01,
+        [owner01, owner02, owner03],
+        ethers.constants.AddressZero, // no code at `to` → silent-revert path
+        Helper.ZERO,
+        data as `0x${string}`,
+        Helper.DEFAULT_GAS,
+        undefined,
+        ['TxFailure'],
+      )
     })
 
     it('Can mint token from MockERC721 contract', async function () {
@@ -1622,8 +1631,20 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
     })
 
     it('Emit TxFailure when valid signature try to execute a invalid call', async function () {
-      // v0.5.0 removal: see the equivalent test further up in this file.
-      expect(true).to.be.true
+      // Same as the equivalent test on the Base side: dispatch to a
+      // zero-code address so the inner call returns success=false with
+      // empty returnData and `TxFailure` fires.
+      await Helper.execTransaction(
+        contract,
+        owner01,
+        [owner01, owner02, owner03],
+        ethers.constants.AddressZero,
+        Helper.ZERO,
+        '0x' as `0x${string}`,
+        Helper.DEFAULT_GAS,
+        undefined,
+        ['TxFailure'],
+      )
     })
 
     it('Cannot reuse a signature', async function () {
@@ -1846,20 +1867,48 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       expect(await contract.isNonceUsed(futureNonce)).to.be.false
     })
 
-    it('6-arg execTransaction reverts when the nonce was already used by the 5-arg overload', async function () {
-      // v0.5.0 removal: the v0.4.0 6/7-arg overloads are gone. Same
-      // replay-then-second-call logic now lives under the new 8-arg path
-      // (`execTransaction(address, ..., 8 args)`). The 6-arg overload
-      // reverts with `RequiresOperationByte()` immediately, which is the
-      // new equivalent of the old replay-rejection path — covered by the
-      // "V2_5RequiresOperationByte" tests in the Foundry suite.
-      expect(true).to.be.true
-    })
-
-    it('6-arg execTransaction reverts with NONCE_ALREADY_USED once markNonceAsUsed is called', async function () {
-      // v0.5.0 removal: see the comment on the previous test. Same
-      // rationale — there is no 6-arg overload to test this against.
-      expect(true).to.be.true
+    it('8-arg execTransaction reverts on nonce replay', async function () {
+      // v0.5.0 — exercise the nonce-replay protection on the new
+      // 8-arg overload. The first call consumes the `(nonce, owner)`
+      // slot via the `_recordVote` path; the second call with the same
+      // signatures binds the same nonce and must reject.
+      const nonce = await contract.nonce()
+      const data = contract.interface.encodeFunctionData('addOwner(address)', [user01.address])
+      const signatures = await Helper.prepareSignatures(
+        contract,
+        [owner01, owner02],
+        contract.address,
+        Helper.ZERO,
+        data,
+        Helper.DEFAULT_GAS,
+        nonce,
+      )
+      // First dispatch — succeeds.
+      await contract.connect(owner01)['execTransaction(address,uint256,bytes,uint256,uint256,uint256,uint8,bytes)'](
+        contract.address,
+        Helper.ZERO,
+        data,
+        Helper.DEFAULT_GAS,
+        nonce,
+        0,
+        0, // operation
+        signatures,
+      )
+      // Second dispatch with the same signatures must revert.
+      await expect(
+        contract
+          .connect(owner01)
+          ['execTransaction(address,uint256,bytes,uint256,uint256,uint256,uint8,bytes)'](
+            contract.address,
+            Helper.ZERO,
+            data,
+            Helper.DEFAULT_GAS,
+            nonce,
+            0,
+            0,
+            signatures,
+          ),
+      ).to.be.revertedWithCustomError(contract, 'InvalidSignatures')
     })
 
     it('isValidSignature now reports against the passed nonce (not _txnNonce)', async function () {
@@ -1867,6 +1916,10 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       // SAME signatures. With the bug, the view would key on `_txnNonce` for both, so
       // asking about 0 would still return true (since 0 == `_txnNonce`). With the fix,
       // the second call must return false because the signatures are bound to 99, not 0.
+      // v0.5.0 — extended wallets expose an 8-arg `isValidSignature` that
+      // binds `operation` into the typehash; signatures here are built via
+      // the TS helper which targets the same 7-field (with operation=0)
+      // shape, so the 8-arg view matches.
       const data = contract.interface.encodeFunctionData('addOwner(address)', [user01.address])
       const signatures = await Helper.prepareSignatures(
         contract,
@@ -1878,27 +1931,27 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         ethers.BigNumber.from(99),
       )
       expect(
-        await contract
-          .connect(owner01)
-          ['isValidSignature(address,uint256,bytes,uint256,uint256,uint256,bytes)'](
-            contract.address,
-            Helper.ZERO,
-            data,
-            Helper.DEFAULT_GAS,
-            ethers.BigNumber.from(99),
-            0,
-            signatures,
-          ),
+        await contract.connect(owner01)['isValidSignature(address,uint256,bytes,uint256,uint256,uint256,uint8,bytes)'](
+          contract.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          ethers.BigNumber.from(99),
+          0,
+          0, // operation
+          signatures,
+        ),
       ).to.be.true
       expect(
         await contract
           .connect(owner01)
-          ['isValidSignature(address,uint256,bytes,uint256,uint256,uint256,bytes)'](
+          ['isValidSignature(address,uint256,bytes,uint256,uint256,uint256,uint8,bytes)'](
             contract.address,
             Helper.ZERO,
             data,
             Helper.DEFAULT_GAS,
             ethers.BigNumber.from(0),
+            0,
             0,
             signatures,
           ),
@@ -1937,7 +1990,15 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
               fields.validUntil,
               fields.operation,
             )
-          : await contract.generateHash(fields.to, fields.value, fields.data, fields.gas, fields.nonce, 0)
+          : await Helper.generateHashForWallet(
+              contract,
+              fields.to,
+              fields.value,
+              fields.data,
+              fields.gas,
+              fields.nonce,
+              0,
+            )
         return { fields, hash }
       }
 
@@ -2138,7 +2199,15 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         // Outer owners = [owner01, owner02, inner], threshold = 2.
         const data = contract.interface.encodeFunctionData('addOwner(address)', [user01.address])
         const nonce = await contract.nonce()
-        const txHash = await contract.generateHash(contract.address, Helper.ZERO, data, Helper.DEFAULT_GAS, nonce, 0)
+        const txHash = await Helper.generateHashForWallet(
+          contract,
+          contract.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          nonce,
+          0,
+        )
         // EOA vote: owner01 signs the outer typed-data hash with their key.
         const eoaSig = await Helper.signMultiSigTxn(
           contract,
@@ -2192,7 +2261,15 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         const inner = await addContractOwner([owner01, owner02], 2)
         const data = contract.interface.encodeFunctionData('addOwner(address)', [user01.address])
         const nonce = await contract.nonce()
-        const txHash = await contract.generateHash(contract.address, Helper.ZERO, data, Helper.DEFAULT_GAS, nonce, 0)
+        const txHash = await Helper.generateHashForWallet(
+          contract,
+          contract.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          nonce,
+          0,
+        )
         // Build an inner blob that signs a *wrong* hash, so the inner
         // isValidSignature(txHash, innerBlob) returns non-magic.
         const wrongHash = ethers.utils.hexlify(ethers.utils.randomBytes(32))
@@ -2357,7 +2434,15 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
           nonce,
           0,
         )
-        const txHash = await contract.generateHash(contract.address, Helper.ZERO, data, Helper.DEFAULT_GAS, nonce, 0)
+        const txHash = await Helper.generateHashForWallet(
+          contract,
+          contract.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          nonce,
+          0,
+        )
         // 1. Schedule
         const schedTx = await contract
           .connect(owner01)

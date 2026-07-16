@@ -8,6 +8,30 @@ import { MyMultiSig, MyMultiSigExtended } from '../../typechain-types'
 
 export const ZERO = BigNumber.from(0)
 
+/// @notice Picks the right EIP-712 hash for the wallet. Extended
+///         wallets use the v0.5.0 7-field typehash with `operation`;
+///         base wallets use the v0.4.0 6-field typehash. Tests should
+///         always thread `operation` through; we default to 0.
+export const generateHashForWallet = async (
+  contract: MyMultiSig | MyMultiSigExtended,
+  to: `0x${string}`,
+  value: BigNumber,
+  data: `0x${string}`,
+  gas: number,
+  nonce: BigNumber,
+  validUntil: number,
+  operation: number = 0,
+): Promise<string> => {
+  const isExtended = typeof (contract as any).allowOnlyOwnerRequest === 'function'
+  if (isExtended) {
+    return await (contract as any).generateHashOp(to, value, data, gas, nonce, validUntil, operation)
+  }
+  // Base wallet: use `generateHash(...)` (still present in MyMultiSig).
+  // The 6-field typehash matches what `Helper.signMultiSigTxn` signs
+  // for base wallets.
+  return await (contract as any).generateHash(to, value, data, gas, nonce, validUntil)
+}
+
 export const sendRawTxn = async (input: any, sender: Wallet, ethers: any, provider: any) => {
   const txCount = await provider.getTransactionCount(sender.address)
   const rawTx = {
@@ -212,7 +236,7 @@ export const isValidSignature = async (
     const result = await contract
       .connect(submitter)
       ['isValidSignature(bytes32,bytes)'](
-        await contract.generateHash(to, value, data, gas, nonce, validUntil),
+        await generateHashForWallet(contract, to, value, data, gas, nonce, validUntil, operation),
         signatures,
       )
     return result === MAGIC
