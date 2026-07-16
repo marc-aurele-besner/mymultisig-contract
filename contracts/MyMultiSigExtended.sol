@@ -32,8 +32,18 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
 
   // --- v0.4.0 storage ---
 
+  // Hot-path feature gates. `_guard`, `_allowedTargetsEnabled` and
+  // `_timelockDelay` are all read by `_preExecChecks` on EVERY
+  // `execTransaction`, so they are packed into a single storage slot
+  // (160 + 8 + 88 bits): one cold SLOAD per exec instead of three
+  // (~4200 gas saved on the default disabled-features path). The uint88
+  // delay caps at ~9.8e18 years — effectively unbounded;
+  // `setTimelockDelay` enforces the cap.
+  address internal _guard;
+  bool internal _allowedTargetsEnabled; // first `setAllowedTarget` flips this on
+  uint88 internal _timelockDelay; // 0 = disabled
+
   // Timelock
-  uint256 internal _timelockDelay; // 0 = disabled
   uint256 internal _sensitiveValueThreshold; // 0 = value-cap disabled
   /// @dev Tri-state override of the built-in default sensitive-selector set
   ///      (see `_isDefaultSensitiveSelector`): 0 = use the default set,
@@ -45,9 +55,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   mapping(bytes32 => uint256) internal _scheduledValidUntil;
 
   // Guard / allowlist
-  address internal _guard;
   mapping(address => bool) internal _allowedTargets;
-  bool internal _allowedTargetsEnabled; // first `setAllowedTarget` flips this on
 
   // Allowance
   mapping(address => uint256) internal _dailyLimitPerOwner;
@@ -75,6 +83,10 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   error TimelockNotReady(bytes32 txHash, uint256 readyAt, uint256 blockTimestamp);
   error SensitiveCallRequiresDelay(address to, bytes4 selector, uint256 value);
   error ZeroDelayForSensitive();
+  /// @notice `setTimelockDelay` rejects delays above `type(uint88).max`
+  ///         (~9.8e18 years) — the delay shares a packed slot with the
+  ///         guard address and allowlist flag. Any real-world delay fits.
+  error DelayTooLong();
   error AlreadyScheduled(bytes32 txHash);
   error NotScheduled(bytes32 txHash);
   error NotSensitive();
@@ -388,7 +400,8 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   ///         a sensitive selector (registered in the constructor), so
   ///         reducing the delay also goes through the slow path.
   function setTimelockDelay(uint256 delay) public virtual onlyThis {
-    _timelockDelay = delay;
+    if (delay > type(uint88).max) revert DelayTooLong();
+    _timelockDelay = uint88(delay);
     emit TimelockDelaySet(delay);
   }
 
