@@ -88,6 +88,7 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     "cancelScheduled(address,uint256,bytes,uint256,uint256,uint256)": FunctionFragment;
     "changeThreshold(uint16)": FunctionFragment;
     "dailySpendingLimit(address)": FunctionFragment;
+    "disableAllowlist()": FunctionFragment;
     "disableModule(address,address)": FunctionFragment;
     "eip712Domain()": FunctionFragment;
     "enableModule(address)": FunctionFragment;
@@ -169,6 +170,7 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
       | "cancelScheduled"
       | "changeThreshold"
       | "dailySpendingLimit"
+      | "disableAllowlist"
       | "disableModule"
       | "eip712Domain"
       | "enableModule"
@@ -284,6 +286,10 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
   encodeFunctionData(
     functionFragment: "dailySpendingLimit",
     values: [PromiseOrValue<string>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "disableAllowlist",
+    values?: undefined
   ): string;
   encodeFunctionData(
     functionFragment: "disableModule",
@@ -717,6 +723,10 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "disableAllowlist",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "disableModule",
     data: BytesLike
   ): Result;
@@ -954,6 +964,7 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
 
   events: {
     "AllowedTargetSet(address,bool)": EventFragment;
+    "AllowlistDisabled()": EventFragment;
     "ApproveHash(address,bytes32)": EventFragment;
     "ContractEndOfLife(uint256)": EventFragment;
     "DailySpendingLimitSet(address,uint256)": EventFragment;
@@ -984,6 +995,7 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
   };
 
   getEvent(nameOrSignatureOrTopic: "AllowedTargetSet"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "AllowlistDisabled"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "ApproveHash"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "ContractEndOfLife"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "DailySpendingLimitSet"): EventFragment;
@@ -1028,6 +1040,15 @@ export type AllowedTargetSetEvent = TypedEvent<
 
 export type AllowedTargetSetEventFilter =
   TypedEventFilter<AllowedTargetSetEvent>;
+
+export interface AllowlistDisabledEventObject {}
+export type AllowlistDisabledEvent = TypedEvent<
+  [],
+  AllowlistDisabledEventObject
+>;
+
+export type AllowlistDisabledEventFilter =
+  TypedEventFilter<AllowlistDisabledEvent>;
 
 export interface ApproveHashEventObject {
   owner: string;
@@ -1409,6 +1430,10 @@ export interface MyMultiSigExtended extends BaseContract {
       owner: PromiseOrValue<string>,
       overrides?: CallOverrides
     ): Promise<[BigNumber]>;
+
+    disableAllowlist(
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
 
     disableModule(
       prevModule: PromiseOrValue<string>,
@@ -1872,6 +1897,10 @@ export interface MyMultiSigExtended extends BaseContract {
     overrides?: CallOverrides
   ): Promise<BigNumber>;
 
+  disableAllowlist(
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
   disableModule(
     prevModule: PromiseOrValue<string>,
     module: PromiseOrValue<string>,
@@ -2332,6 +2361,8 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
+    disableAllowlist(overrides?: CallOverrides): Promise<void>;
+
     disableModule(
       prevModule: PromiseOrValue<string>,
       module: PromiseOrValue<string>,
@@ -2759,6 +2790,9 @@ export interface MyMultiSigExtended extends BaseContract {
       allowed?: null
     ): AllowedTargetSetEventFilter;
 
+    "AllowlistDisabled()"(): AllowlistDisabledEventFilter;
+    AllowlistDisabled(): AllowlistDisabledEventFilter;
+
     "ApproveHash(address,bytes32)"(
       owner?: PromiseOrValue<string> | null,
       hash?: PromiseOrValue<BytesLike> | null
@@ -3061,6 +3095,10 @@ export interface MyMultiSigExtended extends BaseContract {
     dailySpendingLimit(
       owner: PromiseOrValue<string>,
       overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    disableAllowlist(
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
     disableModule(
@@ -3516,6 +3554,10 @@ export interface MyMultiSigExtended extends BaseContract {
     dailySpendingLimit(
       owner: PromiseOrValue<string>,
       overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    disableAllowlist(
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
     disableModule(

@@ -2590,6 +2590,36 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
         // user01 (allowed) works.
         await Helper.execTransaction(contract, owner01, [owner01, owner02], user01.address, 0, '0x')
       })
+
+      it('setAllowedTarget(target, false) does not enable the allowlist', async function () {
+        // Removing a target that was never allowed must not flip enforcement on.
+        await Helper.setAllowedTarget(contract, owner01, [owner01, owner02], user01.address, false)
+        expect(await contract.allowedTargetsEnabled()).to.be.false
+        // Any target is accepted while the allowlist is off.
+        await Helper.execTransaction(contract, owner01, [owner01, owner02], user02.address, 0, '0x')
+      })
+
+      it('disableAllowlist turns enforcement back off while preserving entries', async function () {
+        // Pre-allowlist the wallet itself while the flag is still false,
+        // then enable with the external target. Order matters: once the
+        // flag flips on, the gate applies to `to == address(this)` too, so
+        // every admin setter (including this disable path) becomes
+        // unreachable unless the wallet was already in the allowlist.
+        await Helper.setAllowedTarget(contract, owner01, [owner01, owner02], contract.address, true)
+        await Helper.setAllowedTarget(contract, owner01, [owner01, owner02], user01.address, true)
+        expect(await contract.allowedTargetsEnabled()).to.be.true
+
+        await Helper.disableAllowlist(contract, owner01, [owner01, owner02])
+        expect(await contract.allowedTargetsEnabled()).to.be.false
+
+        // Previously-blocked target now goes through without re-allowlisting.
+        await Helper.execTransaction(contract, owner01, [owner01, owner02], user02.address, 0, '0x')
+
+        // The stored entry survives so re-enabling is a single call.
+        expect(await contract.allowedTargets(user01.address)).to.be.true
+        await Helper.setAllowedTarget(contract, owner01, [owner01, owner02], user01.address, true)
+        expect(await contract.allowedTargetsEnabled()).to.be.true
+      })
     })
 
     // -- Feature 3: Spending limits / allowance ----------------------------

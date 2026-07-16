@@ -719,6 +719,16 @@ export const setAllowedTarget = async (
   if (!errorMsg) expect(await contract.allowedTargets(target)).to.be.equal(allowed)
 }
 
+export const disableAllowlist = async (
+  contract: MyMultiSigExtended,
+  submitter: Wallet,
+  owners: Wallet[],
+  errorMsg?: string,
+) => {
+  await execOnlyThis(contract, submitter, owners, 'disableAllowlist', [], 0, errorMsg)
+  if (!errorMsg) expect(await contract.allowedTargetsEnabled()).to.be.false
+}
+
 export const setDailySpendingLimit = async (
   contract: MyMultiSigExtended,
   submitter: Wallet,

@@ -38,7 +38,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   // uint88 delay caps at ~9.8e18 years — effectively unbounded;
   // `setTimelockDelay` enforces the cap.
   address internal _guard;
-  bool internal _allowedTargetsEnabled; // first `setAllowedTarget` flips this on
+  bool internal _allowedTargetsEnabled; // flipped on by the first `setAllowedTarget(target, true)`; reset only by `disableAllowlist`
   uint88 internal _timelockDelay; // 0 = disabled
 
   // Timelock
@@ -128,6 +128,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   event GuardSet(address indexed guard);
   event PostExecutionGuardFailed(address indexed guard, bytes reason);
   event AllowedTargetSet(address indexed target, bool allowed);
+  event AllowlistDisabled();
 
   event DailySpendingLimitSet(address indexed owner, uint256 limit);
 
@@ -508,7 +509,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   }
 
   /// @notice Whether the built-in allowlist is currently enforced. Flipped on
-  ///         the first `setAllowedTarget(target, allowed=true)` call.
+  ///         by `setAllowedTarget(target, true)` and off by `disableAllowlist`.
   function allowedTargetsEnabled() public view virtual returns (bool) {
     return _allowedTargetsEnabled;
   }
@@ -521,8 +522,16 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   function setAllowedTarget(address target, bool allowed) public virtual onlyThis {
     if (target == address(0)) revert TargetIsZeroAddress();
     _allowedTargets[target] = allowed;
-    _allowedTargetsEnabled = true;
+    if (allowed) _allowedTargetsEnabled = true;
     emit AllowedTargetSet(target, allowed);
+  }
+
+  /// @notice Turn off the built-in allowlist. Existing entries are preserved
+  ///         so a subsequent `setAllowedTarget(target, true)` re-enables
+  ///         without rebuilding the list.
+  function disableAllowlist() public virtual onlyThis {
+    _allowedTargetsEnabled = false;
+    emit AllowlistDisabled();
   }
 
   // ---------------------------------------------------------------------------
