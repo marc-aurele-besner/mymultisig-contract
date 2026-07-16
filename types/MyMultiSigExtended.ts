@@ -100,8 +100,8 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     "execTransaction(address,uint256,bytes,uint256,uint256,uint256,bytes)": FunctionFragment;
     "execTransactionFromModule(address,uint256,bytes,uint256)": FunctionFragment;
     "execTransactionWithSpendingAllowance(address,uint256,bytes,uint256,uint256,bytes)": FunctionFragment;
+    "execute(address,uint256,bytes)": FunctionFragment;
     "executeScheduled(address,uint256,bytes,uint256,uint256,uint256,bytes)": FunctionFragment;
-    "executeUserOp((address,uint256,bytes,bytes,bytes32,uint256,bytes32,bytes,bytes))": FunctionFragment;
     "generateHash(address,uint256,bytes,uint256,uint256,uint256)": FunctionFragment;
     "generateHashOp(address,uint256,bytes,uint256,uint256,uint256,uint8)": FunctionFragment;
     "getApprovedOwners(bytes32)": FunctionFragment;
@@ -154,6 +154,7 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     "threshold()": FunctionFragment;
     "timelockDelay()": FunctionFragment;
     "unsignMessage(bytes)": FunctionFragment;
+    "userOpSigningHash(bytes32)": FunctionFragment;
     "validateUserOp((address,uint256,bytes,bytes,bytes32,uint256,bytes32,bytes,bytes),bytes32,uint256)": FunctionFragment;
     "version()": FunctionFragment;
   };
@@ -182,8 +183,8 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
       | "execTransaction(address,uint256,bytes,uint256,uint256,uint256,bytes)"
       | "execTransactionFromModule"
       | "execTransactionWithSpendingAllowance"
+      | "execute"
       | "executeScheduled"
-      | "executeUserOp"
       | "generateHash"
       | "generateHashOp"
       | "getApprovedOwners"
@@ -236,6 +237,7 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
       | "threshold"
       | "timelockDelay"
       | "unsignMessage"
+      | "userOpSigningHash"
       | "validateUserOp"
       | "version"
   ): FunctionFragment;
@@ -393,6 +395,14 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     ]
   ): string;
   encodeFunctionData(
+    functionFragment: "execute",
+    values: [
+      PromiseOrValue<string>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BytesLike>
+    ]
+  ): string;
+  encodeFunctionData(
     functionFragment: "executeScheduled",
     values: [
       PromiseOrValue<string>,
@@ -403,10 +413,6 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
       PromiseOrValue<BigNumberish>,
       PromiseOrValue<BytesLike>
     ]
-  ): string;
-  encodeFunctionData(
-    functionFragment: "executeUserOp",
-    values: [PackedUserOperationStruct]
   ): string;
   encodeFunctionData(
     functionFragment: "generateHash",
@@ -676,6 +682,10 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     values: [PromiseOrValue<BytesLike>]
   ): string;
   encodeFunctionData(
+    functionFragment: "userOpSigningHash",
+    values: [PromiseOrValue<BytesLike>]
+  ): string;
+  encodeFunctionData(
     functionFragment: "validateUserOp",
     values: [
       PackedUserOperationStruct,
@@ -770,12 +780,9 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     functionFragment: "execTransactionWithSpendingAllowance",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(functionFragment: "execute", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "executeScheduled",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
-    functionFragment: "executeUserOp",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -957,6 +964,10 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "userOpSigningHash",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "validateUserOp",
     data: BytesLike
   ): Result;
@@ -991,7 +1002,6 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     "TransactionScheduled(bytes32,uint256,address)": EventFragment;
     "TxFailure(address,address,uint256,bytes,uint256,uint256,bytes)": EventFragment;
     "TxFailureOp(address,address,uint256,bytes,uint256,uint256,uint8,bytes)": EventFragment;
-    "UserOpExecuted(bytes32,uint256)": EventFragment;
   };
 
   getEvent(nameOrSignatureOrTopic: "AllowedTargetSet"): EventFragment;
@@ -1026,7 +1036,6 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
   getEvent(nameOrSignatureOrTopic: "TransactionScheduled"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "TxFailure"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "TxFailureOp"): EventFragment;
-  getEvent(nameOrSignatureOrTopic: "UserOpExecuted"): EventFragment;
 }
 
 export interface AllowedTargetSetEventObject {
@@ -1348,17 +1357,6 @@ export type TxFailureOpEvent = TypedEvent<
 
 export type TxFailureOpEventFilter = TypedEventFilter<TxFailureOpEvent>;
 
-export interface UserOpExecutedEventObject {
-  userOpHash: string;
-  nonce: BigNumber;
-}
-export type UserOpExecutedEvent = TypedEvent<
-  [string, BigNumber],
-  UserOpExecutedEventObject
->;
-
-export type UserOpExecutedEventFilter = TypedEventFilter<UserOpExecutedEvent>;
-
 export interface MyMultiSigExtended extends BaseContract {
   connect(signerOrProvider: Signer | Provider | string): this;
   attach(addressOrName: string): this;
@@ -1541,6 +1539,13 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
+    execute(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
     executeScheduled(
       to: PromiseOrValue<string>,
       value: PromiseOrValue<BigNumberish>,
@@ -1549,11 +1554,6 @@ export interface MyMultiSigExtended extends BaseContract {
       txnNonce: PromiseOrValue<BigNumberish>,
       validUntil: PromiseOrValue<BigNumberish>,
       signatures: PromiseOrValue<BytesLike>,
-      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
-    ): Promise<ContractTransaction>;
-
-    executeUserOp(
-      userOp: PackedUserOperationStruct,
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
@@ -1844,12 +1844,17 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
+    userOpSigningHash(
+      userOpHash: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<[string]>;
+
     validateUserOp(
       userOp: PackedUserOperationStruct,
-      arg1: PromiseOrValue<BytesLike>,
-      arg2: PromiseOrValue<BigNumberish>,
-      overrides?: CallOverrides
-    ): Promise<[BigNumber] & { validationData: BigNumber }>;
+      userOpHash: PromiseOrValue<BytesLike>,
+      missingAccountFunds: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
 
     version(overrides?: CallOverrides): Promise<[string]>;
   };
@@ -2007,6 +2012,13 @@ export interface MyMultiSigExtended extends BaseContract {
     overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
+  execute(
+    to: PromiseOrValue<string>,
+    value: PromiseOrValue<BigNumberish>,
+    data: PromiseOrValue<BytesLike>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
   executeScheduled(
     to: PromiseOrValue<string>,
     value: PromiseOrValue<BigNumberish>,
@@ -2015,11 +2027,6 @@ export interface MyMultiSigExtended extends BaseContract {
     txnNonce: PromiseOrValue<BigNumberish>,
     validUntil: PromiseOrValue<BigNumberish>,
     signatures: PromiseOrValue<BytesLike>,
-    overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
-  ): Promise<ContractTransaction>;
-
-  executeUserOp(
-    userOp: PackedUserOperationStruct,
     overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
@@ -2308,12 +2315,17 @@ export interface MyMultiSigExtended extends BaseContract {
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
+  userOpSigningHash(
+    userOpHash: PromiseOrValue<BytesLike>,
+    overrides?: CallOverrides
+  ): Promise<string>;
+
   validateUserOp(
     userOp: PackedUserOperationStruct,
-    arg1: PromiseOrValue<BytesLike>,
-    arg2: PromiseOrValue<BigNumberish>,
-    overrides?: CallOverrides
-  ): Promise<BigNumber>;
+    userOpHash: PromiseOrValue<BytesLike>,
+    missingAccountFunds: PromiseOrValue<BigNumberish>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
 
   version(overrides?: CallOverrides): Promise<string>;
 
@@ -2469,6 +2481,13 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: CallOverrides
     ): Promise<boolean>;
 
+    execute(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
     executeScheduled(
       to: PromiseOrValue<string>,
       value: PromiseOrValue<BigNumberish>,
@@ -2479,11 +2498,6 @@ export interface MyMultiSigExtended extends BaseContract {
       signatures: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<boolean>;
-
-    executeUserOp(
-      userOp: PackedUserOperationStruct,
-      overrides?: CallOverrides
-    ): Promise<void>;
 
     generateHash(
       to: PromiseOrValue<string>,
@@ -2770,10 +2784,15 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: CallOverrides
     ): Promise<void>;
 
+    userOpSigningHash(
+      userOpHash: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<string>;
+
     validateUserOp(
       userOp: PackedUserOperationStruct,
-      arg1: PromiseOrValue<BytesLike>,
-      arg2: PromiseOrValue<BigNumberish>,
+      userOpHash: PromiseOrValue<BytesLike>,
+      missingAccountFunds: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
@@ -3042,15 +3061,6 @@ export interface MyMultiSigExtended extends BaseContract {
       operation?: null,
       reason?: null
     ): TxFailureOpEventFilter;
-
-    "UserOpExecuted(bytes32,uint256)"(
-      userOpHash?: PromiseOrValue<BytesLike> | null,
-      nonce?: PromiseOrValue<BigNumberish> | null
-    ): UserOpExecutedEventFilter;
-    UserOpExecuted(
-      userOpHash?: PromiseOrValue<BytesLike> | null,
-      nonce?: PromiseOrValue<BigNumberish> | null
-    ): UserOpExecutedEventFilter;
   };
 
   estimateGas: {
@@ -3195,6 +3205,13 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
+    execute(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
     executeScheduled(
       to: PromiseOrValue<string>,
       value: PromiseOrValue<BigNumberish>,
@@ -3203,11 +3220,6 @@ export interface MyMultiSigExtended extends BaseContract {
       txnNonce: PromiseOrValue<BigNumberish>,
       validUntil: PromiseOrValue<BigNumberish>,
       signatures: PromiseOrValue<BytesLike>,
-      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
-    ): Promise<BigNumber>;
-
-    executeUserOp(
-      userOp: PackedUserOperationStruct,
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
@@ -3496,11 +3508,16 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
+    userOpSigningHash(
+      userOpHash: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
     validateUserOp(
       userOp: PackedUserOperationStruct,
-      arg1: PromiseOrValue<BytesLike>,
-      arg2: PromiseOrValue<BigNumberish>,
-      overrides?: CallOverrides
+      userOpHash: PromiseOrValue<BytesLike>,
+      missingAccountFunds: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
     version(overrides?: CallOverrides): Promise<BigNumber>;
@@ -3654,6 +3671,13 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
+    execute(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
     executeScheduled(
       to: PromiseOrValue<string>,
       value: PromiseOrValue<BigNumberish>,
@@ -3662,11 +3686,6 @@ export interface MyMultiSigExtended extends BaseContract {
       txnNonce: PromiseOrValue<BigNumberish>,
       validUntil: PromiseOrValue<BigNumberish>,
       signatures: PromiseOrValue<BytesLike>,
-      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
-    ): Promise<PopulatedTransaction>;
-
-    executeUserOp(
-      userOp: PackedUserOperationStruct,
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
@@ -3957,11 +3976,16 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
+    userOpSigningHash(
+      userOpHash: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
     validateUserOp(
       userOp: PackedUserOperationStruct,
-      arg1: PromiseOrValue<BytesLike>,
-      arg2: PromiseOrValue<BigNumberish>,
-      overrides?: CallOverrides
+      userOpHash: PromiseOrValue<BytesLike>,
+      missingAccountFunds: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
     version(overrides?: CallOverrides): Promise<PopulatedTransaction>;

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+import '@openzeppelin/contracts/utils/cryptography/ECDSA.sol';
 import './MyMultiSig.sol';
 import './interfaces/ITransactionGuard.sol';
 import './interfaces/IAccount.sol';
@@ -113,7 +114,6 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   // --- v0.5.0 custom errors ---
   error InvalidOperation(uint8 operation);
   error NotEntryPoint();
-  error InvalidNonce(uint256 expected, uint256 got);
   error RequiresOperationByte();
 
   // --- v0.4.0 events (v0.3.0 events live in MyMultiSig.sol) ---
@@ -924,7 +924,6 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     uint8 operation,
     bytes reason
   );
-  event UserOpExecuted(bytes32 indexed userOpHash, uint256 indexed nonce);
 
   // --------- execTransaction overloads with operation byte ---------
 
@@ -1131,53 +1130,78 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
 
   // --------- ERC-4337 v0.7 ---------
 
-  /// @notice IAccount.validateUserOp (v0.7). Caller must be `ENTRY_POINT`;
-  ///         requires `userOp.sender == address(this)`, `operation == 0`,
-  ///         `userOp.nonce == _txnNonce`, and threshold-reached
-  ///         signatures. Returns 0 on success, 1 (`SIG_VALIDATION_FAILED`)
-  ///         on failure.
+  /// @dev Gate shared by the ERC-4337 entry points: only the pinned
+  ///      EntryPoint may call them.
+  function _requireFromEntryPoint() internal view {
+    if (msg.sender != address(ENTRY_POINT)) revert NotEntryPoint();
+  }
+
+  /// @notice The 32-byte digest the wallet's owners vote on for a UserOp:
+  ///         the EIP-191 (`personal_sign`) wrap of the EntryPoint's
+  ///         `userOpHash`. The `userOpHash` already binds the full op
+  ///         (sender, EntryPoint nonce, callData, gas fields), the
+  ///         EntryPoint address, and the chain id, so a threshold of
+  ///         votes on this digest authorizes exactly one op on one chain.
+  ///         Owners can vote off-chain (ECDSA / EIP-1271 blobs in
+  ///         `userOp.signature`, same `(owner, sig)[]` encoding as
+  ///         `execTransaction`) or on-chain via `approveHash(digest)`.
+  function userOpSigningHash(bytes32 userOpHash) public pure virtual returns (bytes32) {
+    return ECDSA.toEthSignedMessageHash(userOpHash);
+  }
+
+  /// @notice IAccount.validateUserOp (v0.7). Caller must be `ENTRY_POINT`.
+  ///         Checks a threshold of owner votes over
+  ///         `userOpSigningHash(userOpHash)` and returns 0 on success or 1
+  ///         (`SIG_VALIDATION_FAILED`) on a failed signature check, then
+  ///         transfers `missingAccountFunds` to the EntryPoint so the op's
+  ///         gas is prefunded. Replay protection lives in the EntryPoint's
+  ///         2D nonce scheme (`userOp.nonce` is validated and consumed
+  ///         there and is part of `userOpHash`); the wallet's own
+  ///         `_txnNonce` is neither read nor bumped on this path.
   function validateUserOp(
     PackedUserOperation calldata userOp,
-    bytes32 /* userOpHash */,
-    uint256 /* missingAccountFunds */
-  ) external view override returns (uint256 validationData) {
-    if (msg.sender != address(ENTRY_POINT)) revert NotEntryPoint();
-    if (userOp.sender != address(this)) revert InvalidNonce(uint256(uint160(address(this))), uint256(uint160(userOp.sender)));
+    bytes32 userOpHash,
+    uint256 missingAccountFunds
+  ) external override returns (uint256 validationData) {
+    _requireFromEntryPoint();
+    validationData = _checkSignatures(userOpSigningHash(userOpHash), 0, userOp.signature)
+      ? _SIG_VALIDATION_SUCCESS
+      : _SIG_VALIDATION_FAILED;
+    _payPrefund(missingAccountFunds);
+  }
 
-    (address to, uint256 value, bytes memory data, uint256 txnGas, uint256 validUntil, uint8 operation) =
-      _decodeUserOpCallData(userOp.callData);
-
-    if (operation != 0) revert InvalidOperation(operation);
-    uint256 expectedNonce = nonce();
-    if (userOp.nonce != expectedNonce) revert InvalidNonce(expectedNonce, userOp.nonce);
-    bytes32 txHash = generateHashOp(to, value, data, txnGas, expectedNonce, validUntil, operation);
-    if (!_checkSignaturesOp(txHash, expectedNonce, validUntil, userOp.signature)) {
-      return _SIG_VALIDATION_FAILED;
+  /// @notice ERC-4337 execution entry point. `userOp.callData` must encode
+  ///         a call to this function (`abi.encodeCall(this.execute, (to,
+  ///         value, data))`) — the EntryPoint relays it to the account
+  ///         verbatim after a successful `validateUserOp`. Runs the same
+  ///         pre-exec gates as every other exec path (timelock
+  ///         reverse-route, guard, allowlist) and bubbles the inner revert
+  ///         on failure so the EntryPoint records the op as reverted.
+  /// @param to The address the wallet calls.
+  /// @param value The wei forwarded with the call.
+  /// @param data The calldata forwarded with the call.
+  function execute(address to, uint256 value, bytes calldata data) external virtual {
+    _requireFromEntryPoint();
+    _preExecChecks(to, value, data);
+    (bool success, bytes memory returnData) = _rawCall(gasleft(), to, value, data);
+    if (!success) _revertWith(returnData);
+    address guardContract = _guard;
+    if (guardContract != address(0)) {
+      bytes32 txHash = keccak256(abi.encode(msg.sender, to, value, data, uint256(0), block.number));
+      try ITransactionGuard(guardContract).checkAfterExecution(txHash, true) {} catch (bytes memory reason) {
+        emit PostExecutionGuardFailed(guardContract, reason);
+      }
     }
-    return _SIG_VALIDATION_SUCCESS;
   }
 
-  /// @notice EntryPoint-only execution path. Reconstructs the inner call
-  ///         from `userOp.callData` and runs it through `_execExtended`.
-  function executeUserOp(PackedUserOperation calldata userOp) external payable {
-    if (msg.sender != address(ENTRY_POINT)) revert NotEntryPoint();
-
-    bytes32 userOpHash = keccak256(userOp.callData);
-    (address to, uint256 value, bytes memory data, uint256 txnGas, uint256 validUntil, uint8 operation) =
-      _decodeUserOpCallData(userOp.callData);
-
-    _execExtended(to, value, data, txnGas, nonce(), validUntil, operation, userOp.signature);
-    emit UserOpExecuted(userOpHash, nonce());
-  }
-
-  /// @notice Bundler convention: `userOp.callData = abi.encode(to, value,
-  ///         data, gas, validUntil, operation)`. This is a non-standard
-  ///         inner encoding — reference `IExecute.execute` callers can
-  ///         still drive this wallet by encoding
-  ///         `func = abi.encodeCall(executeUserOp, abi.encode(...))`.
-  function _decodeUserOpCallData(
-    bytes calldata callData
-  ) internal pure returns (address to, uint256 value, bytes memory data, uint256 gas, uint256 validUntil, uint8 operation) {
-    return abi.decode(callData, (address, uint256, bytes, uint256, uint256, uint8));
+  /// @dev Sends the EntryPoint the deposit it is missing to prefund the
+  ///      current op. A failed transfer is deliberately not reverted on:
+  ///      the EntryPoint re-checks the account's deposit right after and
+  ///      fails the op with its own, more descriptive error.
+  function _payPrefund(uint256 missingAccountFunds) internal virtual {
+    if (missingAccountFunds != 0) {
+      (bool success, ) = payable(msg.sender).call{ value: missingAccountFunds }('');
+      (success);
+    }
   }
 }
