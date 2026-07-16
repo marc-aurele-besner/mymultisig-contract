@@ -1062,6 +1062,63 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         expect(await contract.nonce()).to.equal(nonceBefore)
       })
     })
+
+    describe('signMessage - on-chain typed-data auth (EIP-1271)', function () {
+      const MAGIC = '0x1626ba7e'
+      const NOT_MAGIC = '0xffffffff'
+      // EIP-1271 verifiers pass a 32-byte digest; the stored message is
+      // its ABI encoding (Safe-compatible convention).
+      const dataHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes('siwe:login:mymultisig.app'))
+      const message = ethers.utils.defaultAbiCoder.encode(['bytes32'], [dataHash])
+
+      it('getMessageHash matches a manual EIP-712 computation', async function () {
+        const domain = {
+          name: Helper.CONTRACT_NAME,
+          version: await contract.version(),
+          chainId: (await ethers.provider.getNetwork()).chainId,
+          verifyingContract: contract.address,
+        }
+        const types = { MyMultiSigMessage: [{ name: 'message', type: 'bytes' }] }
+        const expected = ethers.utils._TypedDataEncoder.hash(domain, types, { message })
+        expect(await contract.getMessageHash(message)).to.equal(expected)
+      })
+
+      it('signMessage requires threshold consensus (direct call reverts OnlyThisContract)', async function () {
+        await expect(contract.connect(owner01).signMessage(message)).to.be.revertedWithCustomError(
+          contract,
+          'OnlyThisContract',
+        )
+      })
+
+      it('signMessage flips the empty-signature EIP-1271 path to the magic value', async function () {
+        expect(await contract['isValidSignature(bytes32,bytes)'](dataHash, '0x')).to.equal(NOT_MAGIC)
+        const receipt = await Helper.execOnlyThis(contract, owner01, [owner01, owner02], 'signMessage', [message])
+        const events = await Helper.getEventFromReceipt(contract, receipt)
+        expect(events.find((e: any) => e && e.name === 'MessageSigned')).to.not.equal(undefined)
+        expect(await contract.isMessageSigned(await contract.getMessageHash(message))).to.be.true
+        expect(await contract['isValidSignature(bytes32,bytes)'](dataHash, '0x')).to.equal(MAGIC)
+      })
+
+      it('unsignMessage withdraws the approval', async function () {
+        await Helper.execOnlyThis(contract, owner01, [owner01, owner02], 'signMessage', [message])
+        expect(await contract['isValidSignature(bytes32,bytes)'](dataHash, '0x')).to.equal(MAGIC)
+        const receipt = await Helper.execOnlyThis(contract, owner01, [owner01, owner02], 'unsignMessage', [message])
+        const events = await Helper.getEventFromReceipt(contract, receipt)
+        expect(events.find((e: any) => e && e.name === 'MessageUnsigned')).to.not.equal(undefined)
+        expect(await contract.isMessageSigned(await contract.getMessageHash(message))).to.be.false
+        expect(await contract['isValidSignature(bytes32,bytes)'](dataHash, '0x')).to.equal(NOT_MAGIC)
+      })
+
+      it('a signed message never validates on a sibling wallet (domain-bound)', async function () {
+        await Helper.execOnlyThis(contract, owner01, [owner01, owner02], 'signMessage', [message])
+        const sibling = await Helper.setupContract(Helper.CONTRACT_NAME, [
+          owner01.address,
+          owner02.address,
+          owner03.address,
+        ])
+        expect(await sibling.contract['isValidSignature(bytes32,bytes)'](dataHash, '0x')).to.equal(NOT_MAGIC)
+      })
+    })
   })
 }
 
@@ -2696,6 +2753,118 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
         await expect(
           contract.connect(owner01).execTransactionFromModule(user01.address, 0, '0x', 0),
         ).to.be.revertedWithCustomError(contract, 'NotAModule')
+      })
+    })
+
+    // -- Session keys (module-driven temporary signers) ---------------------
+    describe('Session keys (SessionKeyModule)', function () {
+      let module: any
+      // Granting writes several cold storage slots — needs more than the
+      // suite-wide DEFAULT_GAS for the inner call.
+      const EXEC_GAS = 300000
+      const DAY = 24 * 60 * 60
+
+      const grantSessionKey = async (key: string, validUntil: number, budget: any, targets: string[]) => {
+        const data = module.interface.encodeFunctionData('grantSessionKey', [
+          key,
+          0,
+          validUntil,
+          budget,
+          targets,
+          [],
+        ]) as `0x${string}`
+        await Helper.execTransaction(
+          contract,
+          owner01,
+          [owner01, owner02],
+          module.address,
+          Helper.ZERO,
+          data,
+          EXEC_GAS,
+        )
+      }
+
+      beforeEach(async function () {
+        const Module = await ethers.getContractFactory('SessionKeyModule')
+        module = await (await Module.deploy()).deployed()
+        await Helper.enableModule(contract, owner01, [owner01, owner02], module.address)
+      })
+
+      it('granted key executes within scope and budget; wallet nonce untouched', async function () {
+        const now = (await ethers.provider.getBlock('latest')).timestamp
+        await grantSessionKey(user01.address, now + DAY, ethers.utils.parseEther('1'), [user02.address])
+        expect(await module.isSessionKeyActive(contract.address, user01.address)).to.be.true
+
+        const nonceBefore = await contract.nonce()
+        const balanceBefore = await ethers.provider.getBalance(user02.address)
+        await (
+          await module
+            .connect(user01)
+            .executeWithSessionKey(contract.address, user02.address, ethers.utils.parseEther('0.4'), '0x')
+        ).wait()
+        const balanceAfter = await ethers.provider.getBalance(user02.address)
+        expect(balanceAfter.sub(balanceBefore)).to.equal(ethers.utils.parseEther('0.4'))
+        expect(await module.sessionBudgetRemaining(contract.address, user01.address)).to.equal(
+          ethers.utils.parseEther('0.6'),
+        )
+        // Module-driven execution must not bump the wallet nonce.
+        expect(await contract.nonce()).to.equal(nonceBefore)
+      })
+
+      it('rejects out-of-scope targets and over-budget spends', async function () {
+        const now = (await ethers.provider.getBlock('latest')).timestamp
+        await grantSessionKey(user01.address, now + DAY, ethers.utils.parseEther('1'), [user02.address])
+
+        await expect(
+          module
+            .connect(user01)
+            .executeWithSessionKey(contract.address, user03.address, ethers.utils.parseEther('0.1'), '0x'),
+        ).to.be.revertedWithCustomError(module, 'SessionKeyTargetNotAllowed')
+        await expect(
+          module
+            .connect(user01)
+            .executeWithSessionKey(contract.address, user02.address, ethers.utils.parseEther('1.1'), '0x'),
+        ).to.be.revertedWithCustomError(module, 'SessionKeyBudgetExceeded')
+      })
+
+      it('a session key can never call the wallet itself', async function () {
+        const now = (await ethers.provider.getBlock('latest')).timestamp
+        await grantSessionKey(user01.address, now + DAY, ethers.utils.parseEther('1'), [user02.address])
+        await expect(
+          module
+            .connect(user01)
+            .executeWithSessionKey(
+              contract.address,
+              contract.address,
+              Helper.ZERO,
+              contract.interface.encodeFunctionData('addOwner(address)', [user01.address]),
+            ),
+        ).to.be.revertedWithCustomError(module, 'SessionKeyCannotCallWallet')
+      })
+
+      it('expires after the time window', async function () {
+        const now = (await ethers.provider.getBlock('latest')).timestamp
+        await grantSessionKey(user01.address, now + DAY, ethers.utils.parseEther('1'), [user02.address])
+        await Helper.advanceTime(DAY + 1)
+        expect(await module.isSessionKeyActive(contract.address, user01.address)).to.be.false
+        await expect(
+          module.connect(user01).executeWithSessionKey(contract.address, user02.address, Helper.ZERO, '0x'),
+        ).to.be.revertedWithCustomError(module, 'SessionKeyNotActive')
+      })
+
+      it('any single owner can revoke immediately; non-owners cannot', async function () {
+        const now = (await ethers.provider.getBlock('latest')).timestamp
+        await grantSessionKey(user01.address, now + DAY, ethers.utils.parseEther('1'), [user02.address])
+
+        await expect(module.connect(user03).revokeSessionKey(contract.address, user01.address)).to.be.revertedWithCustomError(
+          module,
+          'NotWalletOrOwner',
+        )
+        await (await module.connect(owner02).revokeSessionKey(contract.address, user01.address)).wait()
+        expect(await module.isSessionKeyActive(contract.address, user01.address)).to.be.false
+        await expect(
+          module.connect(user01).executeWithSessionKey(contract.address, user02.address, Helper.ZERO, '0x'),
+        ).to.be.revertedWithCustomError(module, 'SessionKeyNotActive')
       })
     })
 
