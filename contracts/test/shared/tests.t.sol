@@ -435,6 +435,77 @@ abstract contract TestBasic is Helper {
   }
 
   // ---------------------------------------------------------------------
+  // stale approvals (approveHash then owner removal)
+  // ---------------------------------------------------------------------
+
+  /// @dev The digest the exec path validates: the base wallet's 6-field
+  ///      `generateHash`, or the extended wallet's operation-bound
+  ///      `generateHashOp` with `operation = 0`.
+  function build_execHash(bytes memory data, uint256 gas, uint96 nonce) internal view returns (bytes32) {
+    if (isExtended(myMultiSig)) {
+      return
+        MyMultiSigExtended(payable(address(myMultiSig))).generateHashOp(address(myMultiSig), 0, data, gas, nonce, 0, 0);
+    }
+    return myMultiSig.generateHash(address(myMultiSig), 0, data, gas, nonce, 0);
+  }
+
+  function testMyMultiSig_staleApprovalFromRemovedOwnerIsSkipped() public {
+    // OWNERS[0] pre-approves the addOwner(NOT_OWNERS[1]) hash bound to
+    // nonce 1, then is replaced at nonce 0. The stale approval stays in
+    // getApprovedOwners but must be skipped by the vote count: two
+    // signatures from current owners reach the threshold on their own.
+    address to = address(myMultiSig);
+    bytes memory data = build_addOwner(NOT_OWNERS[1]);
+    uint256 gas = DEFAULT_GAS;
+    bytes32 hash = build_execHash(data, gas, 1);
+
+    vm.prank(OWNERS[0]);
+    myMultiSig.approveHash(hash);
+
+    help_replaceOwner(OWNERS[1], myMultiSig, OWNERS_PK, OWNERS[0], NOT_OWNERS[0]);
+    assertFalse(myMultiSig.isOwner(OWNERS[0]));
+    assertEq(myMultiSig.getApprovedOwners(hash).length, 1);
+
+    uint256[] memory freshPks = new uint256[](2);
+    freshPks[0] = OWNERS_PK[1];
+    freshPks[1] = OWNERS_PK[2];
+    bytes memory signatures = build_signatures(myMultiSig, freshPks, to, 0, data, gas);
+    help_execTransaction(myMultiSig, OWNERS[1], to, 0, data, gas, signatures);
+    assertTrue(myMultiSig.isOwner(NOT_OWNERS[1]));
+  }
+
+  function testMyMultiSig_staleApprovalFromRemovedOwnerDoesNotCount() public {
+    // Same setup, but the executor leans on the stale approval plus a single
+    // fresh signature: 1 valid vote < threshold (2), so execution must
+    // revert with InvalidSignatures.
+    address to = address(myMultiSig);
+    bytes memory data = build_addOwner(NOT_OWNERS[1]);
+    uint256 gas = DEFAULT_GAS;
+    bytes32 hash = build_execHash(data, gas, 1);
+
+    vm.prank(OWNERS[0]);
+    myMultiSig.approveHash(hash);
+
+    help_replaceOwner(OWNERS[1], myMultiSig, OWNERS_PK, OWNERS[0], NOT_OWNERS[0]);
+
+    uint256[] memory freshPks = new uint256[](1);
+    freshPks[0] = OWNERS_PK[1];
+    bytes memory signatures = build_signatures(myMultiSig, freshPks, to, 0, data, gas);
+    help_execTransaction(
+      myMultiSig,
+      OWNERS[1],
+      to,
+      0,
+      data,
+      gas,
+      signatures,
+      myMultiSig.nonce(),
+      Errors.RevertStatus.InvalidSignatures
+    );
+    assertFalse(myMultiSig.isOwner(NOT_OWNERS[1]));
+  }
+
+  // ---------------------------------------------------------------------
   // multiRequestStrict (atomic batch)
   // ---------------------------------------------------------------------
 
