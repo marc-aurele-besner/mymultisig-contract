@@ -3068,3 +3068,125 @@ export async function MyMultiSigFactoryTests() {
     })
   })
 }
+
+export async function MyMultiSigFactoryCreate2Tests() {
+  let owner01: any
+  let user01: any
+  let deployment: any
+  let factory: any
+  let owners: string[]
+
+  const SALT = ethers.utils.id('mymultisig.app/test-salt')
+
+  describe('MyMultiSig - Factory CREATE2 Tests', function () {
+    before(async function () {
+      ;[, owner01, , , user01] = await Helper.setupProviderAndAccount()
+    })
+
+    beforeEach(async function () {
+      deployment = await Helper.setupContract(Helper.CONTRACT_FACTORY_NAME, [owner01.address], 1, true)
+      factory = deployment.contract
+      owners = [owner01.address]
+    })
+
+    it('createDeterministicMultiSig deploys at the predicted address and records SIMPLE', async function () {
+      const predicted = await factory.predictMultiSigAddress(owner01.address, Helper.CONTRACT_NAME, owners, 1, SALT)
+      const tx = await factory
+        .connect(owner01)
+        .createDeterministicMultiSig(Helper.CONTRACT_NAME, owners, 1, SALT)
+      await expect(tx)
+        .to.emit(factory, 'MyMultiSigCreated')
+        .withArgs(owner01.address, predicted, 1, Helper.CONTRACT_NAME, owners, 1)
+      expect(await factory.multiSig(0)).to.be.equal(predicted)
+      expect(await factory.simpleCount()).to.be.equal(1)
+      expect(await factory.creationTypeOf(predicted)).to.be.equal(0) // SIMPLE
+      const wallet = await ethers.getContractAt('MyMultiSig', predicted)
+      expect(await wallet.threshold()).to.be.equal(1)
+    })
+
+    it('createDeterministicMyMultiSigExtended deploys at the predicted address and records EXTENDED', async function () {
+      const predicted = await factory.predictMyMultiSigExtendedAddress(
+        owner01.address,
+        Helper.CONTRACT_NAME,
+        owners,
+        1,
+        Helper.DEFAULT_ALLOW_ONLY_OWNER,
+        Helper.ENTRY_POINT_V07_ADDRESS,
+        SALT,
+      )
+      await factory
+        .connect(owner01)
+        .createDeterministicMyMultiSigExtended(
+          Helper.CONTRACT_NAME,
+          owners,
+          1,
+          Helper.DEFAULT_ALLOW_ONLY_OWNER,
+          Helper.ENTRY_POINT_V07_ADDRESS,
+          SALT,
+        )
+      expect(await factory.multiSig(0)).to.be.equal(predicted)
+      expect(await factory.extendedCount()).to.be.equal(1)
+      expect(await factory.creationTypeOf(predicted)).to.be.equal(1) // EXTENDED
+      expect(await factory.isExtended(predicted)).to.be.true
+      const wallet = await ethers.getContractAt('MyMultiSigExtended', predicted)
+      expect((await wallet.ENTRY_POINT()).toLowerCase()).to.be.equal(Helper.ENTRY_POINT_V07_ADDRESS)
+    })
+
+    it('createDeterministicMyMultiSigAdvanced deploys at the predicted address, distinct from Extended', async function () {
+      const predictedAdvanced = await factory.predictMyMultiSigAdvancedAddress(
+        owner01.address,
+        Helper.CONTRACT_NAME,
+        owners,
+        1,
+        Helper.DEFAULT_ALLOW_ONLY_OWNER,
+        Helper.ENTRY_POINT_V07_ADDRESS,
+        SALT,
+      )
+      const predictedExtended = await factory.predictMyMultiSigExtendedAddress(
+        owner01.address,
+        Helper.CONTRACT_NAME,
+        owners,
+        1,
+        Helper.DEFAULT_ALLOW_ONLY_OWNER,
+        Helper.ENTRY_POINT_V07_ADDRESS,
+        SALT,
+      )
+      expect(predictedAdvanced).to.not.be.equal(predictedExtended)
+      await factory
+        .connect(owner01)
+        .createDeterministicMyMultiSigAdvanced(
+          Helper.CONTRACT_NAME,
+          owners,
+          1,
+          Helper.DEFAULT_ALLOW_ONLY_OWNER,
+          Helper.ENTRY_POINT_V07_ADDRESS,
+          SALT,
+        )
+      expect(await factory.multiSig(0)).to.be.equal(predictedAdvanced)
+      expect(await factory.advancedCount()).to.be.equal(1)
+      expect(await factory.creationTypeOf(predictedAdvanced)).to.be.equal(2) // ADVANCED
+    })
+
+    it('reverts when the same creator reuses a salt with identical arguments', async function () {
+      await factory.connect(owner01).createDeterministicMultiSig(Helper.CONTRACT_NAME, owners, 1, SALT)
+      await expect(factory.connect(owner01).createDeterministicMultiSig(Helper.CONTRACT_NAME, owners, 1, SALT)).to.be
+        .reverted
+    })
+
+    it('gives different creators different addresses for the same salt and arguments', async function () {
+      const predictedOwner = await factory.predictMultiSigAddress(
+        owner01.address,
+        Helper.CONTRACT_NAME,
+        owners,
+        1,
+        SALT,
+      )
+      const predictedUser = await factory.predictMultiSigAddress(user01.address, Helper.CONTRACT_NAME, owners, 1, SALT)
+      expect(predictedOwner).to.not.be.equal(predictedUser)
+      await factory.connect(owner01).createDeterministicMultiSig(Helper.CONTRACT_NAME, owners, 1, SALT)
+      await factory.connect(user01).createDeterministicMultiSig(Helper.CONTRACT_NAME, owners, 1, SALT)
+      expect(await factory.multiSig(0)).to.be.equal(predictedOwner)
+      expect(await factory.multiSig(1)).to.be.equal(predictedUser)
+    })
+  })
+}
