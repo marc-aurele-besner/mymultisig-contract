@@ -104,10 +104,12 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     "generateHash(address,uint256,bytes,uint256,uint256,uint256)": FunctionFragment;
     "generateHashOp(address,uint256,bytes,uint256,uint256,uint256,uint8)": FunctionFragment;
     "getApprovedOwners(bytes32)": FunctionFragment;
+    "getMessageHash(bytes)": FunctionFragment;
     "getModules()": FunctionFragment;
     "getThreshold(bytes32)": FunctionFragment;
     "guard()": FunctionFragment;
     "incrementNonce()": FunctionFragment;
+    "isMessageSigned(bytes32)": FunctionFragment;
     "isModule(address)": FunctionFragment;
     "isNonceUsed(uint256)": FunctionFragment;
     "isOwner(address)": FunctionFragment;
@@ -144,11 +146,13 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     "setSensitiveValueThreshold(uint256)": FunctionFragment;
     "setTimelockDelay(uint256)": FunctionFragment;
     "setTransferInactiveOwnershipAfter(uint256)": FunctionFragment;
+    "signMessage(bytes)": FunctionFragment;
     "spendingLimitRemaining(address)": FunctionFragment;
     "supportsInterface(bytes4)": FunctionFragment;
     "takeOverOwnership(address)": FunctionFragment;
     "threshold()": FunctionFragment;
     "timelockDelay()": FunctionFragment;
+    "unsignMessage(bytes)": FunctionFragment;
     "validateUserOp((address,uint256,bytes,bytes,bytes32,uint256,bytes32,bytes,bytes),bytes32,uint256)": FunctionFragment;
     "version()": FunctionFragment;
   };
@@ -181,10 +185,12 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
       | "generateHash"
       | "generateHashOp"
       | "getApprovedOwners"
+      | "getMessageHash"
       | "getModules"
       | "getThreshold"
       | "guard"
       | "incrementNonce"
+      | "isMessageSigned"
       | "isModule"
       | "isNonceUsed"
       | "isOwner"
@@ -221,11 +227,13 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
       | "setSensitiveValueThreshold"
       | "setTimelockDelay"
       | "setTransferInactiveOwnershipAfter"
+      | "signMessage"
       | "spendingLimitRemaining"
       | "supportsInterface"
       | "takeOverOwnership"
       | "threshold"
       | "timelockDelay"
+      | "unsignMessage"
       | "validateUserOp"
       | "version"
   ): FunctionFragment;
@@ -422,6 +430,10 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     values: [PromiseOrValue<BytesLike>]
   ): string;
   encodeFunctionData(
+    functionFragment: "getMessageHash",
+    values: [PromiseOrValue<BytesLike>]
+  ): string;
+  encodeFunctionData(
     functionFragment: "getModules",
     values?: undefined
   ): string;
@@ -433,6 +445,10 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
   encodeFunctionData(
     functionFragment: "incrementNonce",
     values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "isMessageSigned",
+    values: [PromiseOrValue<BytesLike>]
   ): string;
   encodeFunctionData(
     functionFragment: "isModule",
@@ -629,6 +645,10 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     values: [PromiseOrValue<BigNumberish>]
   ): string;
   encodeFunctionData(
+    functionFragment: "signMessage",
+    values: [PromiseOrValue<BytesLike>]
+  ): string;
+  encodeFunctionData(
     functionFragment: "spendingLimitRemaining",
     values: [PromiseOrValue<string>]
   ): string;
@@ -644,6 +664,10 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
   encodeFunctionData(
     functionFragment: "timelockDelay",
     values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "unsignMessage",
+    values: [PromiseOrValue<BytesLike>]
   ): string;
   encodeFunctionData(
     functionFragment: "validateUserOp",
@@ -756,6 +780,10 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     functionFragment: "getApprovedOwners",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(
+    functionFragment: "getMessageHash",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "getModules", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "getThreshold",
@@ -764,6 +792,10 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
   decodeFunctionResult(functionFragment: "guard", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "incrementNonce",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "isMessageSigned",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "isModule", data: BytesLike): Result;
@@ -890,6 +922,10 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "signMessage",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "spendingLimitRemaining",
     data: BytesLike
   ): Result;
@@ -907,6 +943,10 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "unsignMessage",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "validateUserOp",
     data: BytesLike
   ): Result;
@@ -919,6 +959,8 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     "DailySpendingLimitSet(address,uint256)": EventFragment;
     "EIP712DomainChanged()": EventFragment;
     "GuardSet(address)": EventFragment;
+    "MessageSigned(bytes32)": EventFragment;
+    "MessageUnsigned(bytes32)": EventFragment;
     "ModuleDisabled(address)": EventFragment;
     "ModuleEnabled(address)": EventFragment;
     "ModuleTransactionExecuted(address,address,uint256,bytes,uint256,bool)": EventFragment;
@@ -947,6 +989,8 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
   getEvent(nameOrSignatureOrTopic: "DailySpendingLimitSet"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "EIP712DomainChanged"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "GuardSet"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "MessageSigned"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "MessageUnsigned"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "ModuleDisabled"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "ModuleEnabled"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "ModuleTransactionExecuted"): EventFragment;
@@ -1034,6 +1078,23 @@ export interface GuardSetEventObject {
 export type GuardSetEvent = TypedEvent<[string], GuardSetEventObject>;
 
 export type GuardSetEventFilter = TypedEventFilter<GuardSetEvent>;
+
+export interface MessageSignedEventObject {
+  msgHash: string;
+}
+export type MessageSignedEvent = TypedEvent<[string], MessageSignedEventObject>;
+
+export type MessageSignedEventFilter = TypedEventFilter<MessageSignedEvent>;
+
+export interface MessageUnsignedEventObject {
+  msgHash: string;
+}
+export type MessageUnsignedEvent = TypedEvent<
+  [string],
+  MessageUnsignedEventObject
+>;
+
+export type MessageUnsignedEventFilter = TypedEventFilter<MessageUnsignedEvent>;
 
 export interface ModuleDisabledEventObject {
   module: string;
@@ -1497,6 +1558,11 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: CallOverrides
     ): Promise<[string[]]>;
 
+    getMessageHash(
+      message: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<[string]>;
+
     getModules(
       overrides?: CallOverrides
     ): Promise<[string[]] & { modules: string[] }>;
@@ -1511,6 +1577,11 @@ export interface MyMultiSigExtended extends BaseContract {
     incrementNonce(
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
+
+    isMessageSigned(
+      msgHash: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<[boolean]>;
 
     isModule(
       module: PromiseOrValue<string>,
@@ -1719,6 +1790,11 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
+    signMessage(
+      message: PromiseOrValue<BytesLike>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
     spendingLimitRemaining(
       owner: PromiseOrValue<string>,
       overrides?: CallOverrides
@@ -1737,6 +1813,11 @@ export interface MyMultiSigExtended extends BaseContract {
     threshold(overrides?: CallOverrides): Promise<[number]>;
 
     timelockDelay(overrides?: CallOverrides): Promise<[BigNumber]>;
+
+    unsignMessage(
+      message: PromiseOrValue<BytesLike>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
 
     validateUserOp(
       userOp: PackedUserOperationStruct,
@@ -1939,6 +2020,11 @@ export interface MyMultiSigExtended extends BaseContract {
     overrides?: CallOverrides
   ): Promise<string[]>;
 
+  getMessageHash(
+    message: PromiseOrValue<BytesLike>,
+    overrides?: CallOverrides
+  ): Promise<string>;
+
   getModules(overrides?: CallOverrides): Promise<string[]>;
 
   getThreshold(
@@ -1951,6 +2037,11 @@ export interface MyMultiSigExtended extends BaseContract {
   incrementNonce(
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
+
+  isMessageSigned(
+    msgHash: PromiseOrValue<BytesLike>,
+    overrides?: CallOverrides
+  ): Promise<boolean>;
 
   isModule(
     module: PromiseOrValue<string>,
@@ -2159,6 +2250,11 @@ export interface MyMultiSigExtended extends BaseContract {
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
+  signMessage(
+    message: PromiseOrValue<BytesLike>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
   spendingLimitRemaining(
     owner: PromiseOrValue<string>,
     overrides?: CallOverrides
@@ -2177,6 +2273,11 @@ export interface MyMultiSigExtended extends BaseContract {
   threshold(overrides?: CallOverrides): Promise<number>;
 
   timelockDelay(overrides?: CallOverrides): Promise<BigNumber>;
+
+  unsignMessage(
+    message: PromiseOrValue<BytesLike>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
 
   validateUserOp(
     userOp: PackedUserOperationStruct,
@@ -2379,6 +2480,11 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: CallOverrides
     ): Promise<string[]>;
 
+    getMessageHash(
+      message: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<string>;
+
     getModules(overrides?: CallOverrides): Promise<string[]>;
 
     getThreshold(
@@ -2389,6 +2495,11 @@ export interface MyMultiSigExtended extends BaseContract {
     guard(overrides?: CallOverrides): Promise<string>;
 
     incrementNonce(overrides?: CallOverrides): Promise<void>;
+
+    isMessageSigned(
+      msgHash: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<boolean>;
 
     isModule(
       module: PromiseOrValue<string>,
@@ -2599,6 +2710,11 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: CallOverrides
     ): Promise<void>;
 
+    signMessage(
+      message: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
     spendingLimitRemaining(
       owner: PromiseOrValue<string>,
       overrides?: CallOverrides
@@ -2617,6 +2733,11 @@ export interface MyMultiSigExtended extends BaseContract {
     threshold(overrides?: CallOverrides): Promise<number>;
 
     timelockDelay(overrides?: CallOverrides): Promise<BigNumber>;
+
+    unsignMessage(
+      message: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<void>;
 
     validateUserOp(
       userOp: PackedUserOperationStruct,
@@ -2670,6 +2791,20 @@ export interface MyMultiSigExtended extends BaseContract {
       guard?: PromiseOrValue<string> | null
     ): GuardSetEventFilter;
     GuardSet(guard?: PromiseOrValue<string> | null): GuardSetEventFilter;
+
+    "MessageSigned(bytes32)"(
+      msgHash?: PromiseOrValue<BytesLike> | null
+    ): MessageSignedEventFilter;
+    MessageSigned(
+      msgHash?: PromiseOrValue<BytesLike> | null
+    ): MessageSignedEventFilter;
+
+    "MessageUnsigned(bytes32)"(
+      msgHash?: PromiseOrValue<BytesLike> | null
+    ): MessageUnsignedEventFilter;
+    MessageUnsigned(
+      msgHash?: PromiseOrValue<BytesLike> | null
+    ): MessageUnsignedEventFilter;
 
     "ModuleDisabled(address)"(
       module?: PromiseOrValue<string> | null
@@ -3064,6 +3199,11 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
+    getMessageHash(
+      message: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
     getModules(overrides?: CallOverrides): Promise<BigNumber>;
 
     getThreshold(
@@ -3075,6 +3215,11 @@ export interface MyMultiSigExtended extends BaseContract {
 
     incrementNonce(
       overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    isMessageSigned(
+      msgHash: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
     ): Promise<BigNumber>;
 
     isModule(
@@ -3284,6 +3429,11 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
+    signMessage(
+      message: PromiseOrValue<BytesLike>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
     spendingLimitRemaining(
       owner: PromiseOrValue<string>,
       overrides?: CallOverrides
@@ -3302,6 +3452,11 @@ export interface MyMultiSigExtended extends BaseContract {
     threshold(overrides?: CallOverrides): Promise<BigNumber>;
 
     timelockDelay(overrides?: CallOverrides): Promise<BigNumber>;
+
+    unsignMessage(
+      message: PromiseOrValue<BytesLike>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
 
     validateUserOp(
       userOp: PackedUserOperationStruct,
@@ -3499,6 +3654,11 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
+    getMessageHash(
+      message: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
     getModules(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     getThreshold(
@@ -3510,6 +3670,11 @@ export interface MyMultiSigExtended extends BaseContract {
 
     incrementNonce(
       overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    isMessageSigned(
+      msgHash: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
     isModule(
@@ -3721,6 +3886,11 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
+    signMessage(
+      message: PromiseOrValue<BytesLike>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
     spendingLimitRemaining(
       owner: PromiseOrValue<string>,
       overrides?: CallOverrides
@@ -3739,6 +3909,11 @@ export interface MyMultiSigExtended extends BaseContract {
     threshold(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     timelockDelay(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    unsignMessage(
+      message: PromiseOrValue<BytesLike>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
 
     validateUserOp(
       userOp: PackedUserOperationStruct,

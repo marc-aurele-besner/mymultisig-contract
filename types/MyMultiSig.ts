@@ -38,8 +38,10 @@ export interface MyMultiSigInterface extends utils.Interface {
     "execTransaction(address,uint256,bytes,uint256,bytes)": FunctionFragment;
     "generateHash(address,uint256,bytes,uint256,uint256,uint256)": FunctionFragment;
     "getApprovedOwners(bytes32)": FunctionFragment;
+    "getMessageHash(bytes)": FunctionFragment;
     "getThreshold(bytes32)": FunctionFragment;
     "incrementNonce()": FunctionFragment;
+    "isMessageSigned(bytes32)": FunctionFragment;
     "isOwner(address)": FunctionFragment;
     "isValidSignature(bytes32,bytes)": FunctionFragment;
     "isValidSignature(address,uint256,bytes,uint256,uint256,uint256,bytes)": FunctionFragment;
@@ -54,8 +56,10 @@ export interface MyMultiSigInterface extends utils.Interface {
     "removeOwner(address)": FunctionFragment;
     "replaceOwner(address,address)": FunctionFragment;
     "revokeApproval(bytes32)": FunctionFragment;
+    "signMessage(bytes)": FunctionFragment;
     "supportsInterface(bytes4)": FunctionFragment;
     "threshold()": FunctionFragment;
+    "unsignMessage(bytes)": FunctionFragment;
     "version()": FunctionFragment;
   };
 
@@ -69,8 +73,10 @@ export interface MyMultiSigInterface extends utils.Interface {
       | "execTransaction(address,uint256,bytes,uint256,bytes)"
       | "generateHash"
       | "getApprovedOwners"
+      | "getMessageHash"
       | "getThreshold"
       | "incrementNonce"
+      | "isMessageSigned"
       | "isOwner"
       | "isValidSignature(bytes32,bytes)"
       | "isValidSignature(address,uint256,bytes,uint256,uint256,uint256,bytes)"
@@ -85,8 +91,10 @@ export interface MyMultiSigInterface extends utils.Interface {
       | "removeOwner"
       | "replaceOwner"
       | "revokeApproval"
+      | "signMessage"
       | "supportsInterface"
       | "threshold"
+      | "unsignMessage"
       | "version"
   ): FunctionFragment;
 
@@ -143,12 +151,20 @@ export interface MyMultiSigInterface extends utils.Interface {
     values: [PromiseOrValue<BytesLike>]
   ): string;
   encodeFunctionData(
+    functionFragment: "getMessageHash",
+    values: [PromiseOrValue<BytesLike>]
+  ): string;
+  encodeFunctionData(
     functionFragment: "getThreshold",
     values: [PromiseOrValue<BytesLike>]
   ): string;
   encodeFunctionData(
     functionFragment: "incrementNonce",
     values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "isMessageSigned",
+    values: [PromiseOrValue<BytesLike>]
   ): string;
   encodeFunctionData(
     functionFragment: "isOwner",
@@ -236,10 +252,18 @@ export interface MyMultiSigInterface extends utils.Interface {
     values: [PromiseOrValue<BytesLike>]
   ): string;
   encodeFunctionData(
+    functionFragment: "signMessage",
+    values: [PromiseOrValue<BytesLike>]
+  ): string;
+  encodeFunctionData(
     functionFragment: "supportsInterface",
     values: [PromiseOrValue<BytesLike>]
   ): string;
   encodeFunctionData(functionFragment: "threshold", values?: undefined): string;
+  encodeFunctionData(
+    functionFragment: "unsignMessage",
+    values: [PromiseOrValue<BytesLike>]
+  ): string;
   encodeFunctionData(functionFragment: "version", values?: undefined): string;
 
   decodeFunctionResult(functionFragment: "addOwner", data: BytesLike): Result;
@@ -272,11 +296,19 @@ export interface MyMultiSigInterface extends utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "getMessageHash",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "getThreshold",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
     functionFragment: "incrementNonce",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "isMessageSigned",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "isOwner", data: BytesLike): Result;
@@ -324,16 +356,26 @@ export interface MyMultiSigInterface extends utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "signMessage",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "supportsInterface",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "threshold", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "unsignMessage",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "version", data: BytesLike): Result;
 
   events: {
     "ApproveHash(address,bytes32)": EventFragment;
     "ContractEndOfLife(uint256)": EventFragment;
     "EIP712DomainChanged()": EventFragment;
+    "MessageSigned(bytes32)": EventFragment;
+    "MessageUnsigned(bytes32)": EventFragment;
     "MultiRequestExecuted(uint256,bool[],bytes[])": EventFragment;
     "OwnerAdded(address)": EventFragment;
     "OwnerRemoved(address)": EventFragment;
@@ -346,6 +388,8 @@ export interface MyMultiSigInterface extends utils.Interface {
   getEvent(nameOrSignatureOrTopic: "ApproveHash"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "ContractEndOfLife"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "EIP712DomainChanged"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "MessageSigned"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "MessageUnsigned"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "MultiRequestExecuted"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "OwnerAdded"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "OwnerRemoved"): EventFragment;
@@ -385,6 +429,23 @@ export type EIP712DomainChangedEvent = TypedEvent<
 
 export type EIP712DomainChangedEventFilter =
   TypedEventFilter<EIP712DomainChangedEvent>;
+
+export interface MessageSignedEventObject {
+  msgHash: string;
+}
+export type MessageSignedEvent = TypedEvent<[string], MessageSignedEventObject>;
+
+export type MessageSignedEventFilter = TypedEventFilter<MessageSignedEvent>;
+
+export interface MessageUnsignedEventObject {
+  msgHash: string;
+}
+export type MessageUnsignedEvent = TypedEvent<
+  [string],
+  MessageUnsignedEventObject
+>;
+
+export type MessageUnsignedEventFilter = TypedEventFilter<MessageUnsignedEvent>;
 
 export interface MultiRequestExecutedEventObject {
   txNonce: BigNumber;
@@ -557,6 +618,11 @@ export interface MyMultiSig extends BaseContract {
       overrides?: CallOverrides
     ): Promise<[string[]]>;
 
+    getMessageHash(
+      message: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<[string]>;
+
     getThreshold(
       arg0: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
@@ -565,6 +631,11 @@ export interface MyMultiSig extends BaseContract {
     incrementNonce(
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
+
+    isMessageSigned(
+      msgHash: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<[boolean]>;
 
     isOwner(
       owner: PromiseOrValue<string>,
@@ -652,12 +723,22 @@ export interface MyMultiSig extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
+    signMessage(
+      message: PromiseOrValue<BytesLike>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
     supportsInterface(
       interfaceId: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<[boolean]>;
 
     threshold(overrides?: CallOverrides): Promise<[number]>;
+
+    unsignMessage(
+      message: PromiseOrValue<BytesLike>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
 
     version(overrides?: CallOverrides): Promise<[string]>;
   };
@@ -725,6 +806,11 @@ export interface MyMultiSig extends BaseContract {
     overrides?: CallOverrides
   ): Promise<string[]>;
 
+  getMessageHash(
+    message: PromiseOrValue<BytesLike>,
+    overrides?: CallOverrides
+  ): Promise<string>;
+
   getThreshold(
     arg0: PromiseOrValue<BytesLike>,
     overrides?: CallOverrides
@@ -733,6 +819,11 @@ export interface MyMultiSig extends BaseContract {
   incrementNonce(
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
+
+  isMessageSigned(
+    msgHash: PromiseOrValue<BytesLike>,
+    overrides?: CallOverrides
+  ): Promise<boolean>;
 
   isOwner(
     owner: PromiseOrValue<string>,
@@ -820,12 +911,22 @@ export interface MyMultiSig extends BaseContract {
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
+  signMessage(
+    message: PromiseOrValue<BytesLike>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
   supportsInterface(
     interfaceId: PromiseOrValue<BytesLike>,
     overrides?: CallOverrides
   ): Promise<boolean>;
 
   threshold(overrides?: CallOverrides): Promise<number>;
+
+  unsignMessage(
+    message: PromiseOrValue<BytesLike>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
 
   version(overrides?: CallOverrides): Promise<string>;
 
@@ -893,12 +994,22 @@ export interface MyMultiSig extends BaseContract {
       overrides?: CallOverrides
     ): Promise<string[]>;
 
+    getMessageHash(
+      message: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<string>;
+
     getThreshold(
       arg0: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
     incrementNonce(overrides?: CallOverrides): Promise<void>;
+
+    isMessageSigned(
+      msgHash: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<boolean>;
 
     isOwner(
       owner: PromiseOrValue<string>,
@@ -988,12 +1099,22 @@ export interface MyMultiSig extends BaseContract {
       overrides?: CallOverrides
     ): Promise<void>;
 
+    signMessage(
+      message: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
     supportsInterface(
       interfaceId: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<boolean>;
 
     threshold(overrides?: CallOverrides): Promise<number>;
+
+    unsignMessage(
+      message: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<void>;
 
     version(overrides?: CallOverrides): Promise<string>;
   };
@@ -1017,6 +1138,20 @@ export interface MyMultiSig extends BaseContract {
 
     "EIP712DomainChanged()"(): EIP712DomainChangedEventFilter;
     EIP712DomainChanged(): EIP712DomainChangedEventFilter;
+
+    "MessageSigned(bytes32)"(
+      msgHash?: PromiseOrValue<BytesLike> | null
+    ): MessageSignedEventFilter;
+    MessageSigned(
+      msgHash?: PromiseOrValue<BytesLike> | null
+    ): MessageSignedEventFilter;
+
+    "MessageUnsigned(bytes32)"(
+      msgHash?: PromiseOrValue<BytesLike> | null
+    ): MessageUnsignedEventFilter;
+    MessageUnsigned(
+      msgHash?: PromiseOrValue<BytesLike> | null
+    ): MessageUnsignedEventFilter;
 
     "MultiRequestExecuted(uint256,bool[],bytes[])"(
       txNonce?: PromiseOrValue<BigNumberish> | null,
@@ -1146,6 +1281,11 @@ export interface MyMultiSig extends BaseContract {
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
+    getMessageHash(
+      message: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
     getThreshold(
       arg0: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
@@ -1153,6 +1293,11 @@ export interface MyMultiSig extends BaseContract {
 
     incrementNonce(
       overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    isMessageSigned(
+      msgHash: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
     ): Promise<BigNumber>;
 
     isOwner(
@@ -1241,12 +1386,22 @@ export interface MyMultiSig extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
+    signMessage(
+      message: PromiseOrValue<BytesLike>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
     supportsInterface(
       interfaceId: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
     threshold(overrides?: CallOverrides): Promise<BigNumber>;
+
+    unsignMessage(
+      message: PromiseOrValue<BytesLike>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
 
     version(overrides?: CallOverrides): Promise<BigNumber>;
   };
@@ -1303,6 +1458,11 @@ export interface MyMultiSig extends BaseContract {
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
+    getMessageHash(
+      message: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
     getThreshold(
       arg0: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
@@ -1310,6 +1470,11 @@ export interface MyMultiSig extends BaseContract {
 
     incrementNonce(
       overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    isMessageSigned(
+      msgHash: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
     isOwner(
@@ -1398,12 +1563,22 @@ export interface MyMultiSig extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
+    signMessage(
+      message: PromiseOrValue<BytesLike>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
     supportsInterface(
       interfaceId: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
     threshold(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    unsignMessage(
+      message: PromiseOrValue<BytesLike>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
 
     version(overrides?: CallOverrides): Promise<PopulatedTransaction>;
   };

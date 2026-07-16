@@ -22,6 +22,12 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   ///         in the order they called `approveHash`. Stored as an array so
   ///         `getApprovedOwners` can return it without an extra off-chain indexer.
   mapping(bytes32 => address[]) private _approvedOwners;
+  /// @notice Messages the wallet has signed on-chain via `signMessage`.
+  ///         Keyed by the EIP-712 message hash (see `getMessageHash`), so a
+  ///         stored entry is bound to this wallet's domain separator and
+  ///         cannot be replayed against another wallet. Read by the
+  ///         EIP-1271 `isValidSignature(bytes32,bytes)` empty-signature path.
+  mapping(bytes32 => bool) private _signedMessages;
 
   /// @notice EIP-712 typehash for the per-transaction payload. Includes a
   ///         `uint256 validUntil` deadline so signatures carry an explicit
@@ -29,6 +35,13 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   ///         convention).
   bytes32 private constant _TRANSACTION_TYPEHASH =
     keccak256('Transaction(address to,uint256 value,bytes data,uint256 gas,uint96 nonce,uint256 validUntil)');
+
+  /// @notice EIP-712 typehash for off-chain-auth messages signed via
+  ///         `signMessage`. Mirrors Safe's `SafeMessage(bytes message)`
+  ///         pattern: the raw message bytes are hashed into the wallet's
+  ///         EIP-712 domain, so the resulting hash is unique per wallet,
+  ///         chain, and message.
+  bytes32 private constant _MSG_TYPEHASH = keccak256('MyMultiSigMessage(bytes message)');
 
   /// @notice EIP-1271 magic value: `isValidSignature(bytes32,bytes)` must return
   ///         this 4-byte value when the signature is valid. Equal to
@@ -92,6 +105,13 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   ///         path return value when the call succeeded. `txNonce` is the
   ///         outer `execTransaction` nonce under which the batch ran.
   event MultiRequestExecuted(uint256 indexed txNonce, bool[] successes, bytes[] returnData);
+  /// @notice Emitted when the wallet signs a message on-chain via
+  ///         `signMessage`. `msgHash` is the EIP-712 message hash returned
+  ///         by `getMessageHash(message)`.
+  event MessageSigned(bytes32 indexed msgHash);
+  /// @notice Emitted when a previously-signed message is withdrawn via
+  ///         `unsignMessage`, so EIP-1271 verifiers stop accepting it.
+  event MessageUnsigned(bytes32 indexed msgHash);
 
   error OnlyThisContract();
   error TooManyOwners();
@@ -105,6 +125,9 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   ///         by `revokeApproval(bytes32)` when the caller is an owner but
   ///         has no entry in `_approvedHashes[hash]`.
   error NotApproved();
+  /// @notice `unsignMessage` was called for a message the wallet never
+  ///         signed (or already unsigned).
+  error MessageNotSigned();
   /// @notice Emitted by `multiRequestStrict` when an inner call reverts.
   ///         `index` is the 0-based position of the failing call in the
   ///         batch; `reason` is the raw return data of that call so
@@ -480,10 +503,59 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   ///         — the in-wallet `_validateSignature` path does that, but the
   ///         EIP-1271 entry point is generic over the hash.
   /// @param hash The hash the caller wants validated.
-  /// @param signature ABI-encoded `(address owner, bytes sig)[]` of owner votes.
+  /// @param signature ABI-encoded `(address owner, bytes sig)[]` of owner
+  ///        votes, or empty bytes to check for an on-chain `signMessage`
+  ///        approval of `hash` (see `signMessage`).
   /// @return magicValue `bytes4(0x1626ba7e)` on success, `bytes4(0xffffffff)` otherwise.
   function isValidSignature(bytes32 hash, bytes memory signature) public view virtual returns (bytes4 magicValue) {
+    if (signature.length == 0 && _signedMessages[getMessageHash(abi.encode(hash))]) return _ERC1271_MAGIC;
     return _checkSignatures(hash, 0, signature) ? _ERC1271_MAGIC : bytes4(0xffffffff);
+  }
+
+  /// @notice Builds the EIP-712 hash of an off-chain-auth message. The hash
+  ///         binds the raw `message` bytes into this wallet's domain
+  ///         separator (name, version, chainId, wallet address), so the
+  ///         same message produces a different hash on every wallet.
+  /// @param message The raw message bytes. To authorize a 32-byte digest
+  ///        `dataHash` for EIP-1271 verifiers, pass `abi.encode(dataHash)`.
+  /// @return The EIP-712 message hash used as the `_signedMessages` key.
+  function getMessageHash(bytes memory message) public view virtual returns (bytes32) {
+    return _hashTypedDataV4(keccak256(abi.encode(_MSG_TYPEHASH, keccak256(message))));
+  }
+
+  /// @notice Marks `message` as signed by the wallet, with full threshold
+  ///         consensus: the call must run inside an `execTransaction`
+  ///         (`onlyThis`), so it carries the same signature requirements as
+  ///         any other wallet action. Once signed, EIP-1271 verifiers that
+  ///         call `isValidSignature(dataHash, '')` — with an EMPTY signature
+  ///         — get the magic value back for `message == abi.encode(dataHash)`.
+  ///         This lets the wallet prove control off-chain (SIWE, order
+  ///         pre-signing, ownership attestations) without any owner
+  ///         signature present at verification time.
+  /// @param message The raw message bytes (see `getMessageHash`).
+  function signMessage(bytes memory message) public virtual onlyThis {
+    bytes32 msgHash = getMessageHash(message);
+    _signedMessages[msgHash] = true;
+    emit MessageSigned(msgHash);
+  }
+
+  /// @notice Withdraws a previous `signMessage(message)` so EIP-1271
+  ///         verifiers stop accepting the empty-signature proof. Requires
+  ///         threshold consensus (`onlyThis`), same as `signMessage`.
+  /// @param message The raw message bytes that were previously signed.
+  function unsignMessage(bytes memory message) public virtual onlyThis {
+    bytes32 msgHash = getMessageHash(message);
+    if (!_signedMessages[msgHash]) revert MessageNotSigned();
+    _signedMessages[msgHash] = false;
+    emit MessageUnsigned(msgHash);
+  }
+
+  /// @notice Whether the wallet has signed the message with this EIP-712
+  ///         message hash (see `getMessageHash`) via `signMessage`.
+  /// @param msgHash The EIP-712 message hash.
+  /// @return True if the message is currently signed.
+  function isMessageSigned(bytes32 msgHash) public view virtual returns (bool) {
+    return _signedMessages[msgHash];
   }
 
   /// @notice Determines if the signature is valid
