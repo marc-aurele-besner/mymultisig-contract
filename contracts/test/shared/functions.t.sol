@@ -7,7 +7,6 @@ import { Errors } from './errors.t.sol';
 import { Signatures } from './signatures.t.sol';
 
 import { MyMultiSigFactory } from '../../MyMultiSigFactory.sol';
-import { MyMultiSigFactoryWithChugSplash } from '../../MyMultiSigFactoryWithChugSplash.sol';
 import { MyMultiSig } from '../../MyMultiSig.sol';
 import { MyMultiSigExtended } from '../../MyMultiSigExtended.sol';
 import { MyMultiSigDeployer } from '../../MyMultiSigDeployer.sol';
@@ -28,16 +27,13 @@ contract Functions is Constants, Signatures {
   uint256 DEFAULT_BLOCKS_COUNT;
 
   MyMultiSigFactory public myMultiSigFactory;
-  MyMultiSigFactoryWithChugSplash public myMultiSigFactoryWithChugSplash;
   MyMultiSigExtended public myMultiSigExtended;
   MyMultiSig public myMultiSig;
 
   enum TestType {
     TestWithFactory,
-    TestWithChugSplash,
     TestWithoutFactory,
     TestWithFactory_extended,
-    TestWithChugSplash_extended,
     TestWithoutFactory_extended
   }
 
@@ -91,14 +87,6 @@ contract Functions is Constants, Signatures {
         (, myMultiSig) = help_createMultiSig(ADMIN, CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD);
       // else
       //   (, myMultiSig) = createMyMultiSigExtended(ADMIN, CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD, ONLY_OWNERS_REQUEST);
-    } else if (testType_ == TestType.TestWithChugSplash || testType_ == TestType.TestWithChugSplash_extended) {
-      // if (testType_ == TestType.TestWithChugSplash)
-      // myMultiSigFactoryWithChugSplash = new MyMultiSigFactoryWithChugSplash(
-      //   address(new MyMultiSigDeployer()),
-      //   address(new MyMultiSigExtendedDeployer())
-      // );
-      // else
-      // (, myMultiSig) = help_createMultiSig(ADMIN, CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD);
     } else if (testType_ == TestType.TestWithoutFactory_extended) {
       myMultiSigExtended = new MyMultiSigExtended(CONTRACT_NAME, OWNERS, DEFAULT_THRESHOLD, ONLY_OWNERS_REQUEST, ENTRY_POINT);
       myMultiSig = MyMultiSig(payable(address(myMultiSigExtended)));
