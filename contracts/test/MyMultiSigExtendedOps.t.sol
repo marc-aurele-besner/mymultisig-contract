@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+import { Vm } from 'forge-std/Vm.sol';
 import { Helper } from './shared/helper.t.sol';
 import { MyMultiSigExtended } from '../MyMultiSigExtended.sol';
 import './shared/mocks/MockEntryPoint.t.sol';
@@ -131,17 +132,20 @@ contract MyMultiSigExtendedTest is Helper {
   function test_delegatecall_honors_txnGas() public {
     // Regression: `_execExtended` used to forward `gasleft()` to the
     // inner DELEGATECALL, so the inner call could consume far more than
-    // `txnGas` (up to ~9M gas in a Foundry test). With `txnGas = 50_000`
-    // and `approveHash(bytes32)` (~95k gas), the pre-fix code ran the
-    // inner call to completion then tripped `NotEnoughGas`. The fix
-    // forwards `txnGas` instead, so the inner call is bounded by the
-    // user's budget and OOGs cleanly — saving ~45k gas of execution.
+    // `txnGas` (up to ~9M gas in a Foundry test). The fix forwards
+    // `txnGas` instead, matching the CALL branch.
     //
-    // We measure the test-side gas used by `execTransaction` (via
-    // `gasleft()` deltas around a try/catch) and assert it's well below
-    // the ~230k the bug burns. `approveHash` is the only wallet entry
-    // point that's not `onlyThis` (so DELEGATECALL into `address(this)`
-    // can reach it without reverting).
+    // We assert via `vm.lastCallGas()` (gas usage from the callee
+    // perspective), which exposes the gas arg passed to the last call
+    // — the DELEGATECALL into `approveHash`. Pre-fix it's ~gasleft();
+    // post-fix it's exactly `txnGas`. The threshold sits above `txnGas`
+    // with a small margin to absorb CALL overhead but well below the
+    // gas limit, so any EVM version passes it as long as the fix is in.
+    //
+    // `approveHash(bytes32)` is the only wallet entry point that's not
+    // `onlyThis` (so DELEGATECALL into `address(this)` can reach it
+    // without reverting) and writes to enough storage that the inner
+    // call exceeds a 50_000 gas budget and OOGs under the fix.
 
     bytes32 hash = keccak256('mymultisig:test:delegatecall:txnGas');
     bytes memory data = abi.encodeWithSignature('approveHash(bytes32)', hash);
@@ -165,22 +169,20 @@ contract MyMultiSigExtendedTest is Helper {
     bytes memory signatures = abi.encode(votes);
 
     vm.prank(OWNERS[0]);
-    uint256 gasBefore = gasleft();
-    // Both the bug and the fix revert with `NotEnoughGas` (the inner
-    // call needs ~95k and the budget is 50k), so we catch the revert to
-    // keep measuring.
-    try wallet.execTransaction(address(wallet), 0, data, txnGas, nonce, 0, operation, signatures) returns (
-      bool
-    ) {
-      revert('expected NotEnoughGas revert');
-    } catch { }
-    uint256 gasAfter = gasleft();
-    uint256 gasUsed = gasBefore - gasAfter;
+    // The post-call `NotEnoughGas` check fires for both bug and fix
+    // (the inner call needs ~70k gas, the budget is 50k), so we expect
+    // the revert and inspect the call's gas arg after.
+    vm.expectRevert(abi.encodeWithSignature('NotEnoughGas()'));
+    wallet.execTransaction(address(wallet), 0, data, txnGas, nonce, 0, operation, signatures);
 
-    // Bug (~195k gasUsed): inner call fully executes (~69k gas).
-    // Fix (~176k gasUsed): inner call OOGs at the budget (~50k gas).
-    // The ~19k difference is what we want to catch — the bug lets the
-    // inner call burn up to gasleft() instead of `txnGas`.
-    assertLt(gasUsed, 185_000, 'DELEGATECALL should be bounded by txnGas');
+    // The most recent call frame is the DELEGATECALL into the wallet's
+    // own `approveHash`. `gasLimit` is the gas arg `_execExtended`
+    // passed to `_rawDelegateCall` — must be `txnGas`, not `gasleft()`.
+    Vm.Gas memory lastCall = vm.lastCallGas();
+    assertLe(
+      lastCall.gasLimit,
+      txnGas + 1_000,
+      'DELEGATECALL should be bounded by txnGas, not gasleft()'
+    );
   }
 }

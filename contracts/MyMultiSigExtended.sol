@@ -1096,10 +1096,6 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     if (operation == 0) {
       (success, returnData) = _rawCall(txnGas, to, value, data);
     } else {
-      // Honor `txnGas` on DELEGATECALL too — forwarding `gasleft()` would
-      // let the inner call consume more than `txnGas`, after which the
-      // `gasBefore - gasleft() >= txnGas` check below would revert with
-      // `NotEnoughGas` even though the call completed successfully.
       (success, returnData) = _rawDelegateCall(txnGas, to, data);
     }
     if (gasBefore - gasleft() >= txnGas) revert NotEnoughGas();
