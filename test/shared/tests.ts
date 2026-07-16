@@ -2533,6 +2533,82 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
             .executeScheduled(contract.address, Helper.ZERO, data, Helper.DEFAULT_GAS, nonce, 0, signatures),
         ).to.be.revertedWithCustomError(contract, 'NotScheduled')
       })
+
+      it('every protection-weakening setter is in the default sensitive set', async function () {
+        const sensitiveFragments = [
+          'setGuard(address)',
+          'setAllowedTarget(address,bool)',
+          'disableAllowlist()',
+          'setDailySpendingLimit(address,uint256)',
+          'setSensitiveSelector(bytes4,bool)',
+          'setSensitiveValueThreshold(uint256)',
+        ]
+        for (const fragment of sensitiveFragments) {
+          const selector = ethers.utils.id(fragment).slice(0, 10)
+          expect(await contract.isSensitiveSelector(selector), fragment).to.be.true
+        }
+      })
+
+      it('protection setters revert with SensitiveCallRequiresDelay once the timelock is on', async function () {
+        await Helper.setTimelockDelay(contract, owner01, [owner01, owner02], 60)
+        const sensitiveCalls: `0x${string}`[] = [
+          contract.interface.encodeFunctionData('setGuard(address)', [user03.address]),
+          contract.interface.encodeFunctionData('setAllowedTarget(address,bool)', [user01.address, true]),
+          contract.interface.encodeFunctionData('disableAllowlist()', []),
+          contract.interface.encodeFunctionData('setDailySpendingLimit(address,uint256)', [
+            owner01.address,
+            ethers.utils.parseEther('1'),
+          ]),
+          contract.interface.encodeFunctionData('setSensitiveSelector(bytes4,bool)', ['0x12345678', false]),
+          contract.interface.encodeFunctionData('setSensitiveValueThreshold(uint256)', [ethers.utils.parseEther('1')]),
+        ]
+        for (const data of sensitiveCalls) {
+          await Helper.execTransaction(
+            contract,
+            owner01,
+            [owner01, owner02],
+            contract.address,
+            Helper.ZERO,
+            data,
+            Helper.DEFAULT_GAS,
+            'SensitiveCallRequiresDelay',
+          )
+        }
+        // None of the protections were configured through the fast path.
+        expect(await contract.guard()).to.be.equal(ethers.constants.AddressZero)
+        expect(await contract.allowedTargetsEnabled()).to.be.false
+        expect(await contract.dailySpendingLimit(owner01.address)).to.be.equal(0)
+        expect(await contract.sensitiveValueThreshold()).to.be.equal(0)
+      })
+
+      it('protection setters remain reachable through schedule + executeScheduled', async function () {
+        await Helper.setTimelockDelay(contract, owner01, [owner01, owner02], 60)
+        const Guard = await ethers.getContractFactory('MockGuard')
+        const guard = await Guard.deploy()
+        await guard.deployed()
+        const data = contract.interface.encodeFunctionData('setGuard(address)', [guard.address])
+        const nonce = await contract.nonce()
+        const signatures = await Helper.prepareSignatures(
+          contract,
+          [owner01, owner02],
+          contract.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          nonce,
+          0,
+        )
+        const schedTx = await contract
+          .connect(owner01)
+          .scheduleTransaction(contract.address, Helper.ZERO, data, Helper.DEFAULT_GAS, nonce, 0, signatures)
+        await schedTx.wait()
+        await Helper.advanceTime(61)
+        const execTx = await contract
+          .connect(owner01)
+          .executeScheduled(contract.address, Helper.ZERO, data, Helper.DEFAULT_GAS, nonce, 0, signatures)
+        await execTx.wait()
+        expect(await contract.guard()).to.be.equal(guard.address)
+      })
     })
 
     // -- Feature 2: Guard + allowlist --------------------------------------
