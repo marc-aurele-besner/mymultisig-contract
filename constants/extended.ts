@@ -2,18 +2,22 @@
 // `constants/index.ts` (the npm-published artifact) keeps a stable shape
 // for downstream consumers.
 //
-// `FACTORY_SALT` and `CHAIN_AGNOSTIC_KEY_DEFAULT` are reserved for the
-// upcoming CREATE2 path (deferred to a follow-up because it requires
-// making `MyMultiSigExtended` `Initializable`).
+// `FACTORY_SALT` and `CANONICAL_CREATE2_DEPLOYER` support the CREATE2
+// deployment story: wallet addresses are deterministic given the deployer
+// addresses, so deploying the factory + deployer set at the same addresses
+// on every chain (factory proxy deployed with `FACTORY_SALT` through the
+// canonical CREATE2 deployer) makes `createDeterministicMultiSig` /
+// `createDeterministicMyMultiSigExtended` / `createDeterministicMyMultiSigAdvanced`
+// yield the same wallet address on every chain for the same creator, salt
+// and constructor arguments.
 //
 // `ENTRY_POINT_V07_ADDRESS` is the canonical EntryPoint v0.7 address,
 // which is identical on every chain. Active as of v0.5.0.
 import { hexlify, zeroPad } from 'ethers/lib/utils'
 
-// 32-byte salt reserved for the v0.5.0+ factory proxy deploy (CREATE2
-// follow-up). The salt itself becomes part of the address on every
-// chain, so changing it requires re-deploying the factory proxy across
-// all chains.
+// 32-byte salt for the v0.5.0+ factory proxy deploy. The salt itself
+// becomes part of the address on every chain, so changing it requires
+// re-deploying the factory proxy across all chains.
 const SALT_SEED = Buffer.from(hexlify(Buffer.from('mymultisig.app/v0.5.0')).slice(2).slice(0, 60), 'hex')
 
 export default {

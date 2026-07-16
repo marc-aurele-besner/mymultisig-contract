@@ -189,13 +189,23 @@ Constructor signature: `new MyMultiSigExtended(name, owners, threshold, isOnlyOw
 
 Paymaster support drops out naturally: a paymaster can pre-fund via `EntryPoint.depositTo(address(this))`; bundlers assemble UserOps with `paymasterAndData != 0` and the wallet's `validateUserOp` is permissive on value-funded flows.
 
-### 3. 🌐 CREATE2 deterministic wallets (deferred to a follow-up)
+### 3. 🌐 CREATE2 deterministic wallets
 
-The original v0.5.0 plan called for a CREATE2-based factory path (`Clones.cloneDeterministic` against a dedicated implementation). That work would require converting `MyMultiSigExtended` into `Initializable` (a non-trivial storage layout shift on a non-upgradeable wallet), so it was **deferred to a follow-up release** to keep this PR focused. The v0.5.0 factory stores the same deployer trio as v0.4.0 (`MyMultiSigDeployer`, `MyMultiSigExtendedDeployer`, `MyMultiSigAdvancedDeployer`).
+The factory exposes a deterministic (CREATE2) creation path next to each classic one. Wallets deploy via salted creation (`new MyMultiSig{salt: ...}(...)` inside the deployers) — full creation bytecode, ordinary constructors, no proxies and no `Initializable` — so the deployed wallets are byte-identical to the classic-path ones.
 
-When CREATE2 ships, the plan is:
-- Make `MyMultiSigExtended` `Initializable`; `MyMultiSigExtendedDeployer` calls `new MyMultiSigExtendedProxy()` followed by `initialize(name, owners, threshold, isOnlyOwnerRequest, entryPoint)`.
-- The factory holds an immutable `myMultiSigExtendedImpl` (the wallet implementation used as a `Clones.cloneDeterministic` target) and uses `OZ Clones.cloneDeterministic(salt, myMultiSigExtendedImpl)` to deploy.
+| Classic (CREATE) | Deterministic (CREATE2) | Predict without deploying |
+| --- | --- | --- |
+| `createMultiSig(name, owners, threshold)` | `createDeterministicMultiSig(..., salt)` | `predictMultiSigAddress(creator, ..., salt)` |
+| `createMyMultiSigExtended(...)` | `createDeterministicMyMultiSigExtended(..., salt)` | `predictMyMultiSigExtendedAddress(creator, ..., salt)` |
+| `createMyMultiSigAdvanced(...)` | `createDeterministicMyMultiSigAdvanced(..., salt)` | `predictMyMultiSigAdvancedAddress(creator, ..., salt)` |
+
+Address derivation:
+
+- The factory forwards `computeSalt(msg.sender, salt) = keccak256(abi.encode(creator, salt))` to the deployer, so two creators using the same salt never race for one address.
+- Each deployer additionally namespaces the salt by its **direct caller** (`keccak256(abi.encode(msg.sender, salt))`) before the CREATE2. A third party calling a deployer directly therefore lands in its own address space and can never squat an address that a factory-mediated deploy resolves to. It also keeps Advanced deploys (routed through `MyMultiSigAdvancedDeployer` → `MyMultiSigExtendedDeployer`) collision-free against Extended deploys that share a salt and constructor arguments.
+- The final wallet address is a pure function of `(deployer address, creator, salt, constructor arguments)`. Deploy the factory + deployer set at the same addresses on several chains (see `FACTORY_SALT` / `CANONICAL_CREATE2_DEPLOYER` in `constants/extended.ts`) and the same creator + salt + arguments yield the **same wallet address on every chain**.
+
+Re-using a salt with identical arguments reverts (the CREATE2 target address is occupied). ERC-4337 note: `validateUserOp` requires the wallet to be already deployed (`userOp.sender == address(this)`); the deterministic path gives counterfactual **addresses**, not initCode-based counterfactual deployment.
 
 ### Migration story
 
