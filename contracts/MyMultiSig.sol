@@ -134,8 +134,6 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     uint256 length = owners_.length;
     if (length > 2 ** 16 - 1) revert TooManyOwners();
     for (uint256 i = 0; i < length; ) {
-      // `_addOwner` already bumps `_ownerCount` once per owner, so the
-      // count is exact after the loop — no final rewrite needed.
       _addOwner(owners_[i]);
       unchecked {
         ++i;
@@ -433,8 +431,6 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
         ++i;
       }
     }
-    // `_txnNonce` has already been bumped in `_execTransaction` before this
-    // function is reached, so the outer transaction's nonce is one less.
     emit MultiRequestExecuted(_txnNonce - 1, successes, returnData);
   }
 
@@ -492,8 +488,6 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @param signature ABI-encoded `(address owner, bytes sig)[]` of owner votes.
   /// @return magicValue `bytes4(0x1626ba7e)` on success, `bytes4(0xffffffff)` otherwise.
   function isValidSignature(bytes32 hash, bytes memory signature) public view virtual returns (bytes4 magicValue) {
-    // Same vote-counting core as the 6-arg view overload — `_checkSignatures`
-    // ignores its nonce argument, so `0` is a safe placeholder here.
     return _checkSignatures(hash, 0, signature) ? _ERC1271_MAGIC : bytes4(0xffffffff);
   }
 
