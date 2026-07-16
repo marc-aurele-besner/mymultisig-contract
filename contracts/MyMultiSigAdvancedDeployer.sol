@@ -10,12 +10,11 @@ import './interfaces/IMyMultiSigExtendedDeployer.sol';
 ///         without paying for a second copy of the wallet's creation bytecode
 ///         (which already pushes past the EIP-170 24,576-byte limit on the
 ///         extended deployer itself).
-/// @dev    Stores the extended deployer immutably and re-uses it. v0.4.0
-///         Advanced wallets have bytecode-identical twins under the Extended
-///         deployer; the distinction is purely in factory bookkeeping. A
-///         future v0.5.x Advanced-only release can replace this contract
-///         with one that DOES embed a different bytecode, without touching
-///         the factory's call surface.
+/// @dev    Stores the extended deployer immutably and re-uses it. Advanced
+///         wallets are bytecode-identical twins of Extended ones; the
+///         distinction lives purely in factory bookkeeping. An Advanced-only
+///         release can later replace this contract with one that embeds
+///         different bytecode without touching the factory's call surface.
 contract MyMultiSigAdvancedDeployer is IMyMultiSigAdvancedDeployer {
   /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
   address public immutable extendedDeployer;

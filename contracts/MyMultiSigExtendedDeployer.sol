@@ -9,11 +9,8 @@ import './interfaces/IMyMultiSigExtendedDeployer.sol';
 ///         the factory doesn't have to embed the wallet's creation
 ///         bytecode (which is even larger than MyMultiSig's because of
 ///         the extra delegation / 4337 / operation-byte logic).
-/// @dev    v0.5.0 adds an `entryPoint_` argument; the deployer forwards
-///         it through to the wallet's constructor. The factory
-///         `createMyMultiSigExtended(...)` is unchanged at the
-///         `MyMultiSigFactorable` level — the new `entryPoint_` arg is
-///         stored on the factory as a v0.5.0 surface addition.
+/// @dev    Forwards every argument — including `entryPoint_` — straight
+///         through to the wallet's constructor.
 contract MyMultiSigExtendedDeployer is IMyMultiSigExtendedDeployer {
   function deployMyMultiSigExtended(
     string memory contractName_,

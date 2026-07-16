@@ -26,9 +26,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @notice EIP-712 typehash for the per-transaction payload. Includes a
   ///         `uint256 validUntil` deadline so signatures carry an explicit
   ///         expiry. `validUntil == 0` means "no expiry" (matches Safe's
-  ///         convention). Adding the field invalidates every v0.2.0 payload
-  ///         on-chain — see `SignatureExpired` below and the v0.3.0 release
-  ///         notes.
+  ///         convention).
   bytes32 private constant _TRANSACTION_TYPEHASH =
     keccak256('Transaction(address to,uint256 value,bytes data,uint256 gas,uint96 nonce,uint256 validUntil)');
 
@@ -139,7 +137,6 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
         ++i;
       }
     }
-    _ownerCount = uint16(owners_.length);
     _changeThreshold(threshold_);
   }
 
@@ -149,13 +146,10 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     return _name;
   }
 
-  /// @notice Wallet version. Unified to `'0.5.0'` across every wallet
-  ///         class on v0.5.0 — same canonical value as
-  ///         `MyMultiSigExtended`, `MyMultiSigFactorable`, and the
-  ///         factory proxy. The EIP-712 domain separator is fixed at
-  ///         deploy time, so pre-existing wallets (deployed before this
-  ///         release) keep their original version while new deployments
-  ///         all bind to the v0.5.0 domain.
+  /// @notice Wallet version — the same canonical value across every wallet
+  ///         class (`MyMultiSigExtended`, `MyMultiSigFactorable`, and the
+  ///         factory proxy). Part of the EIP-712 domain separator, which is
+  ///         fixed at deploy time.
   function version() public pure virtual returns (string memory) {
     return '0.5.0';
   }
@@ -319,7 +313,8 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   ///         usable values. Shared by every `execTransaction` overload here
   ///         and in `MyMultiSigExtended`.
   function _emitEndOfLifeIfNear() internal virtual {
-    if (_txnNonce > uint96(2 ** 96 - 1000)) emit ContractEndOfLife(2 ** 96 - _txnNonce - 1);
+    uint96 txnNonce = _txnNonce;
+    if (txnNonce > uint96(2 ** 96 - 1000)) emit ContractEndOfLife(2 ** 96 - txnNonce - 1);
   }
 
   /// @notice Shared low-level CALL wrapper: forwards `txnGas` to `to` with
@@ -431,8 +426,6 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
         ++i;
       }
     }
-    // `_txnNonce` has already been bumped in `_execTransaction` before this
-    // function is reached, so the outer transaction's nonce is one less.
     emit MultiRequestExecuted(_txnNonce - 1, successes, returnData);
   }
 
@@ -490,29 +483,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @param signature ABI-encoded `(address owner, bytes sig)[]` of owner votes.
   /// @return magicValue `bytes4(0x1626ba7e)` on success, `bytes4(0xffffffff)` otherwise.
   function isValidSignature(bytes32 hash, bytes memory signature) public view virtual returns (bytes4 magicValue) {
-    uint16 threshold_ = _threshold;
-    address[] storage approved = _approvedOwners[hash];
-    uint256 counted;
-    // On-chain `approveHash` approvals count as votes for this hash without
-    // any signature payload — but only if the approver is still an owner.
-    for (uint256 i; i < approved.length; ) {
-      unchecked {
-        if (!_owners[approved[i]]) return bytes4(0xffffffff);
-        ++counted;
-        ++i;
-      }
-    }
-    if (counted >= threshold_) return _ERC1271_MAGIC;
-    // Decode the signature blob and validate each vote.
-    (address[] memory owners, bytes[] memory sigs) = _decodeVotes(signature);
-    for (uint256 i = 0; i < owners.length; ) {
-      unchecked {
-        if (counted >= threshold_) break;
-        if (_validateVote(hash, owners[i], sigs[i])) ++counted;
-        ++i;
-      }
-    }
-    return counted >= threshold_ ? _ERC1271_MAGIC : bytes4(0xffffffff);
+    return _checkSignatures(hash, 0, signature) ? _ERC1271_MAGIC : bytes4(0xffffffff);
   }
 
   /// @notice Determines if the signature is valid
@@ -557,8 +528,9 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   ) internal view virtual returns (bool valid) {
     uint16 threshold_ = _threshold;
     address[] storage approved = _approvedOwners[txHash];
+    uint256 approvedLength = approved.length;
     uint256 counted;
-    for (uint256 i; i < approved.length; ) {
+    for (uint256 i; i < approvedLength; ) {
       unchecked {
         if (!_owners[approved[i]]) return false;
         ++counted;
@@ -566,11 +538,12 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
       }
     }
     if (counted >= threshold_) return true;
-    (address[] memory owners, bytes[] memory sigs) = _decodeVotes(signatures);
-    for (uint256 i = 0; i < owners.length; ) {
+    Vote[] memory votes = _decodeVotes(signatures);
+    uint256 votesLength = votes.length;
+    for (uint256 i = 0; i < votesLength; ) {
       unchecked {
         if (counted >= threshold_) break;
-        if (_validateVote(txHash, owners[i], sigs[i])) ++counted;
+        if (_validateVote(txHash, votes[i].owner, votes[i].sig)) ++counted;
         ++i;
       }
     }
@@ -690,8 +663,9 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     // slot. An approved owner that was later removed from the wallet fails
     // the check and aborts the whole validation — no partial application.
     address[] storage approved = _approvedOwners[txHash];
+    uint256 approvedLength = approved.length;
     uint256 counted;
-    for (uint256 i; i < approved.length; ) {
+    for (uint256 i; i < approvedLength; ) {
       unchecked {
         address approvedOwner = approved[i];
         if (!_owners[approvedOwner]) return false;
@@ -701,38 +675,26 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
       }
     }
     if (counted >= threshold_) return true;
-    (address[] memory owners, bytes[] memory sigs) = _decodeVotes(signatures);
-    for (uint256 i = 0; i < owners.length; ) {
+    Vote[] memory votes = _decodeVotes(signatures);
+    uint256 votesLength = votes.length;
+    for (uint256 i = 0; i < votesLength; ) {
       unchecked {
         if (counted >= threshold_) break;
-        if (_validateVote(txHash, owners[i], sigs[i]) && _recordVote(txHash, txnNonce, owners[i])) ++counted;
+        if (_validateVote(txHash, votes[i].owner, votes[i].sig) && _recordVote(txHash, txnNonce, votes[i].owner))
+          ++counted;
         ++i;
       }
     }
     return counted >= threshold_;
   }
 
-  /// @notice Decodes an ABI-encoded `(address owner, bytes sig)[]` blob into
-  ///         parallel `address[]` / `bytes[]` arrays. Centralized so the
-  ///         three callers (EIP-1271 entry, 6-arg `isValidSignature`, and
-  ///         `_validateSignature`) decode identically. Returns two empty
-  ///         arrays if the input is empty.
-  function _decodeVotes(bytes memory signatures) internal pure virtual returns (address[] memory, bytes[] memory) {
-    if (signatures.length == 0) return (new address[](0), new bytes[](0));
-    // Decode as an array of tuples. Solidity exposes the elements as fields
-    // on a single `Vote[]` memory value; we then split into parallel arrays.
-    Vote[] memory votes = abi.decode(signatures, (Vote[]));
-    uint256 n = votes.length;
-    address[] memory owners = new address[](n);
-    bytes[] memory sigs = new bytes[](n);
-    for (uint256 i = 0; i < n; ) {
-      unchecked {
-        owners[i] = votes[i].owner;
-        sigs[i] = votes[i].sig;
-        ++i;
-      }
-    }
-    return (owners, sigs);
+  /// @notice Decodes an ABI-encoded `(address owner, bytes sig)[]` blob.
+  ///         Centralized so the vote-counting cores (`_checkSignatures` and
+  ///         `_validateSignatureForHash`) decode identically. Returns an
+  ///         empty array if the input is empty.
+  function _decodeVotes(bytes memory signatures) internal pure virtual returns (Vote[] memory) {
+    if (signatures.length == 0) return new Vote[](0);
+    return abi.decode(signatures, (Vote[]));
   }
 
   /// @notice Storage-free tuple used solely to decode the per-vote signature
@@ -881,7 +843,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     _txnNonce++;
   }
 
-  /// @dev Mutation hook so internal `_execTransaction` / v0.5.0's
+  /// @dev Mutation hook so internal `_execTransaction` /
   ///      `_execExtended` can bump the nonce without going through the
   ///      `onlyThis`-guarded `incrementNonce()` public entry (calling
   ///      that from inside `execTransaction` would revert because the

@@ -141,6 +141,31 @@ abstract contract MyMultiSigFactorable {
     return _multiSigCreationType[index] == MyMultiSigFactorableModels.CreationType.ADVANCED;
   }
 
+  /// @dev Shared post-deploy bookkeeping for the three `create*` entry
+  ///      points. Reads `_multiSigCount` / `_multiSigCreatorCount` once into
+  ///      locals and touches each storage slot exactly once.
+  /// @return newCount The post-increment global count, emitted by the
+  ///         callers as the `contractIndex` of `MyMultiSigCreated`.
+  function _recordMultiSig(
+    address contractAddress,
+    MyMultiSigFactorableModels.CreationType kind
+  ) private returns (uint256 newCount) {
+    uint256 count = _multiSigCount;
+    uint256 creatorCount = _multiSigCreatorCount[msg.sender];
+    _multiSigs[count] = contractAddress;
+    _multiSigIndexByCreator[msg.sender][creatorCount] = count;
+    _multiSigCreationType[count] = kind;
+    _creationTypeByAddress[contractAddress] = kind;
+    unchecked {
+      _multiSigCreatorCount[msg.sender] = creatorCount + 1;
+      if (kind == MyMultiSigFactorableModels.CreationType.SIMPLE) _simpleCount++;
+      else if (kind == MyMultiSigFactorableModels.CreationType.EXTENDED) _extendedCount++;
+      else _advancedCount++;
+      newCount = count + 1;
+    }
+    _multiSigCount = newCount;
+  }
+
   /// @notice Creates a new base `MyMultiSig` wallet.
   /// @param contractName The wallet's name (shown in the EIP-712 domain).
   /// @param owners The owners list.
@@ -152,25 +177,14 @@ abstract contract MyMultiSigFactorable {
   ) public payable returns (address contractAddress) {
     contractAddress = IMyMultiSigDeployer(myMultiSigDeployer).deployMyMultiSig(contractName, owners, threshold);
 
-    _multiSigs[_multiSigCount] = contractAddress;
-    _multiSigIndexByCreator[msg.sender][_multiSigCreatorCount[msg.sender]] = _multiSigCount;
-    unchecked {
-      _multiSigCreatorCount[msg.sender]++;
-    }
-    _multiSigCreationType[_multiSigCount] = MyMultiSigFactorableModels.CreationType.SIMPLE;
-    _creationTypeByAddress[contractAddress] = MyMultiSigFactorableModels.CreationType.SIMPLE;
-    unchecked {
-      _simpleCount++;
-      _multiSigCount++;
-    }
+    uint256 newCount = _recordMultiSig(contractAddress, MyMultiSigFactorableModels.CreationType.SIMPLE);
 
-    emit MyMultiSigCreated(msg.sender, contractAddress, _multiSigCount, contractName, owners, threshold);
+    emit MyMultiSigCreated(msg.sender, contractAddress, newCount, contractName, owners, threshold);
   }
 
   /// @notice Creates a new `MyMultiSigExtended` wallet via the Extended
-  ///         deployer. v0.5.0 takes an EntryPoint address — the
-  ///         factory's caller is responsible for passing the canonical
-  ///         v0.7 EntryPoint (or zero to disable 4337; see notes).
+  ///         deployer. The caller is responsible for passing the
+  ///         canonical v0.7 EntryPoint address.
   /// @param entryPoint Canonical EntryPoint v0.7 address. Required to
   ///        be non-zero so the wallet constructor's `InvalidOperation`
   ///        check passes; pass the constant
@@ -191,24 +205,14 @@ abstract contract MyMultiSigFactorable {
       entryPoint
     );
 
-    _multiSigs[_multiSigCount] = contractAddress;
-    _multiSigIndexByCreator[msg.sender][_multiSigCreatorCount[msg.sender]] = _multiSigCount;
-    unchecked {
-      _multiSigCreatorCount[msg.sender]++;
-    }
-    _multiSigCreationType[_multiSigCount] = MyMultiSigFactorableModels.CreationType.EXTENDED;
-    _creationTypeByAddress[contractAddress] = MyMultiSigFactorableModels.CreationType.EXTENDED;
-    unchecked {
-      _extendedCount++;
-      _multiSigCount++;
-    }
+    uint256 newCount = _recordMultiSig(contractAddress, MyMultiSigFactorableModels.CreationType.EXTENDED);
 
-    emit MyMultiSigCreated(msg.sender, contractAddress, _multiSigCount, contractName, owners, threshold);
+    emit MyMultiSigCreated(msg.sender, contractAddress, newCount, contractName, owners, threshold);
   }
 
   /// @notice Creates a new `MyMultiSigExtended`-class wallet via the Advanced
   ///         deployer. Currently routes to the Extended deployer (the
-  ///         v0.4.0 / v0.5.0 wallet bytecode is identical); the factory
+  ///         wallet bytecode is identical); the factory
   ///         uses a separate code path so future Advanced-only features
   ///         can ship without re-deploying the wallet. Same
   ///         `entryPoint` semantics as `createMyMultiSigExtended`.
@@ -227,18 +231,8 @@ abstract contract MyMultiSigFactorable {
       entryPoint
     );
 
-    _multiSigs[_multiSigCount] = contractAddress;
-    _multiSigIndexByCreator[msg.sender][_multiSigCreatorCount[msg.sender]] = _multiSigCount;
-    unchecked {
-      _multiSigCreatorCount[msg.sender]++;
-    }
-    _multiSigCreationType[_multiSigCount] = MyMultiSigFactorableModels.CreationType.ADVANCED;
-    _creationTypeByAddress[contractAddress] = MyMultiSigFactorableModels.CreationType.ADVANCED;
-    unchecked {
-      _advancedCount++;
-      _multiSigCount++;
-    }
+    uint256 newCount = _recordMultiSig(contractAddress, MyMultiSigFactorableModels.CreationType.ADVANCED);
 
-    emit MyMultiSigCreated(msg.sender, contractAddress, _multiSigCount, contractName, owners, threshold);
+    emit MyMultiSigCreated(msg.sender, contractAddress, newCount, contractName, owners, threshold);
   }
 }
