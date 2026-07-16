@@ -2640,6 +2640,39 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
         ).to.be.revertedWithCustomError(contract, 'DailySpendingLimitExceeded')
       })
 
+      it('allowance signature is single-use: replay is rejected', async function () {
+        const cap = ethers.utils.parseEther('1')
+        await Helper.setDailySpendingLimit(contract, owner01, [owner01, owner02], owner01.address, cap)
+        const value = ethers.utils.parseEther('0.1')
+        const nonceBefore = await contract.nonce()
+        const sig = await Helper.signMultiSigTxn(
+          contract,
+          owner01,
+          user01.address,
+          value,
+          '0x',
+          Helper.DEFAULT_GAS,
+          nonceBefore,
+          0,
+        )
+        await (
+          await contract
+            .connect(owner01)
+            .execTransactionWithSpendingAllowance(user01.address, value, '0x', Helper.DEFAULT_GAS, 0, sig)
+        ).wait()
+        // The spend consumed the wallet nonce.
+        expect(await contract.nonce()).to.be.equal(nonceBefore.add(1))
+        // Replaying the exact same signature fails: the hash is now bound
+        // to the bumped nonce, so the sig no longer recovers to the sender.
+        await expect(
+          contract
+            .connect(owner01)
+            .execTransactionWithSpendingAllowance(user01.address, value, '0x', Helper.DEFAULT_GAS, 0, sig),
+        ).to.be.revertedWithCustomError(contract, 'AllowanceRequiresSingleSigner')
+        // The cap was only charged once.
+        expect(await contract.spendingLimitRemaining(owner01.address)).to.be.equal(cap.sub(value))
+      })
+
       it('day rollover resets the cap', async function () {
         const cap = ethers.utils.parseEther('1')
         await Helper.setDailySpendingLimit(contract, owner01, [owner01, owner02], owner01.address, cap)
