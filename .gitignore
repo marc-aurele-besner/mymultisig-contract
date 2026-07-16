@@ -25,9 +25,6 @@ abi
 # Wok in progress
 .wip
 
-# ChugSplash
-.canonical-configs
-
 # Foundry Coverage report
 report
 lcov.info
