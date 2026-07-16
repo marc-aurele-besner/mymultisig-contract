@@ -46,10 +46,14 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
             2,
             true,
           )
+          // Explicit gasLimit for the same reason as the direct deploys in
+          // setup.ts: wallet creation code is large under coverage
+          // instrumentation and the auto-estimator can exceed the per-tx cap.
           const tx = await deployment.contract.createMultiSig(
             Helper.CONTRACT_NAME,
             [owner01.address, owner02.address, owner03.address],
             2,
+            { gasLimit: 50_000_000 },
           )
           await tx.wait()
           const contractAddress = await deployment.contract.multiSig(0)
@@ -1161,12 +1165,17 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
             2,
             true,
           )
+          // Explicit gasLimit for the same reason as the direct deploys in
+          // setup.ts: the wallet creation code is large (and even larger
+          // under coverage instrumentation), so the auto-estimator can pick
+          // a number above the node's per-tx cap.
           const tx = await deployment.contract.createMyMultiSigExtended(
             Helper.CONTRACT_NAME,
             [owner01.address, owner02.address, owner03.address],
             2,
             Helper.DEFAULT_ALLOW_ONLY_OWNER,
             Helper.ENTRY_POINT_V07_ADDRESS,
+            { gasLimit: 50_000_000 },
           )
           await tx.wait()
           const contractAddress = await deployment.contract.multiSig(0)
@@ -2417,12 +2426,15 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
             Helper.DEFAULT_THRESHOLD,
             true,
           )
+          // Explicit gasLimit — same per-tx-cap consideration as the other
+          // factory-driven creations above.
           const tx = await deployment.contract.createMyMultiSigAdvanced(
             Helper.CONTRACT_NAME,
             owners,
             Helper.DEFAULT_THRESHOLD,
             Helper.DEFAULT_ALLOW_ONLY_OWNER,
             Helper.ENTRY_POINT_V07_ADDRESS,
+            { gasLimit: 50_000_000 },
           )
           await tx.wait()
           const Contract = await ethers.getContractFactory(Helper.CONTRACT_NAME_EXTENDED)
