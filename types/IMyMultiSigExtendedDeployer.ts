@@ -21,15 +21,20 @@ import type {
   TypedListener,
   OnEvent,
   PromiseOrValue,
-} from "../common";
+} from "../../common";
 
 export interface IMyMultiSigExtendedDeployerInterface extends utils.Interface {
   functions: {
     "deployMyMultiSigExtended(string,address[],uint16,bool,address)": FunctionFragment;
+    "deployMyMultiSigExtendedDeterministic(bytes32,string,address[],uint16,bool,address)": FunctionFragment;
+    "predictMyMultiSigExtendedAddress(bytes32,string,address[],uint16,bool,address)": FunctionFragment;
   };
 
   getFunction(
-    nameOrSignatureOrTopic: "deployMyMultiSigExtended"
+    nameOrSignatureOrTopic:
+      | "deployMyMultiSigExtended"
+      | "deployMyMultiSigExtendedDeterministic"
+      | "predictMyMultiSigExtendedAddress"
   ): FunctionFragment;
 
   encodeFunctionData(
@@ -42,9 +47,39 @@ export interface IMyMultiSigExtendedDeployerInterface extends utils.Interface {
       PromiseOrValue<string>
     ]
   ): string;
+  encodeFunctionData(
+    functionFragment: "deployMyMultiSigExtendedDeterministic",
+    values: [
+      PromiseOrValue<BytesLike>,
+      PromiseOrValue<string>,
+      PromiseOrValue<string>[],
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<boolean>,
+      PromiseOrValue<string>
+    ]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "predictMyMultiSigExtendedAddress",
+    values: [
+      PromiseOrValue<BytesLike>,
+      PromiseOrValue<string>,
+      PromiseOrValue<string>[],
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<boolean>,
+      PromiseOrValue<string>
+    ]
+  ): string;
 
   decodeFunctionResult(
     functionFragment: "deployMyMultiSigExtended",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "deployMyMultiSigExtendedDeterministic",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "predictMyMultiSigExtendedAddress",
     data: BytesLike
   ): Result;
 
@@ -86,6 +121,26 @@ export interface IMyMultiSigExtendedDeployer extends BaseContract {
       entryPoint_: PromiseOrValue<string>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
+
+    deployMyMultiSigExtendedDeterministic(
+      salt_: PromiseOrValue<BytesLike>,
+      contractName_: PromiseOrValue<string>,
+      owners_: PromiseOrValue<string>[],
+      threshold_: PromiseOrValue<BigNumberish>,
+      isOnlyOwnerRequest_: PromiseOrValue<boolean>,
+      entryPoint_: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    predictMyMultiSigExtendedAddress(
+      salt_: PromiseOrValue<BytesLike>,
+      contractName_: PromiseOrValue<string>,
+      owners_: PromiseOrValue<string>[],
+      threshold_: PromiseOrValue<BigNumberish>,
+      isOnlyOwnerRequest_: PromiseOrValue<boolean>,
+      entryPoint_: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<[string] & { contractAddress: string }>;
   };
 
   deployMyMultiSigExtended(
@@ -97,8 +152,48 @@ export interface IMyMultiSigExtendedDeployer extends BaseContract {
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
+  deployMyMultiSigExtendedDeterministic(
+    salt_: PromiseOrValue<BytesLike>,
+    contractName_: PromiseOrValue<string>,
+    owners_: PromiseOrValue<string>[],
+    threshold_: PromiseOrValue<BigNumberish>,
+    isOnlyOwnerRequest_: PromiseOrValue<boolean>,
+    entryPoint_: PromiseOrValue<string>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  predictMyMultiSigExtendedAddress(
+    salt_: PromiseOrValue<BytesLike>,
+    contractName_: PromiseOrValue<string>,
+    owners_: PromiseOrValue<string>[],
+    threshold_: PromiseOrValue<BigNumberish>,
+    isOnlyOwnerRequest_: PromiseOrValue<boolean>,
+    entryPoint_: PromiseOrValue<string>,
+    overrides?: CallOverrides
+  ): Promise<string>;
+
   callStatic: {
     deployMyMultiSigExtended(
+      contractName_: PromiseOrValue<string>,
+      owners_: PromiseOrValue<string>[],
+      threshold_: PromiseOrValue<BigNumberish>,
+      isOnlyOwnerRequest_: PromiseOrValue<boolean>,
+      entryPoint_: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<string>;
+
+    deployMyMultiSigExtendedDeterministic(
+      salt_: PromiseOrValue<BytesLike>,
+      contractName_: PromiseOrValue<string>,
+      owners_: PromiseOrValue<string>[],
+      threshold_: PromiseOrValue<BigNumberish>,
+      isOnlyOwnerRequest_: PromiseOrValue<boolean>,
+      entryPoint_: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<string>;
+
+    predictMyMultiSigExtendedAddress(
+      salt_: PromiseOrValue<BytesLike>,
       contractName_: PromiseOrValue<string>,
       owners_: PromiseOrValue<string>[],
       threshold_: PromiseOrValue<BigNumberish>,
@@ -119,6 +214,26 @@ export interface IMyMultiSigExtendedDeployer extends BaseContract {
       entryPoint_: PromiseOrValue<string>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
+
+    deployMyMultiSigExtendedDeterministic(
+      salt_: PromiseOrValue<BytesLike>,
+      contractName_: PromiseOrValue<string>,
+      owners_: PromiseOrValue<string>[],
+      threshold_: PromiseOrValue<BigNumberish>,
+      isOnlyOwnerRequest_: PromiseOrValue<boolean>,
+      entryPoint_: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    predictMyMultiSigExtendedAddress(
+      salt_: PromiseOrValue<BytesLike>,
+      contractName_: PromiseOrValue<string>,
+      owners_: PromiseOrValue<string>[],
+      threshold_: PromiseOrValue<BigNumberish>,
+      isOnlyOwnerRequest_: PromiseOrValue<boolean>,
+      entryPoint_: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
   };
 
   populateTransaction: {
@@ -129,6 +244,26 @@ export interface IMyMultiSigExtendedDeployer extends BaseContract {
       isOnlyOwnerRequest_: PromiseOrValue<boolean>,
       entryPoint_: PromiseOrValue<string>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    deployMyMultiSigExtendedDeterministic(
+      salt_: PromiseOrValue<BytesLike>,
+      contractName_: PromiseOrValue<string>,
+      owners_: PromiseOrValue<string>[],
+      threshold_: PromiseOrValue<BigNumberish>,
+      isOnlyOwnerRequest_: PromiseOrValue<boolean>,
+      entryPoint_: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    predictMyMultiSigExtendedAddress(
+      salt_: PromiseOrValue<BytesLike>,
+      contractName_: PromiseOrValue<string>,
+      owners_: PromiseOrValue<string>[],
+      threshold_: PromiseOrValue<BigNumberish>,
+      isOnlyOwnerRequest_: PromiseOrValue<boolean>,
+      entryPoint_: PromiseOrValue<string>,
+      overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
   };
 }

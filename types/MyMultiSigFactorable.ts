@@ -25,11 +25,15 @@ import type {
   TypedListener,
   OnEvent,
   PromiseOrValue,
-} from "../common";
+} from "../../common";
 
 export interface MyMultiSigFactorableInterface extends utils.Interface {
   functions: {
     "advancedCount()": FunctionFragment;
+    "computeSalt(address,bytes32)": FunctionFragment;
+    "createDeterministicMultiSig(string,address[],uint16,bytes32)": FunctionFragment;
+    "createDeterministicMyMultiSigAdvanced(string,address[],uint16,bool,address,bytes32)": FunctionFragment;
+    "createDeterministicMyMultiSigExtended(string,address[],uint16,bool,address,bytes32)": FunctionFragment;
     "createMultiSig(string,address[],uint16)": FunctionFragment;
     "createMyMultiSigAdvanced(string,address[],uint16,bool,address)": FunctionFragment;
     "createMyMultiSigExtended(string,address[],uint16,bool,address)": FunctionFragment;
@@ -47,6 +51,9 @@ export interface MyMultiSigFactorableInterface extends utils.Interface {
     "myMultiSigDeployer()": FunctionFragment;
     "myMultiSigExtendedDeployer()": FunctionFragment;
     "name()": FunctionFragment;
+    "predictMultiSigAddress(address,string,address[],uint16,bytes32)": FunctionFragment;
+    "predictMyMultiSigAdvancedAddress(address,string,address[],uint16,bool,address,bytes32)": FunctionFragment;
+    "predictMyMultiSigExtendedAddress(address,string,address[],uint16,bool,address,bytes32)": FunctionFragment;
     "simpleCount()": FunctionFragment;
     "version()": FunctionFragment;
   };
@@ -54,6 +61,10 @@ export interface MyMultiSigFactorableInterface extends utils.Interface {
   getFunction(
     nameOrSignatureOrTopic:
       | "advancedCount"
+      | "computeSalt"
+      | "createDeterministicMultiSig"
+      | "createDeterministicMyMultiSigAdvanced"
+      | "createDeterministicMyMultiSigExtended"
       | "createMultiSig"
       | "createMyMultiSigAdvanced"
       | "createMyMultiSigExtended"
@@ -71,6 +82,9 @@ export interface MyMultiSigFactorableInterface extends utils.Interface {
       | "myMultiSigDeployer"
       | "myMultiSigExtendedDeployer"
       | "name"
+      | "predictMultiSigAddress"
+      | "predictMyMultiSigAdvancedAddress"
+      | "predictMyMultiSigExtendedAddress"
       | "simpleCount"
       | "version"
   ): FunctionFragment;
@@ -78,6 +92,41 @@ export interface MyMultiSigFactorableInterface extends utils.Interface {
   encodeFunctionData(
     functionFragment: "advancedCount",
     values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "computeSalt",
+    values: [PromiseOrValue<string>, PromiseOrValue<BytesLike>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "createDeterministicMultiSig",
+    values: [
+      PromiseOrValue<string>,
+      PromiseOrValue<string>[],
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BytesLike>
+    ]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "createDeterministicMyMultiSigAdvanced",
+    values: [
+      PromiseOrValue<string>,
+      PromiseOrValue<string>[],
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<boolean>,
+      PromiseOrValue<string>,
+      PromiseOrValue<BytesLike>
+    ]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "createDeterministicMyMultiSigExtended",
+    values: [
+      PromiseOrValue<string>,
+      PromiseOrValue<string>[],
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<boolean>,
+      PromiseOrValue<string>,
+      PromiseOrValue<BytesLike>
+    ]
   ): string;
   encodeFunctionData(
     functionFragment: "createMultiSig",
@@ -161,6 +210,40 @@ export interface MyMultiSigFactorableInterface extends utils.Interface {
   ): string;
   encodeFunctionData(functionFragment: "name", values?: undefined): string;
   encodeFunctionData(
+    functionFragment: "predictMultiSigAddress",
+    values: [
+      PromiseOrValue<string>,
+      PromiseOrValue<string>,
+      PromiseOrValue<string>[],
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BytesLike>
+    ]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "predictMyMultiSigAdvancedAddress",
+    values: [
+      PromiseOrValue<string>,
+      PromiseOrValue<string>,
+      PromiseOrValue<string>[],
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<boolean>,
+      PromiseOrValue<string>,
+      PromiseOrValue<BytesLike>
+    ]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "predictMyMultiSigExtendedAddress",
+    values: [
+      PromiseOrValue<string>,
+      PromiseOrValue<string>,
+      PromiseOrValue<string>[],
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<boolean>,
+      PromiseOrValue<string>,
+      PromiseOrValue<BytesLike>
+    ]
+  ): string;
+  encodeFunctionData(
     functionFragment: "simpleCount",
     values?: undefined
   ): string;
@@ -168,6 +251,22 @@ export interface MyMultiSigFactorableInterface extends utils.Interface {
 
   decodeFunctionResult(
     functionFragment: "advancedCount",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "computeSalt",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "createDeterministicMultiSig",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "createDeterministicMyMultiSigAdvanced",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "createDeterministicMyMultiSigExtended",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -227,6 +326,18 @@ export interface MyMultiSigFactorableInterface extends utils.Interface {
   ): Result;
   decodeFunctionResult(functionFragment: "name", data: BytesLike): Result;
   decodeFunctionResult(
+    functionFragment: "predictMultiSigAddress",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "predictMyMultiSigAdvancedAddress",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "predictMyMultiSigExtendedAddress",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "simpleCount",
     data: BytesLike
   ): Result;
@@ -283,6 +394,40 @@ export interface MyMultiSigFactorable extends BaseContract {
 
   functions: {
     advancedCount(overrides?: CallOverrides): Promise<[BigNumber]>;
+
+    computeSalt(
+      creator: PromiseOrValue<string>,
+      salt: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<[string]>;
+
+    createDeterministicMultiSig(
+      contractName: PromiseOrValue<string>,
+      owners: PromiseOrValue<string>[],
+      threshold: PromiseOrValue<BigNumberish>,
+      salt: PromiseOrValue<BytesLike>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    createDeterministicMyMultiSigAdvanced(
+      contractName: PromiseOrValue<string>,
+      owners: PromiseOrValue<string>[],
+      threshold: PromiseOrValue<BigNumberish>,
+      isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
+      salt: PromiseOrValue<BytesLike>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    createDeterministicMyMultiSigExtended(
+      contractName: PromiseOrValue<string>,
+      owners: PromiseOrValue<string>[],
+      threshold: PromiseOrValue<BigNumberish>,
+      isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
+      salt: PromiseOrValue<BytesLike>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
 
     createMultiSig(
       contractName: PromiseOrValue<string>,
@@ -362,12 +507,77 @@ export interface MyMultiSigFactorable extends BaseContract {
 
     name(overrides?: CallOverrides): Promise<[string]>;
 
+    predictMultiSigAddress(
+      creator: PromiseOrValue<string>,
+      contractName: PromiseOrValue<string>,
+      owners: PromiseOrValue<string>[],
+      threshold: PromiseOrValue<BigNumberish>,
+      salt: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<[string] & { contractAddress: string }>;
+
+    predictMyMultiSigAdvancedAddress(
+      creator: PromiseOrValue<string>,
+      contractName: PromiseOrValue<string>,
+      owners: PromiseOrValue<string>[],
+      threshold: PromiseOrValue<BigNumberish>,
+      isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
+      salt: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<[string] & { contractAddress: string }>;
+
+    predictMyMultiSigExtendedAddress(
+      creator: PromiseOrValue<string>,
+      contractName: PromiseOrValue<string>,
+      owners: PromiseOrValue<string>[],
+      threshold: PromiseOrValue<BigNumberish>,
+      isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
+      salt: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<[string] & { contractAddress: string }>;
+
     simpleCount(overrides?: CallOverrides): Promise<[BigNumber]>;
 
     version(overrides?: CallOverrides): Promise<[string]>;
   };
 
   advancedCount(overrides?: CallOverrides): Promise<BigNumber>;
+
+  computeSalt(
+    creator: PromiseOrValue<string>,
+    salt: PromiseOrValue<BytesLike>,
+    overrides?: CallOverrides
+  ): Promise<string>;
+
+  createDeterministicMultiSig(
+    contractName: PromiseOrValue<string>,
+    owners: PromiseOrValue<string>[],
+    threshold: PromiseOrValue<BigNumberish>,
+    salt: PromiseOrValue<BytesLike>,
+    overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  createDeterministicMyMultiSigAdvanced(
+    contractName: PromiseOrValue<string>,
+    owners: PromiseOrValue<string>[],
+    threshold: PromiseOrValue<BigNumberish>,
+    isOnlyOwnerRequest: PromiseOrValue<boolean>,
+    entryPoint: PromiseOrValue<string>,
+    salt: PromiseOrValue<BytesLike>,
+    overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  createDeterministicMyMultiSigExtended(
+    contractName: PromiseOrValue<string>,
+    owners: PromiseOrValue<string>[],
+    threshold: PromiseOrValue<BigNumberish>,
+    isOnlyOwnerRequest: PromiseOrValue<boolean>,
+    entryPoint: PromiseOrValue<string>,
+    salt: PromiseOrValue<BytesLike>,
+    overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
 
   createMultiSig(
     contractName: PromiseOrValue<string>,
@@ -447,12 +657,77 @@ export interface MyMultiSigFactorable extends BaseContract {
 
   name(overrides?: CallOverrides): Promise<string>;
 
+  predictMultiSigAddress(
+    creator: PromiseOrValue<string>,
+    contractName: PromiseOrValue<string>,
+    owners: PromiseOrValue<string>[],
+    threshold: PromiseOrValue<BigNumberish>,
+    salt: PromiseOrValue<BytesLike>,
+    overrides?: CallOverrides
+  ): Promise<string>;
+
+  predictMyMultiSigAdvancedAddress(
+    creator: PromiseOrValue<string>,
+    contractName: PromiseOrValue<string>,
+    owners: PromiseOrValue<string>[],
+    threshold: PromiseOrValue<BigNumberish>,
+    isOnlyOwnerRequest: PromiseOrValue<boolean>,
+    entryPoint: PromiseOrValue<string>,
+    salt: PromiseOrValue<BytesLike>,
+    overrides?: CallOverrides
+  ): Promise<string>;
+
+  predictMyMultiSigExtendedAddress(
+    creator: PromiseOrValue<string>,
+    contractName: PromiseOrValue<string>,
+    owners: PromiseOrValue<string>[],
+    threshold: PromiseOrValue<BigNumberish>,
+    isOnlyOwnerRequest: PromiseOrValue<boolean>,
+    entryPoint: PromiseOrValue<string>,
+    salt: PromiseOrValue<BytesLike>,
+    overrides?: CallOverrides
+  ): Promise<string>;
+
   simpleCount(overrides?: CallOverrides): Promise<BigNumber>;
 
   version(overrides?: CallOverrides): Promise<string>;
 
   callStatic: {
     advancedCount(overrides?: CallOverrides): Promise<BigNumber>;
+
+    computeSalt(
+      creator: PromiseOrValue<string>,
+      salt: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<string>;
+
+    createDeterministicMultiSig(
+      contractName: PromiseOrValue<string>,
+      owners: PromiseOrValue<string>[],
+      threshold: PromiseOrValue<BigNumberish>,
+      salt: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<string>;
+
+    createDeterministicMyMultiSigAdvanced(
+      contractName: PromiseOrValue<string>,
+      owners: PromiseOrValue<string>[],
+      threshold: PromiseOrValue<BigNumberish>,
+      isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
+      salt: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<string>;
+
+    createDeterministicMyMultiSigExtended(
+      contractName: PromiseOrValue<string>,
+      owners: PromiseOrValue<string>[],
+      threshold: PromiseOrValue<BigNumberish>,
+      isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
+      salt: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<string>;
 
     createMultiSig(
       contractName: PromiseOrValue<string>,
@@ -532,6 +807,37 @@ export interface MyMultiSigFactorable extends BaseContract {
 
     name(overrides?: CallOverrides): Promise<string>;
 
+    predictMultiSigAddress(
+      creator: PromiseOrValue<string>,
+      contractName: PromiseOrValue<string>,
+      owners: PromiseOrValue<string>[],
+      threshold: PromiseOrValue<BigNumberish>,
+      salt: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<string>;
+
+    predictMyMultiSigAdvancedAddress(
+      creator: PromiseOrValue<string>,
+      contractName: PromiseOrValue<string>,
+      owners: PromiseOrValue<string>[],
+      threshold: PromiseOrValue<BigNumberish>,
+      isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
+      salt: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<string>;
+
+    predictMyMultiSigExtendedAddress(
+      creator: PromiseOrValue<string>,
+      contractName: PromiseOrValue<string>,
+      owners: PromiseOrValue<string>[],
+      threshold: PromiseOrValue<BigNumberish>,
+      isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
+      salt: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<string>;
+
     simpleCount(overrides?: CallOverrides): Promise<BigNumber>;
 
     version(overrides?: CallOverrides): Promise<string>;
@@ -558,6 +864,40 @@ export interface MyMultiSigFactorable extends BaseContract {
 
   estimateGas: {
     advancedCount(overrides?: CallOverrides): Promise<BigNumber>;
+
+    computeSalt(
+      creator: PromiseOrValue<string>,
+      salt: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    createDeterministicMultiSig(
+      contractName: PromiseOrValue<string>,
+      owners: PromiseOrValue<string>[],
+      threshold: PromiseOrValue<BigNumberish>,
+      salt: PromiseOrValue<BytesLike>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    createDeterministicMyMultiSigAdvanced(
+      contractName: PromiseOrValue<string>,
+      owners: PromiseOrValue<string>[],
+      threshold: PromiseOrValue<BigNumberish>,
+      isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
+      salt: PromiseOrValue<BytesLike>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    createDeterministicMyMultiSigExtended(
+      contractName: PromiseOrValue<string>,
+      owners: PromiseOrValue<string>[],
+      threshold: PromiseOrValue<BigNumberish>,
+      isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
+      salt: PromiseOrValue<BytesLike>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
 
     createMultiSig(
       contractName: PromiseOrValue<string>,
@@ -637,6 +977,37 @@ export interface MyMultiSigFactorable extends BaseContract {
 
     name(overrides?: CallOverrides): Promise<BigNumber>;
 
+    predictMultiSigAddress(
+      creator: PromiseOrValue<string>,
+      contractName: PromiseOrValue<string>,
+      owners: PromiseOrValue<string>[],
+      threshold: PromiseOrValue<BigNumberish>,
+      salt: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    predictMyMultiSigAdvancedAddress(
+      creator: PromiseOrValue<string>,
+      contractName: PromiseOrValue<string>,
+      owners: PromiseOrValue<string>[],
+      threshold: PromiseOrValue<BigNumberish>,
+      isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
+      salt: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    predictMyMultiSigExtendedAddress(
+      creator: PromiseOrValue<string>,
+      contractName: PromiseOrValue<string>,
+      owners: PromiseOrValue<string>[],
+      threshold: PromiseOrValue<BigNumberish>,
+      isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
+      salt: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
     simpleCount(overrides?: CallOverrides): Promise<BigNumber>;
 
     version(overrides?: CallOverrides): Promise<BigNumber>;
@@ -644,6 +1015,40 @@ export interface MyMultiSigFactorable extends BaseContract {
 
   populateTransaction: {
     advancedCount(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    computeSalt(
+      creator: PromiseOrValue<string>,
+      salt: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    createDeterministicMultiSig(
+      contractName: PromiseOrValue<string>,
+      owners: PromiseOrValue<string>[],
+      threshold: PromiseOrValue<BigNumberish>,
+      salt: PromiseOrValue<BytesLike>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    createDeterministicMyMultiSigAdvanced(
+      contractName: PromiseOrValue<string>,
+      owners: PromiseOrValue<string>[],
+      threshold: PromiseOrValue<BigNumberish>,
+      isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
+      salt: PromiseOrValue<BytesLike>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    createDeterministicMyMultiSigExtended(
+      contractName: PromiseOrValue<string>,
+      owners: PromiseOrValue<string>[],
+      threshold: PromiseOrValue<BigNumberish>,
+      isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
+      salt: PromiseOrValue<BytesLike>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
 
     createMultiSig(
       contractName: PromiseOrValue<string>,
@@ -728,6 +1133,37 @@ export interface MyMultiSigFactorable extends BaseContract {
     ): Promise<PopulatedTransaction>;
 
     name(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    predictMultiSigAddress(
+      creator: PromiseOrValue<string>,
+      contractName: PromiseOrValue<string>,
+      owners: PromiseOrValue<string>[],
+      threshold: PromiseOrValue<BigNumberish>,
+      salt: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    predictMyMultiSigAdvancedAddress(
+      creator: PromiseOrValue<string>,
+      contractName: PromiseOrValue<string>,
+      owners: PromiseOrValue<string>[],
+      threshold: PromiseOrValue<BigNumberish>,
+      isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
+      salt: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    predictMyMultiSigExtendedAddress(
+      creator: PromiseOrValue<string>,
+      contractName: PromiseOrValue<string>,
+      owners: PromiseOrValue<string>[],
+      threshold: PromiseOrValue<BigNumberish>,
+      isOnlyOwnerRequest: PromiseOrValue<boolean>,
+      entryPoint: PromiseOrValue<string>,
+      salt: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
 
     simpleCount(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 

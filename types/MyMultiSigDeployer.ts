@@ -26,9 +26,16 @@ import type {
 export interface MyMultiSigDeployerInterface extends utils.Interface {
   functions: {
     "deployMyMultiSig(string,address[],uint16)": FunctionFragment;
+    "deployMyMultiSigDeterministic(bytes32,string,address[],uint16)": FunctionFragment;
+    "predictMyMultiSigAddress(bytes32,string,address[],uint16)": FunctionFragment;
   };
 
-  getFunction(nameOrSignatureOrTopic: "deployMyMultiSig"): FunctionFragment;
+  getFunction(
+    nameOrSignatureOrTopic:
+      | "deployMyMultiSig"
+      | "deployMyMultiSigDeterministic"
+      | "predictMyMultiSigAddress"
+  ): FunctionFragment;
 
   encodeFunctionData(
     functionFragment: "deployMyMultiSig",
@@ -38,9 +45,35 @@ export interface MyMultiSigDeployerInterface extends utils.Interface {
       PromiseOrValue<BigNumberish>
     ]
   ): string;
+  encodeFunctionData(
+    functionFragment: "deployMyMultiSigDeterministic",
+    values: [
+      PromiseOrValue<BytesLike>,
+      PromiseOrValue<string>,
+      PromiseOrValue<string>[],
+      PromiseOrValue<BigNumberish>
+    ]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "predictMyMultiSigAddress",
+    values: [
+      PromiseOrValue<BytesLike>,
+      PromiseOrValue<string>,
+      PromiseOrValue<string>[],
+      PromiseOrValue<BigNumberish>
+    ]
+  ): string;
 
   decodeFunctionResult(
     functionFragment: "deployMyMultiSig",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "deployMyMultiSigDeterministic",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "predictMyMultiSigAddress",
     data: BytesLike
   ): Result;
 
@@ -80,6 +113,22 @@ export interface MyMultiSigDeployer extends BaseContract {
       threshold_: PromiseOrValue<BigNumberish>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
+
+    deployMyMultiSigDeterministic(
+      salt_: PromiseOrValue<BytesLike>,
+      contractName_: PromiseOrValue<string>,
+      owners_: PromiseOrValue<string>[],
+      threshold_: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    predictMyMultiSigAddress(
+      salt_: PromiseOrValue<BytesLike>,
+      contractName_: PromiseOrValue<string>,
+      owners_: PromiseOrValue<string>[],
+      threshold_: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<[string] & { contractAddress: string }>;
   };
 
   deployMyMultiSig(
@@ -89,8 +138,40 @@ export interface MyMultiSigDeployer extends BaseContract {
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
+  deployMyMultiSigDeterministic(
+    salt_: PromiseOrValue<BytesLike>,
+    contractName_: PromiseOrValue<string>,
+    owners_: PromiseOrValue<string>[],
+    threshold_: PromiseOrValue<BigNumberish>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  predictMyMultiSigAddress(
+    salt_: PromiseOrValue<BytesLike>,
+    contractName_: PromiseOrValue<string>,
+    owners_: PromiseOrValue<string>[],
+    threshold_: PromiseOrValue<BigNumberish>,
+    overrides?: CallOverrides
+  ): Promise<string>;
+
   callStatic: {
     deployMyMultiSig(
+      contractName_: PromiseOrValue<string>,
+      owners_: PromiseOrValue<string>[],
+      threshold_: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<string>;
+
+    deployMyMultiSigDeterministic(
+      salt_: PromiseOrValue<BytesLike>,
+      contractName_: PromiseOrValue<string>,
+      owners_: PromiseOrValue<string>[],
+      threshold_: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<string>;
+
+    predictMyMultiSigAddress(
+      salt_: PromiseOrValue<BytesLike>,
       contractName_: PromiseOrValue<string>,
       owners_: PromiseOrValue<string>[],
       threshold_: PromiseOrValue<BigNumberish>,
@@ -107,6 +188,22 @@ export interface MyMultiSigDeployer extends BaseContract {
       threshold_: PromiseOrValue<BigNumberish>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
+
+    deployMyMultiSigDeterministic(
+      salt_: PromiseOrValue<BytesLike>,
+      contractName_: PromiseOrValue<string>,
+      owners_: PromiseOrValue<string>[],
+      threshold_: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    predictMyMultiSigAddress(
+      salt_: PromiseOrValue<BytesLike>,
+      contractName_: PromiseOrValue<string>,
+      owners_: PromiseOrValue<string>[],
+      threshold_: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
   };
 
   populateTransaction: {
@@ -115,6 +212,22 @@ export interface MyMultiSigDeployer extends BaseContract {
       owners_: PromiseOrValue<string>[],
       threshold_: PromiseOrValue<BigNumberish>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    deployMyMultiSigDeterministic(
+      salt_: PromiseOrValue<BytesLike>,
+      contractName_: PromiseOrValue<string>,
+      owners_: PromiseOrValue<string>[],
+      threshold_: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    predictMyMultiSigAddress(
+      salt_: PromiseOrValue<BytesLike>,
+      contractName_: PromiseOrValue<string>,
+      owners_: PromiseOrValue<string>[],
+      threshold_: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
   };
 }
