@@ -1328,6 +1328,38 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         )
         expect(await contract.nonce()).to.equal(nonceBefore)
       })
+
+      it('an inner revert with a payload bubbles and preserves the nonce even when enabled', async function () {
+        const enableData = contract.interface.encodeFunctionData('setRequireTxSuccess', [true]) as `0x${string}`
+        await Helper.execTransaction(
+          contract,
+          owner01,
+          [owner01, owner02, owner03],
+          contract.address,
+          Helper.ZERO,
+          enableData,
+          Helper.DEFAULT_GAS,
+        )
+        expect(await contract.requireTxSuccess()).to.be.true
+
+        // removeOwner(non-owner) reverts WITH a payload: the payload must
+        // bubble — not TxSuccessRequired — and the nonce stays put, so
+        // payload-carrying failures behave identically whichever way the
+        // flag is set.
+        const nonceBefore = await contract.nonce()
+        const data = contract.interface.encodeFunctionData('removeOwner', [user01.address]) as `0x${string}`
+        await Helper.execTransaction(
+          contract,
+          owner01,
+          [owner01, owner02, owner03],
+          contract.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          Helper.errors.OWNER_TO_REMOVE_MUST_BE_OWNER,
+        )
+        expect(await contract.nonce()).to.equal(nonceBefore)
+      })
     })
 
     describe('approval pruning after execution', function () {
@@ -3050,6 +3082,7 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
           'setDailySpendingLimit(address,uint256)',
           'setSensitiveSelector(bytes4,bool)',
           'setSensitiveValueThreshold(uint256)',
+          'setRequireTxSuccess(bool)',
         ]
         for (const fragment of sensitiveFragments) {
           const selector = ethers.utils.id(fragment).slice(0, 10)
@@ -3069,6 +3102,7 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
           ]),
           contract.interface.encodeFunctionData('setSensitiveSelector(bytes4,bool)', ['0x12345678', false]),
           contract.interface.encodeFunctionData('setSensitiveValueThreshold(uint256)', [ethers.utils.parseEther('1')]),
+          contract.interface.encodeFunctionData('setRequireTxSuccess(bool)', [true]),
         ]
         for (const data of sensitiveCalls) {
           await Helper.execTransaction(
@@ -3087,6 +3121,7 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
         expect(await contract.allowedTargetsEnabled()).to.be.false
         expect(await contract.dailySpendingLimit(owner01.address)).to.be.equal(0)
         expect(await contract.sensitiveValueThreshold()).to.be.equal(0)
+        expect(await contract.requireTxSuccess()).to.be.false
       })
 
       it('protection setters remain reachable through schedule + executeScheduled', async function () {
@@ -3580,6 +3615,49 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
         await expect(
           contract.connect(owner01).execTransactionFromModule(user01.address, 0, '0x', 0),
         ).to.be.revertedWithCustomError(contract, 'NotAModule')
+      })
+
+      it('execTransactionFromModule cannot be reentered', async function () {
+        const Module = await ethers.getContractFactory('MockReentrantModule')
+        const module = await Module.deploy(contract.address)
+        await module.deployed()
+        await Helper.enableModule(contract, owner01, [owner01, owner02], module.address)
+        // The nested execTransactionFromModule inside the module's inner
+        // call hits the wallet's reentrancy guard; the guard's revert
+        // payload bubbles back out of the outer module call.
+        await expect(module.attack()).to.be.revertedWith('ReentrancyGuard: reentrant call')
+      })
+
+      it('a silent module-call failure honors requireTxSuccess', async function () {
+        const Module = await ethers.getContractFactory('MockModule')
+        const module = await Module.deploy(contract.address)
+        await module.deployed()
+        await Helper.enableModule(contract, owner01, [owner01, owner02], module.address)
+
+        // Soft by default: sending more than the wallet's balance fails
+        // without returndata and the module call reports success = false.
+        const value = (await ethers.provider.getBalance(contract.address)).add(1)
+        await expect(module.execCall(user01.address, value, '0x'))
+          .to.emit(contract, 'ModuleTransactionExecuted')
+          .withArgs(module.address, user01.address, value, '0x', 0, false)
+
+        const enableData = contract.interface.encodeFunctionData('setRequireTxSuccess', [true]) as `0x${string}`
+        await Helper.execTransaction(
+          contract,
+          owner01,
+          [owner01, owner02],
+          contract.address,
+          Helper.ZERO,
+          enableData,
+          Helper.DEFAULT_GAS,
+        )
+        expect(await contract.requireTxSuccess()).to.be.true
+        // Must-succeed mode: the same silent failure now reverts the module
+        // call with TxSuccessRequired.
+        await expect(module.execCall(user01.address, value, '0x')).to.be.revertedWithCustomError(
+          contract,
+          'TxSuccessRequired',
+        )
       })
     })
 

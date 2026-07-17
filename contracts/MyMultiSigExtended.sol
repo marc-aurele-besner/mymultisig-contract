@@ -421,7 +421,8 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
       sel == bytes4(keccak256('setGuard(address)')) ||
       sel == bytes4(keccak256('setAllowedTarget(address,bool)')) ||
       sel == bytes4(keccak256('disableAllowlist()')) ||
-      sel == bytes4(keccak256('setDailySpendingLimit(address,uint256)'));
+      sel == bytes4(keccak256('setDailySpendingLimit(address,uint256)')) ||
+      sel == bytes4(keccak256('setRequireTxSuccess(bool)'));
   }
 
   /// @notice Returns the unix timestamp a scheduled tx is ready to execute at.
@@ -664,9 +665,11 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   /// @dev    Signed over the dedicated `AllowanceTransaction` typehash bound
   ///         to `(to, value, data, gas, nonce = allowanceNonce(),
   ///         validUntil)`. Bumps `_allowanceNonce` once the signature
-  ///         validates, so each signature is single-use — even when the
-  ///         inner call fails — while the wallet's main `nonce()` (and any
-  ///         pending threshold-signed transaction) is untouched.
+  ///         validates, so each signature is single-use — including when the
+  ///         inner call fails silently — while the wallet's main `nonce()`
+  ///         (and any pending threshold-signed transaction) is untouched.
+  ///         A payload-carrying inner revert rolls the whole call (and the
+  ///         bump) back, matching `execTransaction`'s failure policy.
   ///         Runs the full pre-exec gates: a spend at or above
   ///         `sensitiveValueThreshold` must go through the timelock like any
   ///         other transaction, and self-calls are rejected outright so the
@@ -705,9 +708,12 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   }
 
   /// @dev Shared tail for the timelock (`executeScheduled`) and allowance
-  ///      paths: run the inner call via the base `_rawCall`, bubble a
-  ///      payload-carrying revert, and emit the standard success / failure
-  ///      events (+ the silent post-exec guard hook on success). `txHash` is
+  ///      paths: run the inner call via the base `_rawCall`, then apply the
+  ///      wallet-wide failure policy (see `_execTransaction`): a
+  ///      payload-carrying revert bubbles up and rolls the whole call back,
+  ///      an empty failure reverts `TxSuccessRequired` when
+  ///      `requireTxSuccess()` is on and otherwise emits `TxFailure`
+  ///      (+ the silent post-exec guard hook on success). `txHash` is
   ///      the EIP-712 hash the transaction was signed over, forwarded to the
   ///      post-exec guard.
   function _runLoggedCall(
@@ -801,18 +807,24 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   }
 
   /// @notice Module-driven entry point. Bypasses signature threshold (modules
-  ///         are operational plugins); guard + allowlist still apply.
+  ///         are operational plugins); guard + allowlist still apply, and the
+  ///         wallet-wide reentrancy guard blocks the inner call (or a
+  ///         misbehaving module) from reentering this entry point.
   /// @param operation 0 = CALL, 1 = DELEGATECALL. For DELEGATECALL, `to` MUST
   ///        equal `address(this)` so the module's code runs in the wallet's
   ///        storage context.
   /// @dev    Does NOT bump `_txnNonce` — pending owner-signed transactions
-  ///         remain valid after a module action.
+  ///         remain valid after a module action. Failure policy mirrors
+  ///         `execTransaction`: an inner failure WITH revert data bubbles its
+  ///         payload and reverts; a failure WITHOUT revert data reverts
+  ///         `TxSuccessRequired` when `requireTxSuccess()` is on, otherwise
+  ///         returns `success = false` and emits `ModuleTransactionExecuted`.
   function execTransactionFromModule(
     address to,
     uint256 value,
     bytes memory data,
     uint256 operation
-  ) public payable virtual returns (bool success) {
+  ) public payable virtual nonReentrant returns (bool success) {
     if (!_isModule[msg.sender]) revert NotAModule(msg.sender);
     if (operation > 1) revert InvalidModuleOperation(operation);
 
@@ -834,6 +846,8 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
       _guardAfterRawExecution(to, value, data, operation);
     } else if (returnData.length > 0) {
       _revertWith(returnData);
+    } else if (requireTxSuccess()) {
+      revert TxSuccessRequired();
     }
 
     emit ModuleTransactionExecuted(msg.sender, to, value, data, operation, success);
