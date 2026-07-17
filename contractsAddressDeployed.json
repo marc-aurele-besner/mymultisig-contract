@@ -22,19 +22,20 @@
   },
   {
     "name": "MyMultiSigFactory",
-    "address": "0x5c529198e6b4d2DCBb2f3201062A7e9194298d5a",
+    "address": "0x2eE7e3532806cd6D7904ed8bD184665b0e3F95e2",
     "network": "sepolia",
     "deployer": "0x45C36f4D95ab36758a87F293aB998d6F5736eCcc",
-    "deploymentDate": "Mon Jul 14 2026 10:14:05 GMT-0400 (Eastern Daylight Saving Time)",
+    "deploymentDate": "Fri Jul 17 2026 09:29:00 GMT-0400 (Eastern Daylight Time)",
     "chainId": 11155111,
-    "blockHash": "",
-    "blockNumber": 0,
+    "blockHash": "0xcc1431bc093d3e08ae6ac490e7812ef6c58c568fa0c35421cfbf2d11ce2a1263",
+    "blockNumber": 11292069,
     "tag": "",
     "extra": {
       "factoryName": "MyMultiSigFactory",
-      "factoryVersion": "0.1.1",
-      "MyMultiSigDeployer": "0xd3A97Ac36cAC19f2dd2503DA540cD5593b0D7Ad8",
-      "MyMultiSigExtendedDeployer": "0xdd1CAb8B38eE627e2352424bdE32453fE373eDbB",
+      "factoryVersion": "0.5.0",
+      "MyMultiSigDeployer": "0x4Bd98dbB4911Fa6caEcaD8E430b8595380A1c084",
+      "MyMultiSigExtendedDeployer": "0x129A83AA25014E2BcA36Fa7531e50F6dB8446b2B",
+      "MyMultiSigAdvancedDeployer": "0x2D254390e35b59fe87a31e538D5604346b017082",
       "threshold": 2
     }
   }

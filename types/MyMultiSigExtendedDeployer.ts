@@ -25,6 +25,7 @@ import type {
 
 export interface MyMultiSigExtendedDeployerInterface extends utils.Interface {
   functions: {
+    "creationCodeStores()": FunctionFragment;
     "deployMyMultiSigExtended(string,address[],uint16,bool,address)": FunctionFragment;
     "deployMyMultiSigExtendedDeterministic(bytes32,string,address[],uint16,bool,address)": FunctionFragment;
     "predictMyMultiSigExtendedAddress(bytes32,string,address[],uint16,bool,address)": FunctionFragment;
@@ -32,11 +33,16 @@ export interface MyMultiSigExtendedDeployerInterface extends utils.Interface {
 
   getFunction(
     nameOrSignatureOrTopic:
+      | "creationCodeStores"
       | "deployMyMultiSigExtended"
       | "deployMyMultiSigExtendedDeterministic"
       | "predictMyMultiSigExtendedAddress"
   ): FunctionFragment;
 
+  encodeFunctionData(
+    functionFragment: "creationCodeStores",
+    values?: undefined
+  ): string;
   encodeFunctionData(
     functionFragment: "deployMyMultiSigExtended",
     values: [
@@ -70,6 +76,10 @@ export interface MyMultiSigExtendedDeployerInterface extends utils.Interface {
     ]
   ): string;
 
+  decodeFunctionResult(
+    functionFragment: "creationCodeStores",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "deployMyMultiSigExtended",
     data: BytesLike
@@ -113,6 +123,10 @@ export interface MyMultiSigExtendedDeployer extends BaseContract {
   removeListener: OnEvent<this>;
 
   functions: {
+    creationCodeStores(
+      overrides?: CallOverrides
+    ): Promise<[string, string] & { store0: string; store1: string }>;
+
     deployMyMultiSigExtended(
       contractName_: PromiseOrValue<string>,
       owners_: PromiseOrValue<string>[],
@@ -142,6 +156,10 @@ export interface MyMultiSigExtendedDeployer extends BaseContract {
       overrides?: CallOverrides
     ): Promise<[string] & { contractAddress: string }>;
   };
+
+  creationCodeStores(
+    overrides?: CallOverrides
+  ): Promise<[string, string] & { store0: string; store1: string }>;
 
   deployMyMultiSigExtended(
     contractName_: PromiseOrValue<string>,
@@ -173,6 +191,10 @@ export interface MyMultiSigExtendedDeployer extends BaseContract {
   ): Promise<string>;
 
   callStatic: {
+    creationCodeStores(
+      overrides?: CallOverrides
+    ): Promise<[string, string] & { store0: string; store1: string }>;
+
     deployMyMultiSigExtended(
       contractName_: PromiseOrValue<string>,
       owners_: PromiseOrValue<string>[],
@@ -206,6 +228,8 @@ export interface MyMultiSigExtendedDeployer extends BaseContract {
   filters: {};
 
   estimateGas: {
+    creationCodeStores(overrides?: CallOverrides): Promise<BigNumber>;
+
     deployMyMultiSigExtended(
       contractName_: PromiseOrValue<string>,
       owners_: PromiseOrValue<string>[],
@@ -237,6 +261,10 @@ export interface MyMultiSigExtendedDeployer extends BaseContract {
   };
 
   populateTransaction: {
+    creationCodeStores(
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
     deployMyMultiSigExtended(
       contractName_: PromiseOrValue<string>,
       owners_: PromiseOrValue<string>[],

@@ -135,22 +135,13 @@ const config: HardhatUserConfig = {
     hardhat: {
       // Hardhat's EdrProvider caps per-tx gas at `FUSAKA_TRANSACTION_GAS_LIMIT`
       // (16,777,216) unless `blockGasLimit` is set to the magic value
-      // `0x1fffffffffffff`, in which case the cap is disabled. The v0.5.0
-      // `MyMultiSigExtended` deployer helpers embed a wallet whose
-      // bytecode now exceeds 16M; without this flag the deploy goes
-      // out of gas. Setting the magic value keeps the per-tx cap off
-      // (so `gas: 30_000_000` is honored) while still bounding block
-      // capacity at 30M for tests.
+      // `0x1fffffffffffff`, in which case the cap is disabled. Local deploys
+      // pass explicit gas limits above that cap (see `test/shared/setup.ts`),
+      // so the magic value keeps the per-tx cap off (`gas: 30_000_000` is
+      // honored) while still bounding what a single tx may consume.
       blockGasLimit: 0x1fffffffffffff,
       gas: 30000000,
       gasPrice: 8000000000,
-      // The wallet's bytecode is large enough (post-v0.4.0, the embedded
-      // Extended bytecode pushes the deployer helpers a few hundred bytes
-      // past the EIP-170 24,576-byte limit). Locally we accept the
-      // oversized deploy — `MyMultiSigExtendedDeployer.sol` is still
-      // safely within practical limits on mainnet because the wallet itself
-      // is what gets deployed at user level, not these helpers.
-      allowUnlimitedContractSize: true,
     },
     localhost: {
       accounts: {
