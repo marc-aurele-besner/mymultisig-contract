@@ -184,7 +184,9 @@ contract SessionKeyModule is ReentrancyGuard {
   ///         charged before the call and refunded if the inner call
   ///         fails, so a reentrant attempt can never overspend.
   /// @return success Whether the inner call succeeded. Reverts with a
-  ///         payload are bubbled up by the wallet instead.
+  ///         payload — and, when the wallet's `requireTxSuccess()` is on,
+  ///         silent failures too — are bubbled up by the wallet instead of
+  ///         returning `false`.
   function executeWithSessionKey(
     address wallet,
     address to,

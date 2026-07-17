@@ -38,10 +38,15 @@ contract MyMultiSig is ReentrancyGuard, EIP712, IERC1271, ERC721Holder, ERC1155H
   ///         EIP-1271 `isValidSignature(bytes32,bytes)` empty-signature path.
   mapping(bytes32 => bool) private _signedMessages;
 
-  /// @notice When true, an inner call that fails inside `execTransaction`
-  ///         reverts the whole transaction (`TxSuccessRequired`) instead of
-  ///         emitting `TxFailure` — so the nonce is not consumed and the
-  ///         collected signatures stay usable for a retry.
+  /// @notice Failure-policy flag for inner calls that fail WITHOUT revert
+  ///         data (e.g. an ETH transfer bouncing off an insufficient
+  ///         balance). When true, such a failure reverts the whole
+  ///         `execTransaction` (`TxSuccessRequired`) — the nonce is not
+  ///         consumed and the collected signatures stay usable for a retry.
+  ///         When false, the failure is soft: `TxFailure` is emitted and the
+  ///         nonce IS consumed. Inner calls that fail WITH revert data are
+  ///         not governed by this flag — their payload always bubbles up and
+  ///         reverts the whole transaction (see `_execTransaction`).
   bool private _requireTxSuccess;
 
   /// @notice Sentinel head/tail of the owners linked list. Never a valid
@@ -88,11 +93,14 @@ contract MyMultiSig is ReentrancyGuard, EIP712, IERC1271, ERC721Holder, ERC1155H
     uint256 txnGas,
     uint256 txnNonce
   );
-  /// @notice Emitted when a transaction is executed but the low-level call to
-  ///         `to` returned `false`. `reason` carries the raw return data of the
-  ///         failed call so front-ends can decode the target's revert reason and
-  ///         distinguish an on-chain revert from a signature or gas failure
-  ///         (those revert the whole `execTransaction` with a distinct custom error).
+  /// @notice Emitted when the signatures validated but the low-level call to
+  ///         `to` failed WITHOUT revert data (e.g. a plain ETH transfer
+  ///         bouncing, or the target running out of its forwarded gas) while
+  ///         `requireTxSuccess()` is off. The nonce is consumed on this path.
+  ///         A failed inner call that DOES return revert data never reaches
+  ///         this event: its payload is bubbled up and the whole
+  ///         `execTransaction` reverts, preserving the nonce — so `reason`
+  ///         is empty bytes by construction whenever this event fires.
   event TxFailure(
     address indexed sender,
     address indexed to,
@@ -161,9 +169,11 @@ contract MyMultiSig is ReentrancyGuard, EIP712, IERC1271, ERC721Holder, ERC1155H
   ///         different lengths — every batch array must have one entry per
   ///         inner call.
   error ArrayLengthMismatch();
-  /// @notice The inner call failed while `requireTxSuccess()` is enabled.
-  ///         The whole `execTransaction` reverts, so the nonce is not
-  ///         consumed and the collected signatures stay usable.
+  /// @notice The inner call failed without revert data while
+  ///         `requireTxSuccess()` is enabled. The whole `execTransaction`
+  ///         reverts, so the nonce is not consumed and the collected
+  ///         signatures stay usable. (An inner failure WITH revert data
+  ///         bubbles that payload instead of this error.)
   error TxSuccessRequired();
   /// @notice `removeOwner` was called for an address that is not a current
   ///         owner.
@@ -253,17 +263,28 @@ contract MyMultiSig is ReentrancyGuard, EIP712, IERC1271, ERC721Holder, ERC1155H
     }
   }
 
-  /// @notice Whether must-succeed execution mode is on. When enabled, a
-  ///         failed inner call reverts the whole `execTransaction` with
-  ///         `TxSuccessRequired` instead of emitting `TxFailure` and
-  ///         consuming the nonce.
+  /// @notice Whether must-succeed execution mode is on. Failure handling of
+  ///         the inner call of every exec path is:
+  ///         - fails WITH revert data: the payload bubbles up and the whole
+  ///           `execTransaction` reverts (nonce preserved) — regardless of
+  ///           this flag;
+  ///         - fails WITHOUT revert data, flag on: the whole
+  ///           `execTransaction` reverts with `TxSuccessRequired` (nonce
+  ///           preserved);
+  ///         - fails WITHOUT revert data, flag off: `TxFailure` is emitted
+  ///           and the nonce is consumed (soft failure).
   function requireTxSuccess() public view virtual returns (bool) {
     return _requireTxSuccess;
   }
 
   /// @notice Toggles must-succeed execution mode (see `requireTxSuccess`).
-  /// @param required True to revert `execTransaction` on inner-call failure.
+  /// @param required True to revert `execTransaction` when the inner call
+  ///        fails without revert data (payload-carrying failures always
+  ///        revert either way).
   /// @dev This function can only be called inside a multisig transaction.
+  ///      On `MyMultiSigExtended` this selector is part of the default
+  ///      sensitive set, so once a timelock delay is configured the toggle
+  ///      must go through `scheduleTransaction`.
   function setRequireTxSuccess(bool required) public virtual onlyThis {
     _requireTxSuccess = required;
     emit RequireTxSuccessSet(required);
@@ -463,6 +484,17 @@ contract MyMultiSig is ReentrancyGuard, EIP712, IERC1271, ERC721Holder, ERC1155H
   function _beforeInnerCall(address /* to */, uint256 /* value */, bytes memory /* data */) internal virtual {}
 
   /// @notice Executes a transaction (internal)
+  /// @dev Failure policy for the inner call, shared by every exec path of
+  ///      the wallet family:
+  ///      - success: `TransactionExecuted`, nonce consumed;
+  ///      - failed WITH revert data: the payload bubbles up unchanged and
+  ///        the whole transaction reverts — nonce preserved regardless of
+  ///        `requireTxSuccess()` — so structured inner errors (e.g.
+  ///        `multiRequestStrict`'s `BatchCallFailed`, `onlyThis` admin
+  ///        errors) stay decodable by the caller;
+  ///      - failed WITHOUT revert data: reverts `TxSuccessRequired` when
+  ///        `requireTxSuccess()` is on (nonce preserved), otherwise emits
+  ///        `TxFailure` and consumes the nonce.
   /// @param to The address to which the transaction is made.
   /// @param value The amount of Ether to be transferred.
   /// @param data The data to be passed along with the transaction.
