@@ -126,6 +126,12 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   error InvalidOperation(uint8 operation);
   error NotEntryPoint();
   error RequiresOperationByte();
+  /// @notice `scheduleTransaction` only accepts the wallet's current nonce:
+  ///         scheduling consumes the nonce exactly like a direct
+  ///         `execTransaction`, so a schedule signed against any other nonce
+  ///         is rejected up front instead of silently desynchronizing the
+  ///         nonce sequence.
+  error ScheduleNonceNotCurrent(uint256 provided, uint256 current);
   /// @notice The single-signer allowance path may not target the wallet
   ///         itself: a self-call would reach the `onlyThis` admin surface
   ///         with one signature instead of threshold consensus.
@@ -463,7 +469,9 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   ///         Bumps `_txnNonce` once the signatures validate — scheduling
   ///         consumes the nonce exactly like a direct `execTransaction`, so
   ///         no parallel transaction can be signed at the same nonce while
-  ///         the schedule waits out its delay.
+  ///         the schedule waits out its delay. `txnNonce` must equal the
+  ///         wallet's current `nonce()` (reverts with
+  ///         `ScheduleNonceNotCurrent` otherwise).
   function scheduleTransaction(
     address to,
     uint256 value,
@@ -474,6 +482,10 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     bytes memory signatures
   ) public payable virtual nonReentrant returns (bytes32 txHash) {
     if (_timelockDelay == 0) revert ZeroDelayForSensitive();
+    // Scheduling consumes the wallet nonce, so only the current nonce is
+    // accepted — a custom (future or past) nonce would desynchronize the
+    // signed hash from the nonce actually consumed.
+    if (txnNonce != nonce()) revert ScheduleNonceNotCurrent(txnNonce, nonce());
     // Extended wallets sign over the 7-field typehash, so the
     // timelock-ready hash must match it. operation is locked to 0 here:
     // timelock only applies to admin calls (CALL, not DELEGATECALL).
@@ -530,7 +542,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     // execute (e.g., to invalidate a pending admin call).
     if (_noncesUsed[txnNonce]) revert NonceAlreadyUsed();
 
-    success = _runLoggedCall(to, value, data, txnGas, txnNonce, validUntil);
+    success = _runLoggedCall(to, value, data, txnGas, txnNonce, txHash);
     emit ScheduledTransactionExecuted(txHash, msg.sender);
   }
 
@@ -687,7 +699,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
 
     _preExecChecks(to, value, data);
 
-    success = _runLoggedCall(to, value, data, txnGas, currentNonce, validUntil);
+    success = _runLoggedCall(to, value, data, txnGas, currentNonce, txHash);
     // Commit-on-success: failed inner calls don't burn the cap.
     if (success) _dailySpentByOwner[recovered] += value;
   }
@@ -695,22 +707,26 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   /// @dev Shared tail for the timelock (`executeScheduled`) and allowance
   ///      paths: run the inner call via the base `_rawCall`, bubble a
   ///      payload-carrying revert, and emit the standard success / failure
-  ///      events (+ the silent post-exec guard hook on success).
+  ///      events (+ the silent post-exec guard hook on success). `txHash` is
+  ///      the EIP-712 hash the transaction was signed over, forwarded to the
+  ///      post-exec guard.
   function _runLoggedCall(
     address to,
     uint256 value,
     bytes memory data,
     uint256 txnGas,
     uint256 txnNonce,
-    uint256 validUntil
+    bytes32 txHash
   ) internal returns (bool success) {
     bytes memory returnData;
     (success, returnData) = _rawCall(txnGas, to, value, data);
     if (success) {
       emit TransactionExecuted(msg.sender, to, value, data, txnGas, txnNonce);
-      _postExecChecks(to, value, data, txnGas, txnNonce, validUntil);
+      _postExecChecks(txHash);
     } else if (returnData.length > 0) {
       _revertWith(returnData);
+    } else if (requireTxSuccess()) {
+      revert TxSuccessRequired();
     } else {
       emit TxFailure(msg.sender, to, value, data, txnGas, txnNonce, returnData);
     }
@@ -828,6 +844,11 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   // ---------------------------------------------------------------------------
 
   /// @notice Orchestrator override: pre-checks → base path → post-check (silent).
+  ///         The post-check receives the base wallet's 6-field EIP-712 hash —
+  ///         the exact hash the owners signed — so guards can correlate
+  ///         `checkTransaction` and `checkAfterExecution` by hash. On this
+  ///         wallet the base entry points all revert `RequiresOperationByte`,
+  ///         so this override only guards subclasses that re-enable them.
   function _execTransaction(
     address to,
     uint256 value,
@@ -839,8 +860,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   ) internal virtual override returns (bool success) {
     _preExecChecks(to, value, data);
     success = super._execTransaction(to, value, data, txnGas, txnNonce, validUntil, signatures);
-    // `txnNonce + 1` because the base path already bumped `_txnNonce`.
-    if (success) _postExecChecks(to, value, data, txnGas, txnNonce + 1, validUntil);
+    if (success) _postExecChecks(generateHash(to, value, data, txnGas, txnNonce, validUntil));
   }
 
   /// @dev Pre-execution checks: timelock reverse-route + guard + allowlist.
@@ -874,17 +894,14 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   }
 
   /// @dev Silent post-execution hook (failure logged, never reverts).
-  function _postExecChecks(
-    address to,
-    uint256 value,
-    bytes memory data,
-    uint256 txnGas,
-    uint256 txnNoncePostBump,
-    uint256 validUntil
-  ) internal virtual {
+  ///      `txHash` is the EIP-712 hash the executed transaction was signed
+  ///      over (the 7-field op hash on the extended path, the 6-field base
+  ///      hash on the base path, the allowance hash on the allowance path),
+  ///      so guards see the same hash before and after execution.
+  function _postExecChecks(bytes32 txHash) internal virtual {
     address guardContract = _guard;
     if (guardContract != address(0)) {
-      _guardCheckAfterExecution(guardContract, generateHashOp(to, value, data, txnGas, txnNoncePostBump, validUntil, 0));
+      _guardCheckAfterExecution(guardContract, txHash);
     }
   }
 
@@ -1199,8 +1216,13 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     if (success) {
       emit TransactionExecuted(msg.sender, to, value, data, txnGas, txnNonce);
       emit TransactionExecutedOp(msg.sender, to, value, data, txnGas, txnNonce, operation);
+      // Silent post-exec guard hook, keyed by the exact 7-field hash the
+      // owners signed so guards can correlate pre/post by hash.
+      _postExecChecks(txHash);
     } else if (returnData.length > 0) {
       _revertWith(returnData);
+    } else if (requireTxSuccess()) {
+      revert TxSuccessRequired();
     } else {
       emit TxFailure(msg.sender, to, value, data, txnGas, txnNonce, returnData);
       emit TxFailureOp(msg.sender, to, value, data, txnGas, txnNonce, operation, returnData);

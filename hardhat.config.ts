@@ -283,6 +283,9 @@ const config: HardhatUserConfig = {
             enabled: true,
             runs: 200,
           },
+          // Compile through Yul IR — keeps MyMultiSigExtended under the
+          // EIP-170 size limit. Must stay in sync with `via_ir` in foundry.toml.
+          viaIR: true,
         },
       },
     ],

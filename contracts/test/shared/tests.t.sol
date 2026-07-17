@@ -135,6 +135,11 @@ abstract contract TestBasic is Helper {
 
     for (uint256 i = 0; i < NEW_OWNERS_COUNT; i++) {
       buildData[i] = build_removeOwner(NOT_OWNERS[i]);
+      // Removal walks the owners linked list to find the predecessor.
+      // NOT_OWNERS[0] sits ~100 nodes deep, so the first removals pay up
+      // to ~100 cold SLOADs (~210k gas) on top of the removal itself —
+      // give every inner call enough budget for a fully cold walk.
+      buildGas[i] = 400_000;
     }
 
     help_multiRequest(OWNERS[0], myMultiSig, OWNERS_PK, buildTo, buildValue, buildData, buildGas);
@@ -602,5 +607,216 @@ abstract contract TestBasic is Helper {
     assertFalse(myMultiSig.isOwner(NOT_OWNERS[0]));
     // Nonce must NOT advance — the whole tx was rolled back.
     assertEq(myMultiSig.nonce(), nonceBefore);
+  }
+
+  // ---------------------------------------------------------------------
+  // getOwners (on-chain owner enumeration)
+  // ---------------------------------------------------------------------
+
+  function testMyMultiSig_getOwners_matchesInitialOwners() public {
+    address[] memory owners = myMultiSig.getOwners();
+    assertEq(owners.length, OWNERS.length);
+    assertEq(owners.length, myMultiSig.ownerCount());
+    // Every configured owner appears exactly once (order is
+    // most-recently-added first, so membership is what we assert).
+    for (uint256 i = 0; i < OWNERS.length; i++) {
+      uint256 seen;
+      for (uint256 j = 0; j < owners.length; j++) {
+        if (owners[j] == OWNERS[i]) seen++;
+      }
+      assertEq(seen, 1);
+    }
+  }
+
+  function testMyMultiSig_getOwners_tracksAddRemoveReplace() public {
+    help_addOwner(OWNERS[0], myMultiSig, OWNERS_PK, NOT_OWNERS[0]);
+    address[] memory owners = myMultiSig.getOwners();
+    assertEq(owners.length, OWNERS.length + 1);
+    // Owners are inserted at the head of the linked list.
+    assertEq(owners[0], NOT_OWNERS[0]);
+
+    help_removeOwner(OWNERS[0], myMultiSig, OWNERS_PK, NOT_OWNERS[0]);
+    owners = myMultiSig.getOwners();
+    assertEq(owners.length, OWNERS.length);
+    for (uint256 i = 0; i < owners.length; i++) {
+      assertTrue(owners[i] != NOT_OWNERS[0]);
+    }
+
+    help_replaceOwner(OWNERS[1], myMultiSig, OWNERS_PK, OWNERS[0], NOT_OWNERS[1]);
+    owners = myMultiSig.getOwners();
+    assertEq(owners.length, OWNERS.length);
+    bool foundNew;
+    for (uint256 i = 0; i < owners.length; i++) {
+      assertTrue(owners[i] != OWNERS[0]);
+      if (owners[i] == NOT_OWNERS[1]) foundNew = true;
+    }
+    assertTrue(foundNew);
+    assertEq(owners.length, myMultiSig.ownerCount());
+  }
+
+  // ---------------------------------------------------------------------
+  // ERC-165 introspection
+  // ---------------------------------------------------------------------
+
+  function testMyMultiSig_supportsInterface() public {
+    assertTrue(myMultiSig.supportsInterface(0x01ffc9a7)); // ERC-165
+    assertTrue(myMultiSig.supportsInterface(0x1626ba7e)); // EIP-1271
+    assertTrue(myMultiSig.supportsInterface(0x150b7a02)); // ERC-721 receiver
+    assertTrue(myMultiSig.supportsInterface(0x4e2312e0)); // ERC-1155 receiver
+    assertFalse(myMultiSig.supportsInterface(0xffffffff));
+  }
+
+  // ---------------------------------------------------------------------
+  // removeOwner input validation
+  // ---------------------------------------------------------------------
+
+  function testMyMultiSig_removeOwner_nonOwnerReverts() public {
+    address to = address(myMultiSig);
+    bytes memory data = build_removeOwner(NOT_OWNERS[0]);
+    uint96 nonceBefore = myMultiSig.nonce();
+    bytes memory signatures = build_signatures(myMultiSig, OWNERS_PK, to, 0, data, DEFAULT_GAS);
+    help_execTransaction(
+      myMultiSig,
+      OWNERS[0],
+      to,
+      0,
+      data,
+      DEFAULT_GAS,
+      signatures,
+      nonceBefore,
+      Errors.RevertStatus.OwnerToRemoveMustBeOwner
+    );
+    // The whole exec reverted, so the nonce is untouched and the owner
+    // count is unchanged.
+    assertEq(myMultiSig.nonce(), nonceBefore);
+    assertEq(myMultiSig.ownerCount(), OWNERS.length);
+  }
+
+  // ---------------------------------------------------------------------
+  // multiRequest / multiRequestStrict array-length validation
+  // ---------------------------------------------------------------------
+
+  function testMyMultiSig_multiRequest_lengthMismatchReverts() public {
+    address[] memory to_ = new address[](2);
+    to_[0] = NOT_OWNERS[0];
+    to_[1] = NOT_OWNERS[1];
+    uint256[] memory value_ = new uint256[](1); // one entry short
+    bytes[] memory data_ = new bytes[](2);
+    uint256[] memory txGas_ = new uint256[](2);
+    txGas_[0] = 30_000;
+    txGas_[1] = 30_000;
+
+    address to = address(myMultiSig);
+    bytes memory data = build_multiRequest(to_, value_, data_, txGas_);
+    bytes memory signatures = build_signatures(myMultiSig, OWNERS_PK, to, 0, data, DEFAULT_GAS);
+    help_execTransaction(
+      myMultiSig,
+      OWNERS[0],
+      to,
+      0,
+      data,
+      DEFAULT_GAS,
+      signatures,
+      myMultiSig.nonce(),
+      Errors.RevertStatus.ArrayLengthMismatch
+    );
+  }
+
+  function testMyMultiSig_multiRequestStrict_lengthMismatchReverts() public {
+    address[] memory to_ = new address[](2);
+    to_[0] = NOT_OWNERS[0];
+    to_[1] = NOT_OWNERS[1];
+    uint256[] memory value_ = new uint256[](2);
+    bytes[] memory data_ = new bytes[](1); // one entry short
+    uint256[] memory txGas_ = new uint256[](2);
+    txGas_[0] = 30_000;
+    txGas_[1] = 30_000;
+
+    address to = address(myMultiSig);
+    bytes memory data = build_multiRequestStrict(to_, value_, data_, txGas_);
+    bytes memory signatures = build_signatures(myMultiSig, OWNERS_PK, to, 0, data, DEFAULT_GAS);
+    help_execTransaction(
+      myMultiSig,
+      OWNERS[0],
+      to,
+      0,
+      data,
+      DEFAULT_GAS,
+      signatures,
+      myMultiSig.nonce(),
+      Errors.RevertStatus.ArrayLengthMismatch
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // requireTxSuccess (must-succeed execution mode)
+  // ---------------------------------------------------------------------
+
+  function testMyMultiSig_requireTxSuccess_onlySelfCanToggle() public {
+    assertFalse(myMultiSig.requireTxSuccess());
+    vm.prank(OWNERS[0]);
+    verify_revertCall(Errors.RevertStatus.OnlyThisContract);
+    myMultiSig.setRequireTxSuccess(true);
+  }
+
+  function testMyMultiSig_requireTxSuccess_failedCallRevertsAndPreservesNonce() public {
+    // Enable the flag through a threshold-signed self-call.
+    address to = address(myMultiSig);
+    bytes memory enableData = abi.encodeWithSignature('setRequireTxSuccess(bool)', true);
+    help_execTransaction(
+      myMultiSig,
+      OWNERS[0],
+      to,
+      0,
+      enableData,
+      DEFAULT_GAS,
+      build_signatures(myMultiSig, OWNERS_PK, to, 0, enableData, DEFAULT_GAS)
+    );
+    assertTrue(myMultiSig.requireTxSuccess());
+
+    // A silently-failing inner call (1 wei from an empty wallet) now
+    // reverts the whole exec instead of emitting TxFailure, so the nonce
+    // is preserved and the signatures stay usable.
+    uint96 nonceBefore = myMultiSig.nonce();
+    bytes memory noData;
+    bytes memory signatures = build_signatures(myMultiSig, OWNERS_PK, NOT_OWNERS[0], 1, noData, DEFAULT_GAS);
+    help_execTransaction(
+      myMultiSig,
+      OWNERS[0],
+      NOT_OWNERS[0],
+      1,
+      noData,
+      DEFAULT_GAS,
+      signatures,
+      nonceBefore,
+      Errors.RevertStatus.TxSuccessRequired
+    );
+    assertEq(myMultiSig.nonce(), nonceBefore);
+  }
+
+  // ---------------------------------------------------------------------
+  // approval pruning after execution
+  // ---------------------------------------------------------------------
+
+  function testMyMultiSig_approvalsPrunedAfterExecution() public {
+    address to = address(myMultiSig);
+    bytes memory data = build_addOwner(NOT_OWNERS[0]);
+    bytes32 hash = build_execHash(data, DEFAULT_GAS, 0);
+
+    vm.prank(OWNERS[0]);
+    myMultiSig.approveHash(hash);
+    vm.prank(OWNERS[1]);
+    myMultiSig.approveHash(hash);
+    assertEq(myMultiSig.getApprovedOwners(hash).length, 2);
+
+    // Execute with no ECDSA votes: the two on-chain approvals reach the
+    // threshold on their own.
+    bytes memory noVotes = build_signatures(myMultiSig, new uint256[](0), to, 0, data, DEFAULT_GAS);
+    help_execTransaction(myMultiSig, OWNERS[0], to, 0, data, DEFAULT_GAS, noVotes);
+    assertTrue(myMultiSig.isOwner(NOT_OWNERS[0]));
+
+    // The consumed approvals are pruned, so the hash carries no stale
+    // entries (and the owners could re-approve a future hash cleanly).
+    assertEq(myMultiSig.getApprovedOwners(hash).length, 0);
   }
 }

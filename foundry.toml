@@ -11,6 +11,7 @@ evm_version = 'london'                                        # the evm version 
 auto_detect_solc = true                                       # enable auto-detection of the appropriate solc version to use
 optimizer = true                                              # enable or disable the solc optimizer
 optimizer_runs = 200                                          # the number of optimizer runs
+via_ir = true                                                 # compile through Yul IR — keeps MyMultiSigExtended under the EIP-170 size limit
 verbosity = 2                                                 # the verbosity of tests
 ignored_error_codes = []                                      # a list of ignored solc error codes
 fuzz_runs = 256                                               # the number of fuzz runs for tests

@@ -11,6 +11,10 @@ export default {
   NONCE_ALREADY_USED: 'NonceAlreadyUsed',
   NOT_OWNER: 'NotOwner',
   CANNOT_REMOVE_OWNERS_BELOW_THRESHOLD: 'CannotRemoveOwnerBelowThreshold',
+  ARRAY_LENGTH_MISMATCH: 'ArrayLengthMismatch',
+  TX_SUCCESS_REQUIRED: 'TxSuccessRequired',
+  OWNER_TO_REMOVE_MUST_BE_OWNER: 'OwnerToRemoveMustBeOwner',
+  SCHEDULE_NONCE_NOT_CURRENT: 'ScheduleNonceNotCurrent',
 
   THRESHOLD_MUST_BE_GREATER_THAN_ZERO: 'ThresholdMustBeGreaterThanZero',
   THRESHOLD_MUST_BE_LESS_OR_EQUAL_TO_OWNERS_COUNT: 'ThresholdMustBeLessOrEqualToOwnerCount',

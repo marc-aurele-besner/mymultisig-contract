@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import { Vm } from 'forge-std/Vm.sol';
 import { Helper } from './shared/helper.t.sol';
 import { MyMultiSigExtended } from '../MyMultiSigExtended.sol';
+import { MockGuard } from '../mocks/MockGuard.sol';
 import { PackedUserOperation } from '../interfaces/PackedUserOperation.sol';
 import './shared/mocks/MockEntryPoint.t.sol';
 
@@ -337,5 +338,82 @@ contract MyMultiSigExtendedTest is Helper {
   function test_execute_rejects_non_entrypoint() public {
     vm.expectRevert(abi.encodeWithSignature('NotEntryPoint()'));
     wallet.execute(address(0xa11ce), 0, '');
+  }
+
+  // ---------- post-exec guard + schedule nonce ----------
+
+  /// @dev Signs the extended 7-field (`operation`-bound) payload with both
+  ///      owners for an arbitrary nonce — `build_signatures` always signs
+  ///      the wallet's CURRENT nonce, which these tests need to deviate from.
+  function _signExtendedTx(
+    address to,
+    uint256 value,
+    bytes memory data,
+    uint256 txnGas,
+    uint256 nonce_,
+    uint8 operation
+  ) internal returns (bytes memory) {
+    bytes32 domainSeparator = build_domainSeparator(wallet, wallet.name());
+    bytes32 typehash = keccak256(
+      'Transaction(address to,uint256 value,bytes data,uint256 gas,uint96 nonce,uint256 validUntil,uint8 operation)'
+    );
+    bytes32 structHash = keccak256(
+      abi.encode(typehash, to, value, keccak256(data), txnGas, nonce_, uint256(0), operation)
+    );
+    Vote[] memory votes = new Vote[](2);
+    votes[0] = Vote({ owner: OWNERS[0], sig: signature_signHashed(OWNERS_PK[0], domainSeparator, structHash) });
+    votes[1] = Vote({ owner: OWNERS[1], sig: signature_signHashed(OWNERS_PK[1], domainSeparator, structHash) });
+    return abi.encode(votes);
+  }
+
+  function test_postExecGuard_runsOnExecPath_withSignedHash() public {
+    MockGuard guard = new MockGuard();
+    vm.prank(address(wallet));
+    wallet.setGuard(address(guard));
+    assertEq(wallet.guard(), address(guard));
+
+    vm.deal(address(wallet), 1 ether);
+    address recipient = address(0xa11ce);
+    uint256 txnGas = 50_000;
+    uint256 nonce_ = wallet.nonce();
+    bytes memory noData;
+    bytes32 signedHash = wallet.generateHashOp(recipient, 0.5 ether, noData, txnGas, nonce_, 0, 0);
+    bytes memory signatures = _signExtendedTx(recipient, 0.5 ether, noData, txnGas, nonce_, 0);
+
+    vm.prank(OWNERS[0]);
+    wallet.execTransaction(recipient, 0.5 ether, noData, txnGas, nonce_, 0, 0, signatures);
+    assertEq(recipient.balance, 0.5 ether);
+
+    // The guard's post-exec hook ran on the standard exec path and received
+    // the exact EIP-712 hash the owners signed, so pre/post can be
+    // correlated by hash.
+    assertEq(guard.checkTransactionCalls(), 1);
+    assertEq(guard.checkAfterExecutionCalls(), 1);
+    assertEq(guard.lastTxHash(), signedHash);
+    assertTrue(guard.lastSuccess());
+  }
+
+  function test_scheduleTransaction_rejectsNonCurrentNonce() public {
+    vm.prank(address(wallet));
+    wallet.setTimelockDelay(60);
+
+    bytes memory data = abi.encodeWithSignature('addOwner(address)', NOT_OWNERS[0]);
+    uint256 txnGas = 75_000;
+    uint256 wrongNonce = wallet.nonce() + 1;
+    bytes memory signatures = _signExtendedTx(address(wallet), 0, data, txnGas, wrongNonce, 0);
+
+    vm.prank(OWNERS[0]);
+    vm.expectRevert(
+      abi.encodeWithSelector(MyMultiSigExtended.ScheduleNonceNotCurrent.selector, wrongNonce, wallet.nonce())
+    );
+    wallet.scheduleTransaction(address(wallet), 0, data, txnGas, wrongNonce, 0, signatures);
+
+    // Scheduling against the CURRENT nonce goes through.
+    uint256 currentNonce = wallet.nonce();
+    signatures = _signExtendedTx(address(wallet), 0, data, txnGas, currentNonce, 0);
+    vm.prank(OWNERS[0]);
+    bytes32 txHash = wallet.scheduleTransaction(address(wallet), 0, data, txnGas, currentNonce, 0, signatures);
+    assertGt(wallet.scheduledReadyAt(txHash), 0);
+    assertEq(wallet.nonce(), currentNonce + 1);
   }
 }
