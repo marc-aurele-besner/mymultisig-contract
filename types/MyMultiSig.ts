@@ -39,6 +39,7 @@ export interface MyMultiSigInterface extends utils.Interface {
     "generateHash(address,uint256,bytes,uint256,uint256,uint256)": FunctionFragment;
     "getApprovedOwners(bytes32)": FunctionFragment;
     "getMessageHash(bytes)": FunctionFragment;
+    "getOwners()": FunctionFragment;
     "getThreshold(bytes32)": FunctionFragment;
     "incrementNonce()": FunctionFragment;
     "isMessageSigned(bytes32)": FunctionFragment;
@@ -55,7 +56,9 @@ export interface MyMultiSigInterface extends utils.Interface {
     "ownerCount()": FunctionFragment;
     "removeOwner(address)": FunctionFragment;
     "replaceOwner(address,address)": FunctionFragment;
+    "requireTxSuccess()": FunctionFragment;
     "revokeApproval(bytes32)": FunctionFragment;
+    "setRequireTxSuccess(bool)": FunctionFragment;
     "signMessage(bytes)": FunctionFragment;
     "supportsInterface(bytes4)": FunctionFragment;
     "threshold()": FunctionFragment;
@@ -74,6 +77,7 @@ export interface MyMultiSigInterface extends utils.Interface {
       | "generateHash"
       | "getApprovedOwners"
       | "getMessageHash"
+      | "getOwners"
       | "getThreshold"
       | "incrementNonce"
       | "isMessageSigned"
@@ -90,7 +94,9 @@ export interface MyMultiSigInterface extends utils.Interface {
       | "ownerCount"
       | "removeOwner"
       | "replaceOwner"
+      | "requireTxSuccess"
       | "revokeApproval"
+      | "setRequireTxSuccess"
       | "signMessage"
       | "supportsInterface"
       | "threshold"
@@ -154,6 +160,7 @@ export interface MyMultiSigInterface extends utils.Interface {
     functionFragment: "getMessageHash",
     values: [PromiseOrValue<BytesLike>]
   ): string;
+  encodeFunctionData(functionFragment: "getOwners", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "getThreshold",
     values: [PromiseOrValue<BytesLike>]
@@ -248,8 +255,16 @@ export interface MyMultiSigInterface extends utils.Interface {
     values: [PromiseOrValue<string>, PromiseOrValue<string>]
   ): string;
   encodeFunctionData(
+    functionFragment: "requireTxSuccess",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
     functionFragment: "revokeApproval",
     values: [PromiseOrValue<BytesLike>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "setRequireTxSuccess",
+    values: [PromiseOrValue<boolean>]
   ): string;
   encodeFunctionData(
     functionFragment: "signMessage",
@@ -299,6 +314,7 @@ export interface MyMultiSigInterface extends utils.Interface {
     functionFragment: "getMessageHash",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(functionFragment: "getOwners", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "getThreshold",
     data: BytesLike
@@ -352,7 +368,15 @@ export interface MyMultiSigInterface extends utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "requireTxSuccess",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "revokeApproval",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "setRequireTxSuccess",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -379,6 +403,7 @@ export interface MyMultiSigInterface extends utils.Interface {
     "MultiRequestExecuted(uint256,bool[],bytes[])": EventFragment;
     "OwnerAdded(address)": EventFragment;
     "OwnerRemoved(address)": EventFragment;
+    "RequireTxSuccessSet(bool)": EventFragment;
     "RevokeApproval(address,bytes32)": EventFragment;
     "ThresholdChanged(uint256)": EventFragment;
     "TransactionExecuted(address,address,uint256,bytes,uint256,uint256)": EventFragment;
@@ -393,6 +418,7 @@ export interface MyMultiSigInterface extends utils.Interface {
   getEvent(nameOrSignatureOrTopic: "MultiRequestExecuted"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "OwnerAdded"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "OwnerRemoved"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "RequireTxSuccessSet"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "RevokeApproval"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "ThresholdChanged"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "TransactionExecuted"): EventFragment;
@@ -473,6 +499,17 @@ export interface OwnerRemovedEventObject {
 export type OwnerRemovedEvent = TypedEvent<[string], OwnerRemovedEventObject>;
 
 export type OwnerRemovedEventFilter = TypedEventFilter<OwnerRemovedEvent>;
+
+export interface RequireTxSuccessSetEventObject {
+  required: boolean;
+}
+export type RequireTxSuccessSetEvent = TypedEvent<
+  [boolean],
+  RequireTxSuccessSetEventObject
+>;
+
+export type RequireTxSuccessSetEventFilter =
+  TypedEventFilter<RequireTxSuccessSetEvent>;
 
 export interface RevokeApprovalEventObject {
   owner: string;
@@ -623,6 +660,10 @@ export interface MyMultiSig extends BaseContract {
       overrides?: CallOverrides
     ): Promise<[string]>;
 
+    getOwners(
+      overrides?: CallOverrides
+    ): Promise<[string[]] & { owners: string[] }>;
+
     getThreshold(
       arg0: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
@@ -718,8 +759,15 @@ export interface MyMultiSig extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
+    requireTxSuccess(overrides?: CallOverrides): Promise<[boolean]>;
+
     revokeApproval(
       hash: PromiseOrValue<BytesLike>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    setRequireTxSuccess(
+      required: PromiseOrValue<boolean>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
@@ -810,6 +858,8 @@ export interface MyMultiSig extends BaseContract {
     message: PromiseOrValue<BytesLike>,
     overrides?: CallOverrides
   ): Promise<string>;
+
+  getOwners(overrides?: CallOverrides): Promise<string[]>;
 
   getThreshold(
     arg0: PromiseOrValue<BytesLike>,
@@ -906,8 +956,15 @@ export interface MyMultiSig extends BaseContract {
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
+  requireTxSuccess(overrides?: CallOverrides): Promise<boolean>;
+
   revokeApproval(
     hash: PromiseOrValue<BytesLike>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  setRequireTxSuccess(
+    required: PromiseOrValue<boolean>,
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
@@ -998,6 +1055,8 @@ export interface MyMultiSig extends BaseContract {
       message: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<string>;
+
+    getOwners(overrides?: CallOverrides): Promise<string[]>;
 
     getThreshold(
       arg0: PromiseOrValue<BytesLike>,
@@ -1094,8 +1153,15 @@ export interface MyMultiSig extends BaseContract {
       overrides?: CallOverrides
     ): Promise<void>;
 
+    requireTxSuccess(overrides?: CallOverrides): Promise<boolean>;
+
     revokeApproval(
       hash: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    setRequireTxSuccess(
+      required: PromiseOrValue<boolean>,
       overrides?: CallOverrides
     ): Promise<void>;
 
@@ -1175,6 +1241,11 @@ export interface MyMultiSig extends BaseContract {
     OwnerRemoved(
       owner?: PromiseOrValue<string> | null
     ): OwnerRemovedEventFilter;
+
+    "RequireTxSuccessSet(bool)"(
+      required?: null
+    ): RequireTxSuccessSetEventFilter;
+    RequireTxSuccessSet(required?: null): RequireTxSuccessSetEventFilter;
 
     "RevokeApproval(address,bytes32)"(
       owner?: PromiseOrValue<string> | null,
@@ -1286,6 +1357,8 @@ export interface MyMultiSig extends BaseContract {
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
+    getOwners(overrides?: CallOverrides): Promise<BigNumber>;
+
     getThreshold(
       arg0: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
@@ -1381,8 +1454,15 @@ export interface MyMultiSig extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
+    requireTxSuccess(overrides?: CallOverrides): Promise<BigNumber>;
+
     revokeApproval(
       hash: PromiseOrValue<BytesLike>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    setRequireTxSuccess(
+      required: PromiseOrValue<boolean>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
@@ -1462,6 +1542,8 @@ export interface MyMultiSig extends BaseContract {
       message: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
+
+    getOwners(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     getThreshold(
       arg0: PromiseOrValue<BytesLike>,
@@ -1558,8 +1640,15 @@ export interface MyMultiSig extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
+    requireTxSuccess(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
     revokeApproval(
       hash: PromiseOrValue<BytesLike>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    setRequireTxSuccess(
+      required: PromiseOrValue<boolean>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
