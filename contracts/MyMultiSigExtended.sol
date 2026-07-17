@@ -57,7 +57,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   mapping(address => bool) internal _allowedTargets;
 
   // Allowance
-  bool internal _dailyLimitsEnabled; // first non-zero setDailySpendingLimit flips this on
+  bool internal _dailyLimitsEnabled; // true while at least one owner has a non-zero daily limit (see _dailyLimitOwnerCount)
   mapping(address => uint256) internal _dailyLimitPerOwner;
   mapping(address => uint256) internal _dailySpentByOwner;
   mapping(address => uint256) internal _lastPeriodResetByOwner;
@@ -66,6 +66,17 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   address internal _modulesHead;
   mapping(address => address) internal _modulesNext;
   mapping(address => bool) internal _isModule;
+
+  // --- v0.5.0 storage ---
+
+  /// @dev Dedicated nonce for `execTransactionWithSpendingAllowance`. Kept
+  ///      separate from `_txnNonce` so a single-signer allowance spend never
+  ///      invalidates pending threshold-signed transactions.
+  uint96 internal _allowanceNonce;
+  /// @dev Number of owners with a non-zero `_dailyLimitPerOwner` entry.
+  ///      `_dailyLimitsEnabled` is derived from this count so clearing the
+  ///      last limit turns the feature flag back off.
+  uint256 internal _dailyLimitOwnerCount;
 
   // --- v0.3.0 custom errors ---
   error NonceAlreadyUsed();
@@ -115,6 +126,10 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   error InvalidOperation(uint8 operation);
   error NotEntryPoint();
   error RequiresOperationByte();
+  /// @notice The single-signer allowance path may not target the wallet
+  ///         itself: a self-call would reach the `onlyThis` admin surface
+  ///         with one signature instead of threshold consensus.
+  error AllowanceSelfCallNotAllowed();
 
   // --- v0.4.0 events (v0.3.0 events live in MyMultiSig.sol) ---
 
@@ -275,9 +290,11 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   /// @notice Removes an owner
   /// @param owner The owner to be removed.
   /// @dev This function can only be called inside a multisig transaction.
+  ///      The owner's registered delegate (if any) is freed so the address
+  ///      can be registered as a delegate again.
   function _removeOwner(address owner) internal virtual override {
+    _clearDelegate(owner);
     _ownersOrDelegates[owner] = false;
-    _ownerSettings[owner].delegate = address(0);
     super._removeOwner(owner);
   }
 
@@ -285,10 +302,26 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   /// @param oldOwner The owner to be replaced.
   /// @param newOwner The new owner.
   /// @dev This function can only be called inside a multisig transaction.
+  ///      The old owner's registered delegate (if any) is freed so the
+  ///      address can be registered as a delegate again. When the delegate
+  ///      itself becomes the new owner (the `takeOverOwnership` path), it is
+  ///      re-registered right after via `_ownersOrDelegates[newOwner]`.
   function _replaceOwner(address oldOwner, address newOwner) internal virtual override {
+    _clearDelegate(oldOwner);
     _ownersOrDelegates[oldOwner] = false;
     _ownersOrDelegates[newOwner] = true;
     super._replaceOwner(oldOwner, newOwner);
+  }
+
+  /// @dev Frees `owner`'s registered delegate: releases the delegate's
+  ///      `_ownersOrDelegates` reservation and zeroes the settings pointer.
+  ///      No-op when no delegate is registered.
+  function _clearDelegate(address owner) private {
+    address delegate = _ownerSettings[owner].delegate;
+    if (delegate != address(0)) {
+      _ownersOrDelegates[delegate] = false;
+      _ownerSettings[owner].delegate = address(0);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -304,6 +337,10 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     _minimumTransferInactiveOwnershipAfter = transferInactiveOwnershipAfter;
   }
 
+  /// @dev The owner's previous delegate (if any) is freed first, so
+  ///      re-pointing an owner at a new delegate — or refreshing the timeout
+  ///      while keeping the same delegate — never leaves a stale
+  ///      `_ownersOrDelegates` reservation behind.
   function setOwnerSettings(
     address owner,
     uint256 transferInactiveOwnershipAfter,
@@ -313,6 +350,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     if (transferInactiveOwnershipAfter <= _minimumTransferInactiveOwnershipAfter)
       revert TransferInactiveOwnershipBelowMinimum();
     if (delegatee == address(0)) revert DelegateeCannotBeZero();
+    _clearDelegate(owner);
     if (_ownersOrDelegates[delegatee]) revert DelegateeAlreadyOwnerOrDelegatee();
     _ownerSettings[owner] = OwnerSettings(block.timestamp, transferInactiveOwnershipAfter, delegatee);
     _ownersOrDelegates[delegatee] = true;
@@ -324,9 +362,10 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     if (tempOwnerSettings.delegate != msg.sender) revert SenderNotDelegatee();
     if (tempOwnerSettings.lastAction + tempOwnerSettings.transferInactiveOwnershipAfter >= block.timestamp)
       revert OwnerStillActive();
-    _ownerSettings[owner].delegate = address(0);
     _ownerSettings[msg.sender].lastAction = block.timestamp;
     _ownerSettings[msg.sender].delegate = address(0);
+    // `_replaceOwner` clears the inactive owner's delegate slot (this
+    // caller) and immediately re-registers the caller as an owner.
     _replaceOwner(owner, msg.sender);
   }
 
@@ -421,6 +460,10 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   /// @notice Schedules a sensitive transaction. Reverts if the timelock
   ///         feature is disabled, the tx is already scheduled, the bound
   ///         signatures fail to validate, or the payload isn't sensitive.
+  ///         Bumps `_txnNonce` once the signatures validate — scheduling
+  ///         consumes the nonce exactly like a direct `execTransaction`, so
+  ///         no parallel transaction can be signed at the same nonce while
+  ///         the schedule waits out its delay.
   function scheduleTransaction(
     address to,
     uint256 value,
@@ -442,6 +485,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     // a direct `execTransaction` would, blocking replays.
     if (!_validateSignatureOp(txHash, txnNonce, validUntil, signatures)) revert InvalidSignatures();
     if (!_isSensitive(to, _selectorOf(data), value)) revert NotSensitive();
+    _bumpNonce();
     uint256 readyAt = block.timestamp + _timelockDelay;
     // `_readyAt == 0` is the "not scheduled" sentinel — bump to `1` to avoid it.
     if (readyAt == 0) readyAt = 1;
@@ -452,23 +496,24 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
 
   /// @notice Executes a previously-scheduled sensitive transaction. Reverts
   ///         if the tx was never scheduled, the delay window hasn't elapsed,
-  ///         or the original `validUntil` window has closed.
+  ///         or the original `validUntil` window has closed. Signatures were
+  ///         fully validated (and their `(nonce, owner)` slots consumed) at
+  ///         `scheduleTransaction` time, so none are taken here — anyone may
+  ///         trigger execution once the delay elapses, matching the
+  ///         relayer-friendly model of `execTransaction`.
   /// @dev    Self-contained — deliberately does NOT delegate to the
   ///         orchestrator (which would re-block the sensitive call) or to
   ///         `super._execTransaction` (which would re-read the (nonce, owner)
   ///         anti-replay slots consumed at schedule time, counting zero
-  ///         votes). Nonce is intentionally NOT bumped here — the base's
-  ///         `incrementNonce()` is `onlyThis` and `msg.sender` is the EOA
-  ///         caller. The (nonce, owner) slots consumed at schedule time
-  ///         already prevent any further tx at this nonce without fresh sigs.
+  ///         votes). The nonce was already bumped at schedule time, so it is
+  ///         NOT bumped again here.
   function executeScheduled(
     address to,
     uint256 value,
     bytes memory data,
     uint256 txnGas,
     uint256 txnNonce,
-    uint256 validUntil,
-    bytes memory signatures
+    uint256 validUntil
   ) public payable virtual nonReentrant returns (bool success) {
     bytes32 txHash = generateHashOp(to, value, data, txnGas, txnNonce, validUntil, 0);
     uint256 ready = _readyAt[txHash];
@@ -490,15 +535,11 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   }
 
 
-  function cancelScheduled(
-    address to,
-    uint256 value,
-    bytes memory data,
-    uint256 txnGas,
-    uint256 txnNonce,
-    uint256 validUntil
-  ) public virtual onlyThis {
-    bytes32 txHash = generateHashOp(to, value, data, txnGas, txnNonce, validUntil, 0);
+  /// @notice Cancels a scheduled transaction by its EIP-712 hash — the value
+  ///         returned by `scheduleTransaction` and indexed in
+  ///         `TransactionScheduled`. Requires threshold consensus
+  ///         (`onlyThis`), same as every other admin action.
+  function cancelScheduled(bytes32 txHash) public virtual onlyThis {
     if (_readyAt[txHash] == 0) revert NotScheduled(txHash);
     delete _readyAt[txHash];
     delete _scheduledValidUntil[txHash];
@@ -563,22 +604,61 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     return cap > spent ? cap - spent : 0;
   }
 
+  /// @notice Sets `owner`'s daily allowance cap. Setting the cap to `0`
+  ///         removes the owner's allowance; the `_dailyLimitsEnabled` flag
+  ///         tracks whether ANY owner still has a non-zero cap, so clearing
+  ///         the last one turns the feature bit off again.
   function setDailySpendingLimit(address owner, uint256 limitWei) public virtual onlyThis {
+    uint256 previousLimit = _dailyLimitPerOwner[owner];
     _dailyLimitPerOwner[owner] = limitWei;
-    if (limitWei > 0) _dailyLimitsEnabled = true;
+    if (previousLimit == 0 && limitWei > 0) ++_dailyLimitOwnerCount;
+    else if (previousLimit > 0 && limitWei == 0) --_dailyLimitOwnerCount;
+    _dailyLimitsEnabled = _dailyLimitOwnerCount > 0;
     emit DailySpendingLimitSet(owner, limitWei);
   }
 
+  /// @notice Dedicated nonce consumed by `execTransactionWithSpendingAllowance`.
+  ///         Independent from `nonce()`: allowance spends never invalidate
+  ///         pending threshold-signed transactions.
+  function allowanceNonce() public view virtual returns (uint96) {
+    return _allowanceNonce;
+  }
+
+  /// @dev EIP-712 typed-data hash for the allowance path. Uses its own
+  ///      `AllowanceTransaction` typehash and the dedicated
+  ///      `allowanceNonce()`, so an allowance signature can never be
+  ///      replayed against `execTransaction` (or vice versa). Off-chain
+  ///      signers build the same digest with standard EIP-712 tooling
+  ///      (type `AllowanceTransaction`, the wallet's domain separator).
+  function _generateAllowanceHash(
+    address to,
+    uint256 value,
+    bytes memory data,
+    uint256 txnGas,
+    uint256 txnNonce,
+    uint256 validUntil
+  ) internal view virtual returns (bytes32) {
+    return
+      _hashTypedDataV4(
+        keccak256(abi.encode(_ALLOWANCE_TYPEHASH, to, value, keccak256(data), txnGas, txnNonce, validUntil))
+      );
+  }
+
   /// @notice Single-signer allowance path. Accepts ONE 65-byte ECDSA sig
-  ///         that must `ecrecover` to `msg.sender` — who must be a current
+  ///         that must recover to `msg.sender` — who must be a current
   ///         owner with a non-zero `_dailyLimitPerOwner`. The recovered
   ///         signer's daily cap is charged by `value`; failed inner calls
   ///         do NOT burn the cap.
-  /// @dev    Re-uses the same EIP-712 typehash as `execTransaction`. Bound
-  ///         to the same `(to, value, data, gas, nonce = _txnNonce,
-  ///         validUntil)` fields. Bumps `_txnNonce` once the signature
+  /// @dev    Signed over the dedicated `AllowanceTransaction` typehash bound
+  ///         to `(to, value, data, gas, nonce = allowanceNonce(),
+  ///         validUntil)`. Bumps `_allowanceNonce` once the signature
   ///         validates, so each signature is single-use — even when the
-  ///         inner call fails.
+  ///         inner call fails — while the wallet's main `nonce()` (and any
+  ///         pending threshold-signed transaction) is untouched.
+  ///         Runs the full pre-exec gates: a spend at or above
+  ///         `sensitiveValueThreshold` must go through the timelock like any
+  ///         other transaction, and self-calls are rejected outright so the
+  ///         single-signer path can never reach the `onlyThis` admin surface.
   function execTransactionWithSpendingAllowance(
     address to,
     uint256 value,
@@ -588,28 +668,28 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     bytes memory signatures
   ) public payable virtual nonReentrant returns (bool success) {
     if (signatures.length != 65) revert AllowanceRequiresSingleSigner();
-    uint96 currentNonce = nonce();
-    // Extended wallets bind `operation` into the EIP-712 typehash; the
-    // allowance path uses the 7-field typehash with operation = 0.
-    bytes32 txHash = generateHashOp(to, value, data, txnGas, currentNonce, validUntil, 0);
+    if (to == address(this)) revert AllowanceSelfCallNotAllowed();
+    if (validUntil != 0 && block.timestamp > validUntil) revert SignatureExpired();
+    uint96 currentNonce = _allowanceNonce;
+    bytes32 txHash = _generateAllowanceHash(to, value, data, txnGas, currentNonce, validUntil);
     address recovered = _recoverSigner(signatures, txHash);
     if (recovered != msg.sender || !isOwner(recovered)) revert AllowanceRequiresSingleSigner();
-    // The hash is bound to `currentNonce`, so bumping the nonce consumes
-    // the signature. Mirrors `_execTransaction`: the bump happens right
-    // after signature validation, whether or not the inner call succeeds.
-    _bumpNonce();
+    // The hash is bound to `currentNonce`, so bumping the allowance nonce
+    // consumes the signature. Mirrors `_execTransaction`: the bump happens
+    // right after signature validation, whether or not the inner call
+    // succeeds.
+    ++_allowanceNonce;
     uint256 cap = _dailyLimitPerOwner[recovered];
     if (cap == 0) revert AllowanceLimitNotSet(recovered);
     _rolloverIfNeeded(recovered);
     uint256 remaining = cap - _dailySpentByOwner[recovered];
     if (value > remaining) revert DailySpendingLimitExceeded(recovered, value, remaining);
 
-    _preExecChecksGuard(to, value, data);
+    _preExecChecks(to, value, data);
 
     success = _runLoggedCall(to, value, data, txnGas, currentNonce, validUntil);
     // Commit-on-success: failed inner calls don't burn the cap.
     if (success) _dailySpentByOwner[recovered] += value;
-    _emitEndOfLifeIfNear();
   }
 
   /// @dev Shared tail for the timelock (`executeScheduled`) and allowance
@@ -735,15 +815,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     }
 
     if (success) {
-      address guardContract = _guard;
-      if (guardContract != address(0)) {
-        bytes32 txHash = keccak256(abi.encode(msg.sender, to, value, data, operation, block.number));
-        try ITransactionGuard(guardContract).checkAfterExecution(txHash, true) {} catch (
-          bytes memory reason
-        ) {
-          emit PostExecutionGuardFailed(guardContract, reason);
-        }
-      }
+      _guardAfterRawExecution(to, value, data, operation);
     } else if (returnData.length > 0) {
       _revertWith(returnData);
     }
@@ -780,12 +852,12 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   }
 
   /// @dev Timelock reverse-route. Sensitive calls must go through
-  ///      `scheduleTransaction` instead. Bypassed by `executeScheduled`
-  ///      and `execTransactionWithSpendingAllowance`, both of which handle
-  ///      their own validation.
+  ///      `scheduleTransaction` instead. Bypassed only by `executeScheduled`,
+  ///      which runs the scheduled payload after its delay has elapsed.
   function _preExecChecksTimelock(address to, uint256 value, bytes memory data) internal virtual {
-    if (_timelockDelay > 0 && _isSensitive(to, _selectorOf(data), value)) {
-      revert SensitiveCallRequiresDelay(to, _selectorOf(data), value);
+    bytes4 selector = _selectorOf(data);
+    if (_timelockDelay > 0 && _isSensitive(to, selector, value)) {
+      revert SensitiveCallRequiresDelay(to, selector, value);
     }
   }
 
@@ -812,10 +884,25 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   ) internal virtual {
     address guardContract = _guard;
     if (guardContract != address(0)) {
-      bytes32 txHash = generateHashOp(to, value, data, txnGas, txnNoncePostBump, validUntil, 0);
-      try ITransactionGuard(guardContract).checkAfterExecution(txHash, true) {} catch (bytes memory reason) {
-        emit PostExecutionGuardFailed(guardContract, reason);
-      }
+      _guardCheckAfterExecution(guardContract, generateHashOp(to, value, data, txnGas, txnNoncePostBump, validUntil, 0));
+    }
+  }
+
+  /// @dev Shared silent `checkAfterExecution` call: a guard revert is logged
+  ///      via `PostExecutionGuardFailed` but never bubbles.
+  function _guardCheckAfterExecution(address guardContract, bytes32 txHash) internal {
+    try ITransactionGuard(guardContract).checkAfterExecution(txHash, true) {} catch (bytes memory reason) {
+      emit PostExecutionGuardFailed(guardContract, reason);
+    }
+  }
+
+  /// @dev Post-execution guard hook for the module and ERC-4337 `execute`
+  ///      paths, which have no EIP-712 hash: the guard receives an ad-hoc
+  ///      digest of `(sender, to, value, data, operation, block.number)`.
+  function _guardAfterRawExecution(address to, uint256 value, bytes memory data, uint256 operation) internal {
+    address guardContract = _guard;
+    if (guardContract != address(0)) {
+      _guardCheckAfterExecution(guardContract, keccak256(abi.encode(msg.sender, to, value, data, operation, block.number)));
     }
   }
 
@@ -871,18 +958,13 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   }
 
   /// @dev ECDSA recovery for the allowance path. Mirrors the ECDSA branch
-  ///      of `_validateVote`. Returns `address(0)` on malformed input; the
-  ///      caller verifies against `msg.sender` and owners.
+  ///      of `_validateVote`: OZ `ECDSA.tryRecover` enforces canonical
+  ///      low-`s` values and `v ∈ {27, 28}`. Returns `address(0)` on
+  ///      malformed or malleated input; the caller verifies against
+  ///      `msg.sender` and owners.
   function _recoverSigner(bytes memory sig, bytes32 txHash) internal pure virtual returns (address) {
-    bytes32 r;
-    bytes32 s;
-    uint8 v;
-    assembly {
-      r := mload(add(sig, 32))
-      s := mload(add(sig, 64))
-      v := and(mload(add(sig, 65)), 255)
-    }
-    return ecrecover(txHash, v, r, s);
+    (address recovered, ECDSA.RecoverError err) = ECDSA.tryRecover(txHash, sig);
+    return err == ECDSA.RecoverError.NoError ? recovered : address(0);
   }
 
   /// @dev Day rollover: if no reset yet, or last reset is older than 24h,
@@ -904,6 +986,13 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     keccak256(
       'Transaction(address to,uint256 value,bytes data,uint256 gas,uint96 nonce,uint256 validUntil,uint8 operation)'
     );
+
+  /// @notice EIP-712 typehash for the single-signer allowance payload. A
+  ///         distinct type name (`AllowanceTransaction`) plus the dedicated
+  ///         `allowanceNonce()` domain-separates allowance signatures from
+  ///         threshold `Transaction` signatures.
+  bytes32 private constant _ALLOWANCE_TYPEHASH =
+    keccak256('AllowanceTransaction(address to,uint256 value,bytes data,uint256 gas,uint96 nonce,uint256 validUntil)');
 
   /// @notice ERC-4337 v0.7 `validationData` magic values.
   uint256 private constant _SIG_VALIDATION_SUCCESS = 0;
@@ -1085,7 +1174,6 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     uint8 operation,
     bytes memory signatures
   ) internal virtual returns (bool success) {
-    if (validUntil != 0 && block.timestamp > validUntil) revert SignatureExpired();
     if (operation > 1) revert InvalidOperation(operation);
     if (operation == 1 && to != address(this)) revert InvalidOperation(operation);
 
@@ -1095,6 +1183,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     _preExecChecks(to, value, data);
 
     bytes32 txHash = generateHashOp(to, value, data, txnGas, txnNonce, validUntil, operation);
+    // `_validateSignatureOp` reverts `SignatureExpired` past `validUntil`.
     if (!_validateSignatureOp(txHash, txnNonce, validUntil, signatures)) revert InvalidSignatures();
 
     _bumpNonce();
@@ -1129,12 +1218,8 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   ) internal virtual returns (bool success, bytes memory returnData) {
     assembly {
       success := delegatecall(gasBudget, target, add(data, 0x20), mload(data), 0, 0)
-      let size := returndatasize()
-      returnData := mload(0x40)
-      mstore(returnData, size)
-      returndatacopy(add(returnData, 0x20), 0, size)
-      mstore(0x40, add(add(returnData, 0x20), and(add(size, 0x1f), not(0x1f))))
     }
+    returnData = _collectReturnData();
   }
 
   // --------- ERC-4337 v0.7 ---------
@@ -1194,13 +1279,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     _preExecChecks(to, value, data);
     (bool success, bytes memory returnData) = _rawCall(gasleft(), to, value, data);
     if (!success) _revertWith(returnData);
-    address guardContract = _guard;
-    if (guardContract != address(0)) {
-      bytes32 txHash = keccak256(abi.encode(msg.sender, to, value, data, uint256(0), block.number));
-      try ITransactionGuard(guardContract).checkAfterExecution(txHash, true) {} catch (bytes memory reason) {
-        emit PostExecutionGuardFailed(guardContract, reason);
-      }
-    }
+    _guardAfterRawExecution(to, value, data, 0);
   }
 
   /// @dev Sends the EntryPoint the deposit it is missing to prefund the
