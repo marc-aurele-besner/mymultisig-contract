@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
+import '@openzeppelin/contracts/utils/cryptography/ECDSA.sol';
 import '@openzeppelin/contracts/utils/cryptography/EIP712.sol';
 import '@openzeppelin/contracts/interfaces/IERC1271.sol';
 import '@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol';
@@ -352,6 +353,16 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   ) internal virtual returns (bool success, bytes memory returnData) {
     assembly {
       success := call(txnGas, to, value, add(data, 0x20), mload(data), 0, 0)
+    }
+    returnData = _collectReturnData();
+  }
+
+  /// @notice Copies the full returndata of the most recent external call
+  ///         into a fresh memory buffer. Shared by the CALL and DELEGATECALL
+  ///         wrappers; must run immediately after the call opcode, before
+  ///         any other external call clobbers the returndata buffer.
+  function _collectReturnData() internal pure returns (bytes memory returnData) {
+    assembly {
       let size := returndatasize()
       returnData := mload(0x40)
       mstore(returnData, size)
@@ -594,6 +605,14 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   ///         tx hash without any signature payload. An approval from an
   ///         address that is no longer an owner is skipped — it neither
   ///         counts toward the threshold nor blocks the remaining votes.
+  ///         Each owner counts at most once: a vote whose owner already
+  ///         approved on-chain, or already appeared at an earlier index of
+  ///         the same `Vote[]`, is skipped. This mirrors the per-`(nonce,
+  ///         owner)` slot bookkeeping of the mutating
+  ///         `_validateSignatureForHash` path, so a payload accepted here
+  ///         also reaches threshold inside `execTransaction` (build payloads
+  ///         with one entry per owner — a duplicated owner never adds a
+  ///         second vote on either path).
   function _checkSignatures(
     bytes32 txHash,
     uint256 txnNonce,
@@ -615,7 +634,12 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     for (uint256 i = 0; i < votesLength; ) {
       unchecked {
         if (counted >= threshold_) break;
-        if (_validateVote(txHash, votes[i].owner, votes[i].sig)) ++counted;
+        address voteOwner = votes[i].owner;
+        bool duplicate = _approvedHashes[txHash][voteOwner];
+        for (uint256 j; j < i && !duplicate; ++j) {
+          if (votes[j].owner == voteOwner) duplicate = true;
+        }
+        if (!duplicate && _validateVote(txHash, voteOwner, votes[i].sig)) ++counted;
         ++i;
       }
     }
@@ -627,8 +651,10 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   ///         `lastAction` via `_recordOwnerApproval`. Used by the mutating
   ///         `_validateSignature` path that runs inside `execTransaction`.
   /// @dev    Two signature shapes are accepted:
-  ///         - 65-byte ECDSA `r || s || v`: `ecrecover` derives the signer
-  ///           and we require `recovered == owner` AND `_owners[recovered]`.
+  ///         - 65-byte ECDSA `r || s || v`: OZ `ECDSA.tryRecover` derives the
+  ///           signer — enforcing canonical low-`s` values and `v ∈ {27, 28}`
+  ///           so a malleated twin of a valid signature is rejected — and we
+  ///           require `recovered == owner` AND `_owners[recovered]`.
   ///           The recovered address is the source of truth — a malicious
   ///           signer cannot lie about identity via ECDSA.
   ///         - any other length from a contract owner: we static-call
@@ -644,16 +670,8 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     if (!_owners[owner]) return false;
     if (sig.length == 65) {
       // ECDSA branch — recover and require recovered == owner.
-      bytes32 r;
-      bytes32 s;
-      uint8 v;
-      assembly {
-        r := mload(add(sig, 32))
-        s := mload(add(sig, 64))
-        v := and(mload(add(sig, 65)), 255)
-      }
-      address recovered = ecrecover(txHash, v, r, s);
-      if (recovered != owner) {
+      (address recovered, ECDSA.RecoverError err) = ECDSA.tryRecover(txHash, sig);
+      if (err != ECDSA.RecoverError.NoError || recovered != owner) {
         // Fall through to EIP-1271 only if the owner has code. A bare EOA
         // with a 65-byte payload that doesn't recover to it is a hostile /
         // mis-typed vote — reject.
@@ -800,7 +818,11 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @notice Adds an owner
   /// @param owner The address to be added as an owner.
   /// @dev This function can only be called inside a multisig transaction.
+  ///      Reverts with `NewOwnerMustNotBeZero` for the zero address — an
+  ///      `address(0)` owner slot can never vote and would only inflate
+  ///      `ownerCount`.
   function _addOwner(address owner) internal virtual {
+    if (owner == address(0)) revert NewOwnerMustNotBeZero();
     if (_owners[owner]) revert OwnerAlreadyExists();
     _owners[owner] = true;
     ++_ownerCount;

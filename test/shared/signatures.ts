@@ -115,6 +115,40 @@ export default {
       hashFields,
     )
   },
+  /// @notice Signs the extended wallet's single-signer allowance payload.
+  ///         Uses the dedicated `AllowanceTransaction` typehash and the
+  ///         wallet's `allowanceNonce()` domain — distinct from the
+  ///         threshold `Transaction` typehash on purpose.
+  signAllowanceTxn: async function (
+    contract: any,
+    sourceWallet: any,
+    to: string,
+    value: BigNumber,
+    data: string,
+    gas: number,
+    nonce: BigNumber,
+    validUntil: number = 0,
+  ) {
+    return sourceWallet._signTypedData(
+      {
+        name: constants.CONTRACT_NAME,
+        version: constants.CONTRACT_VERSION,
+        chainId: network.config.chainId,
+        verifyingContract: contract.address,
+      },
+      {
+        AllowanceTransaction: [
+          { name: 'to', type: 'address' },
+          { name: 'value', type: 'uint256' },
+          { name: 'data', type: 'bytes' },
+          { name: 'gas', type: 'uint256' },
+          { name: 'nonce', type: 'uint96' },
+          { name: 'validUntil', type: 'uint256' },
+        ],
+      },
+      { to, value, data, gas, nonce, validUntil },
+    )
+  },
   /// @notice Produces a raw 65-byte ECDSA signature over `digest` (no
   ///         EIP-712 envelope).
   signDigest: async function (signer: any, digest: string): Promise<string> {
