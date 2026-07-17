@@ -82,10 +82,11 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     "addOwner(address)": FunctionFragment;
     "advancedFeaturesEnabled()": FunctionFragment;
     "allowOnlyOwnerRequest()": FunctionFragment;
+    "allowanceNonce()": FunctionFragment;
     "allowedTargets(address)": FunctionFragment;
     "allowedTargetsEnabled()": FunctionFragment;
     "approveHash(bytes32)": FunctionFragment;
-    "cancelScheduled(address,uint256,bytes,uint256,uint256,uint256)": FunctionFragment;
+    "cancelScheduled(bytes32)": FunctionFragment;
     "changeThreshold(uint16)": FunctionFragment;
     "dailySpendingLimit(address)": FunctionFragment;
     "disableAllowlist()": FunctionFragment;
@@ -101,7 +102,7 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     "execTransactionFromModule(address,uint256,bytes,uint256)": FunctionFragment;
     "execTransactionWithSpendingAllowance(address,uint256,bytes,uint256,uint256,bytes)": FunctionFragment;
     "execute(address,uint256,bytes)": FunctionFragment;
-    "executeScheduled(address,uint256,bytes,uint256,uint256,uint256,bytes)": FunctionFragment;
+    "executeScheduled(address,uint256,bytes,uint256,uint256,uint256)": FunctionFragment;
     "generateHash(address,uint256,bytes,uint256,uint256,uint256)": FunctionFragment;
     "generateHashOp(address,uint256,bytes,uint256,uint256,uint256,uint8)": FunctionFragment;
     "getApprovedOwners(bytes32)": FunctionFragment;
@@ -165,6 +166,7 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
       | "addOwner"
       | "advancedFeaturesEnabled"
       | "allowOnlyOwnerRequest"
+      | "allowanceNonce"
       | "allowedTargets"
       | "allowedTargetsEnabled"
       | "approveHash"
@@ -259,6 +261,10 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
     values?: undefined
   ): string;
   encodeFunctionData(
+    functionFragment: "allowanceNonce",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
     functionFragment: "allowedTargets",
     values: [PromiseOrValue<string>]
   ): string;
@@ -272,14 +278,7 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "cancelScheduled",
-    values: [
-      PromiseOrValue<string>,
-      PromiseOrValue<BigNumberish>,
-      PromiseOrValue<BytesLike>,
-      PromiseOrValue<BigNumberish>,
-      PromiseOrValue<BigNumberish>,
-      PromiseOrValue<BigNumberish>
-    ]
+    values: [PromiseOrValue<BytesLike>]
   ): string;
   encodeFunctionData(
     functionFragment: "changeThreshold",
@@ -410,8 +409,7 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
       PromiseOrValue<BytesLike>,
       PromiseOrValue<BigNumberish>,
       PromiseOrValue<BigNumberish>,
-      PromiseOrValue<BigNumberish>,
-      PromiseOrValue<BytesLike>
+      PromiseOrValue<BigNumberish>
     ]
   ): string;
   encodeFunctionData(
@@ -706,6 +704,10 @@ export interface MyMultiSigExtendedInterface extends utils.Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "allowOnlyOwnerRequest",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "allowanceNonce",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -1397,6 +1399,8 @@ export interface MyMultiSigExtended extends BaseContract {
 
     allowOnlyOwnerRequest(overrides?: CallOverrides): Promise<[boolean]>;
 
+    allowanceNonce(overrides?: CallOverrides): Promise<[BigNumber]>;
+
     allowedTargets(
       target: PromiseOrValue<string>,
       overrides?: CallOverrides
@@ -1410,12 +1414,7 @@ export interface MyMultiSigExtended extends BaseContract {
     ): Promise<ContractTransaction>;
 
     cancelScheduled(
-      to: PromiseOrValue<string>,
-      value: PromiseOrValue<BigNumberish>,
-      data: PromiseOrValue<BytesLike>,
-      txnGas: PromiseOrValue<BigNumberish>,
-      txnNonce: PromiseOrValue<BigNumberish>,
-      validUntil: PromiseOrValue<BigNumberish>,
+      txHash: PromiseOrValue<BytesLike>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
@@ -1553,7 +1552,6 @@ export interface MyMultiSigExtended extends BaseContract {
       txnGas: PromiseOrValue<BigNumberish>,
       txnNonce: PromiseOrValue<BigNumberish>,
       validUntil: PromiseOrValue<BigNumberish>,
-      signatures: PromiseOrValue<BytesLike>,
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
@@ -1870,6 +1868,8 @@ export interface MyMultiSigExtended extends BaseContract {
 
   allowOnlyOwnerRequest(overrides?: CallOverrides): Promise<boolean>;
 
+  allowanceNonce(overrides?: CallOverrides): Promise<BigNumber>;
+
   allowedTargets(
     target: PromiseOrValue<string>,
     overrides?: CallOverrides
@@ -1883,12 +1883,7 @@ export interface MyMultiSigExtended extends BaseContract {
   ): Promise<ContractTransaction>;
 
   cancelScheduled(
-    to: PromiseOrValue<string>,
-    value: PromiseOrValue<BigNumberish>,
-    data: PromiseOrValue<BytesLike>,
-    txnGas: PromiseOrValue<BigNumberish>,
-    txnNonce: PromiseOrValue<BigNumberish>,
-    validUntil: PromiseOrValue<BigNumberish>,
+    txHash: PromiseOrValue<BytesLike>,
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
@@ -2026,7 +2021,6 @@ export interface MyMultiSigExtended extends BaseContract {
     txnGas: PromiseOrValue<BigNumberish>,
     txnNonce: PromiseOrValue<BigNumberish>,
     validUntil: PromiseOrValue<BigNumberish>,
-    signatures: PromiseOrValue<BytesLike>,
     overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
@@ -2341,6 +2335,8 @@ export interface MyMultiSigExtended extends BaseContract {
 
     allowOnlyOwnerRequest(overrides?: CallOverrides): Promise<boolean>;
 
+    allowanceNonce(overrides?: CallOverrides): Promise<BigNumber>;
+
     allowedTargets(
       target: PromiseOrValue<string>,
       overrides?: CallOverrides
@@ -2354,12 +2350,7 @@ export interface MyMultiSigExtended extends BaseContract {
     ): Promise<void>;
 
     cancelScheduled(
-      to: PromiseOrValue<string>,
-      value: PromiseOrValue<BigNumberish>,
-      data: PromiseOrValue<BytesLike>,
-      txnGas: PromiseOrValue<BigNumberish>,
-      txnNonce: PromiseOrValue<BigNumberish>,
-      validUntil: PromiseOrValue<BigNumberish>,
+      txHash: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<void>;
 
@@ -2495,7 +2486,6 @@ export interface MyMultiSigExtended extends BaseContract {
       txnGas: PromiseOrValue<BigNumberish>,
       txnNonce: PromiseOrValue<BigNumberish>,
       validUntil: PromiseOrValue<BigNumberish>,
-      signatures: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<boolean>;
 
@@ -3075,6 +3065,8 @@ export interface MyMultiSigExtended extends BaseContract {
 
     allowOnlyOwnerRequest(overrides?: CallOverrides): Promise<BigNumber>;
 
+    allowanceNonce(overrides?: CallOverrides): Promise<BigNumber>;
+
     allowedTargets(
       target: PromiseOrValue<string>,
       overrides?: CallOverrides
@@ -3088,12 +3080,7 @@ export interface MyMultiSigExtended extends BaseContract {
     ): Promise<BigNumber>;
 
     cancelScheduled(
-      to: PromiseOrValue<string>,
-      value: PromiseOrValue<BigNumberish>,
-      data: PromiseOrValue<BytesLike>,
-      txnGas: PromiseOrValue<BigNumberish>,
-      txnNonce: PromiseOrValue<BigNumberish>,
-      validUntil: PromiseOrValue<BigNumberish>,
+      txHash: PromiseOrValue<BytesLike>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
@@ -3219,7 +3206,6 @@ export interface MyMultiSigExtended extends BaseContract {
       txnGas: PromiseOrValue<BigNumberish>,
       txnNonce: PromiseOrValue<BigNumberish>,
       validUntil: PromiseOrValue<BigNumberish>,
-      signatures: PromiseOrValue<BytesLike>,
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
@@ -3539,6 +3525,8 @@ export interface MyMultiSigExtended extends BaseContract {
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
+    allowanceNonce(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
     allowedTargets(
       target: PromiseOrValue<string>,
       overrides?: CallOverrides
@@ -3554,12 +3542,7 @@ export interface MyMultiSigExtended extends BaseContract {
     ): Promise<PopulatedTransaction>;
 
     cancelScheduled(
-      to: PromiseOrValue<string>,
-      value: PromiseOrValue<BigNumberish>,
-      data: PromiseOrValue<BytesLike>,
-      txnGas: PromiseOrValue<BigNumberish>,
-      txnNonce: PromiseOrValue<BigNumberish>,
-      validUntil: PromiseOrValue<BigNumberish>,
+      txHash: PromiseOrValue<BytesLike>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
@@ -3685,7 +3668,6 @@ export interface MyMultiSigExtended extends BaseContract {
       txnGas: PromiseOrValue<BigNumberish>,
       txnNonce: PromiseOrValue<BigNumberish>,
       validUntil: PromiseOrValue<BigNumberish>,
-      signatures: PromiseOrValue<BytesLike>,
       overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
