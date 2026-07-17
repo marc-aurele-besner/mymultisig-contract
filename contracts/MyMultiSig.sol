@@ -5,16 +5,24 @@ import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 import '@openzeppelin/contracts/utils/cryptography/ECDSA.sol';
 import '@openzeppelin/contracts/utils/cryptography/EIP712.sol';
 import '@openzeppelin/contracts/interfaces/IERC1271.sol';
+import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 import '@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol';
 import '@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol';
 
-contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
+contract MyMultiSig is ReentrancyGuard, EIP712, IERC1271, ERC721Holder, ERC1155Holder {
   string private _name;
   uint96 private _txnNonce;
   uint16 private _threshold;
   uint16 private _ownerCount;
 
-  mapping(address => bool) private _owners;
+  /// @notice Owners as a sentinel-headed singly-linked list (the same
+  ///         pattern as the modules list in `MyMultiSigExtended`):
+  ///         `_ownersNext[_SENTINEL_OWNER]` is the most recently added owner,
+  ///         each owner points to the next one, and the last owner points
+  ///         back to `_SENTINEL_OWNER`. An address is an owner iff its entry
+  ///         is non-zero (see `isOwner`), and the list makes the full owner
+  ///         set enumerable on-chain via `getOwners`.
+  mapping(address => address) private _ownersNext;
   mapping(uint256 => bool) private _ownerNonceSigned;
   /// @notice Per-hash set of owners who have pre-approved the transaction
   ///         via `approveHash`. Keyed by the 32-byte EIP-712 transaction hash.
@@ -29,6 +37,16 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   ///         cannot be replayed against another wallet. Read by the
   ///         EIP-1271 `isValidSignature(bytes32,bytes)` empty-signature path.
   mapping(bytes32 => bool) private _signedMessages;
+
+  /// @notice When true, an inner call that fails inside `execTransaction`
+  ///         reverts the whole transaction (`TxSuccessRequired`) instead of
+  ///         emitting `TxFailure` — so the nonce is not consumed and the
+  ///         collected signatures stay usable for a retry.
+  bool private _requireTxSuccess;
+
+  /// @notice Sentinel head/tail of the owners linked list. Never a valid
+  ///         owner itself; `_addOwner` rejects it like the zero address.
+  address private constant _SENTINEL_OWNER = address(0x1);
 
   /// @notice EIP-712 typehash for the per-transaction payload. Includes a
   ///         `uint256 validUntil` deadline so signatures carry an explicit
@@ -113,6 +131,9 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @notice Emitted when a previously-signed message is withdrawn via
   ///         `unsignMessage`, so EIP-1271 verifiers stop accepting it.
   event MessageUnsigned(bytes32 indexed msgHash);
+  /// @notice Emitted when `setRequireTxSuccess` toggles the must-succeed
+  ///         execution mode (see `requireTxSuccess`).
+  event RequireTxSuccessSet(bool required);
 
   error OnlyThisContract();
   error TooManyOwners();
@@ -136,6 +157,17 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   ///         outer `execTransaction` reverts — no side effects from the
   ///         batch persist.
   error BatchCallFailed(uint256 index, bytes reason);
+  /// @notice `multiRequest` / `multiRequestStrict` received arrays of
+  ///         different lengths — every batch array must have one entry per
+  ///         inner call.
+  error ArrayLengthMismatch();
+  /// @notice The inner call failed while `requireTxSuccess()` is enabled.
+  ///         The whole `execTransaction` reverts, so the nonce is not
+  ///         consumed and the collected signatures stay usable.
+  error TxSuccessRequired();
+  /// @notice `removeOwner` was called for an address that is not a current
+  ///         owner.
+  error OwnerToRemoveMustBeOwner();
   error NotOwner();
   error NotEnoughGas();
   error OwnerAlreadyExists();
@@ -153,6 +185,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
 
   constructor(string memory name_, address[] memory owners_, uint16 threshold_) EIP712(name_, version()) {
     _name = name_;
+    _ownersNext[_SENTINEL_OWNER] = _SENTINEL_OWNER;
     uint256 length = owners_.length;
     if (length > 2 ** 16 - 1) revert TooManyOwners();
     for (uint256 i = 0; i < length; ) {
@@ -200,7 +233,50 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @param owner The address to be checked.
   /// @return True if the address is the owner, false otherwise.
   function isOwner(address owner) public view virtual returns (bool) {
-    return _owners[owner];
+    return owner != _SENTINEL_OWNER && _ownersNext[owner] != address(0);
+  }
+
+  /// @notice Returns every current owner by walking the linked list. Order
+  ///         is most-recently-added first (owners are inserted at the head,
+  ///         like the modules list in `MyMultiSigExtended`); `replaceOwner`
+  ///         keeps the replaced owner's position.
+  /// @return owners The list of current owner addresses.
+  function getOwners() public view virtual returns (address[] memory owners) {
+    owners = new address[](_ownerCount);
+    address cursor = _ownersNext[_SENTINEL_OWNER];
+    for (uint256 i; cursor != _SENTINEL_OWNER; ) {
+      owners[i] = cursor;
+      cursor = _ownersNext[cursor];
+      unchecked {
+        ++i;
+      }
+    }
+  }
+
+  /// @notice Whether must-succeed execution mode is on. When enabled, a
+  ///         failed inner call reverts the whole `execTransaction` with
+  ///         `TxSuccessRequired` instead of emitting `TxFailure` and
+  ///         consuming the nonce.
+  function requireTxSuccess() public view virtual returns (bool) {
+    return _requireTxSuccess;
+  }
+
+  /// @notice Toggles must-succeed execution mode (see `requireTxSuccess`).
+  /// @param required True to revert `execTransaction` on inner-call failure.
+  /// @dev This function can only be called inside a multisig transaction.
+  function setRequireTxSuccess(bool required) public virtual onlyThis {
+    _requireTxSuccess = required;
+    emit RequireTxSuccessSet(required);
+  }
+
+  /// @notice ERC-165 introspection. Advertises EIP-1271
+  ///         (`isValidSignature(bytes32,bytes)`), the ERC-721 and ERC-1155
+  ///         receiver hooks, and ERC-165 itself.
+  function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
+    return
+      interfaceId == type(IERC1271).interfaceId ||
+      interfaceId == type(IERC721Receiver).interfaceId ||
+      super.supportsInterface(interfaceId);
   }
 
   /// @notice Returns the owners who have pre-approved the given hash via
@@ -236,7 +312,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   ///      Reverts with `NotOwner` if `msg.sender` is not a current owner.
   /// @param hash The EIP-712 transaction hash to approve.
   function approveHash(bytes32 hash) public virtual {
-    if (!_owners[msg.sender]) revert NotOwner();
+    if (!isOwner(msg.sender)) revert NotOwner();
     if (_approvedHashes[hash][msg.sender]) return;
     _approvedHashes[hash][msg.sender] = true;
     _approvedOwners[hash].push(msg.sender);
@@ -262,7 +338,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   ///      `MyMultiSigExtended`).
   /// @param hash The EIP-712 transaction hash to revoke.
   function revokeApproval(bytes32 hash) public virtual {
-    if (!_owners[msg.sender]) revert NotOwner();
+    if (!isOwner(msg.sender)) revert NotOwner();
     if (!_approvedHashes[hash][msg.sender]) revert NotApproved();
     _approvedHashes[hash][msg.sender] = false;
     _removeApprovedOwner(hash, msg.sender);
@@ -419,6 +495,8 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
       // caller can decode the actual reason — emitting TxFailure here would
       // hide the structured error inside an opaque bytes blob.
       _revertWith(returnData);
+    } else if (_requireTxSuccess) {
+      revert TxSuccessRequired();
     } else {
       emit TxFailure(msg.sender, to, value, data, txnGas, txnNonce, returnData);
     }
@@ -451,6 +529,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     uint256[] memory txGas
   ) public payable virtual onlyThis returns (bool[] memory successes, bytes[] memory returnData) {
     uint256 qty = to.length;
+    if (value.length != qty || data.length != qty || txGas.length != qty) revert ArrayLengthMismatch();
     successes = new bool[](qty);
     returnData = new bytes[](qty);
     for (uint256 i; i < qty; ) {
@@ -491,6 +570,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     uint256[] memory txGas
   ) public payable virtual onlyThis {
     uint256 qty = to.length;
+    if (value.length != qty || data.length != qty || txGas.length != qty) revert ArrayLengthMismatch();
     for (uint256 i; i < qty; ) {
       _beforeInnerCall(to[i], value[i], data[i]);
       (bool ok, bytes memory returnData) = _rawCall(txGas[i], to[i], value[i], data[i]);
@@ -624,7 +704,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     uint256 counted;
     for (uint256 i; i < approvedLength; ) {
       unchecked {
-        if (_owners[approved[i]]) ++counted;
+        if (isOwner(approved[i])) ++counted;
         ++i;
       }
     }
@@ -654,7 +734,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   ///         - 65-byte ECDSA `r || s || v`: OZ `ECDSA.tryRecover` derives the
   ///           signer — enforcing canonical low-`s` values and `v ∈ {27, 28}`
   ///           so a malleated twin of a valid signature is rejected — and we
-  ///           require `recovered == owner` AND `_owners[recovered]`.
+  ///           require `recovered == owner` AND `isOwner(recovered)`.
   ///           The recovered address is the source of truth — a malicious
   ///           signer cannot lie about identity via ECDSA.
   ///         - any other length from a contract owner: we static-call
@@ -667,7 +747,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     address owner,
     bytes memory sig
   ) internal view virtual returns (bool) {
-    if (!_owners[owner]) return false;
+    if (!isOwner(owner)) return false;
     if (sig.length == 65) {
       // ECDSA branch — recover and require recovered == owner.
       (address recovered, ECDSA.RecoverError err) = ECDSA.tryRecover(txHash, sig);
@@ -759,22 +839,45 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
     for (uint256 i; i < approvedLength; ) {
       unchecked {
         address approvedOwner = approved[i];
-        if (_owners[approvedOwner] && _recordVote(txHash, txnNonce, approvedOwner)) ++counted;
+        if (isOwner(approvedOwner) && _recordVote(txHash, txnNonce, approvedOwner)) ++counted;
         ++i;
       }
     }
-    if (counted >= threshold_) return true;
-    Vote[] memory votes = _decodeVotes(signatures);
-    uint256 votesLength = votes.length;
-    for (uint256 i = 0; i < votesLength; ) {
+    if (counted < threshold_) {
+      Vote[] memory votes = _decodeVotes(signatures);
+      uint256 votesLength = votes.length;
+      for (uint256 i = 0; i < votesLength; ) {
+        unchecked {
+          if (counted >= threshold_) break;
+          if (_validateVote(txHash, votes[i].owner, votes[i].sig) && _recordVote(txHash, txnNonce, votes[i].owner))
+            ++counted;
+          ++i;
+        }
+      }
+    }
+    valid = counted >= threshold_;
+    // The hash is about to execute (or be scheduled): its on-chain approvals
+    // are consumed, so clear them. This keeps `getApprovedOwners` accurate
+    // and stops stale entries (e.g. from since-removed owners) from
+    // inflating the vote-count loops of this hash forever.
+    if (valid) _pruneApprovals(txHash);
+  }
+
+  /// @notice Clears every `approveHash` record for `txHash`: each owner's
+  ///         `_approvedHashes` flag and the whole `_approvedOwners` list.
+  ///         Called once a hash reaches threshold on the mutating
+  ///         validation path — the approvals are consumed by the execution.
+  function _pruneApprovals(bytes32 txHash) internal virtual {
+    address[] storage approved = _approvedOwners[txHash];
+    uint256 n = approved.length;
+    if (n == 0) return;
+    for (uint256 i; i < n; ) {
       unchecked {
-        if (counted >= threshold_) break;
-        if (_validateVote(txHash, votes[i].owner, votes[i].sig) && _recordVote(txHash, txnNonce, votes[i].owner))
-          ++counted;
+        _approvedHashes[txHash][approved[i]] = false;
         ++i;
       }
     }
-    return counted >= threshold_;
+    delete _approvedOwners[txHash];
   }
 
   /// @notice Decodes an ABI-encoded `(address owner, bytes sig)[]` blob.
@@ -818,13 +921,14 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @notice Adds an owner
   /// @param owner The address to be added as an owner.
   /// @dev This function can only be called inside a multisig transaction.
-  ///      Reverts with `NewOwnerMustNotBeZero` for the zero address — an
-  ///      `address(0)` owner slot can never vote and would only inflate
-  ///      `ownerCount`.
+  ///      Reverts with `NewOwnerMustNotBeZero` for the zero address and the
+  ///      linked-list sentinel (`address(0x1)`) — neither can ever vote,
+  ///      and both are reserved by the owners list encoding.
   function _addOwner(address owner) internal virtual {
-    if (owner == address(0)) revert NewOwnerMustNotBeZero();
-    if (_owners[owner]) revert OwnerAlreadyExists();
-    _owners[owner] = true;
+    if (owner == address(0) || owner == _SENTINEL_OWNER) revert NewOwnerMustNotBeZero();
+    if (_ownersNext[owner] != address(0)) revert OwnerAlreadyExists();
+    _ownersNext[owner] = _ownersNext[_SENTINEL_OWNER];
+    _ownersNext[_SENTINEL_OWNER] = owner;
     ++_ownerCount;
     emit OwnerAdded(owner);
   }
@@ -842,10 +946,25 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @dev This function can only be called inside a multisig transaction.
 
   function _removeOwner(address owner) internal virtual {
+    if (!isOwner(owner)) revert OwnerToRemoveMustBeOwner();
     if (_ownerCount <= _threshold) revert CannotRemoveOwnerBelowThreshold();
-    _owners[owner] = false;
+    _ownersNext[_findPrevOwner(owner)] = _ownersNext[owner];
+    delete _ownersNext[owner];
     --_ownerCount;
     emit OwnerRemoved(owner);
+  }
+
+  /// @dev Walks the owners linked list to find the entry pointing at
+  ///      `owner`. The caller has already verified `owner` is a current
+  ///      owner, so the walk always terminates. O(n) SLOADs, but owner
+  ///      removal / replacement is a rare admin action.
+  function _findPrevOwner(address owner) private view returns (address prev) {
+    prev = _SENTINEL_OWNER;
+    address cursor = _ownersNext[_SENTINEL_OWNER];
+    while (cursor != owner) {
+      prev = cursor;
+      cursor = _ownersNext[cursor];
+    }
   }
 
   /// @notice Removes an owner
@@ -886,11 +1005,14 @@ contract MyMultiSig is ReentrancyGuard, EIP712, ERC721Holder, ERC1155Holder {
   /// @param newOwner The new owner.
   /// @dev This function can only be called inside a multisig transaction.
   function _replaceOwner(address oldOwner, address newOwner) internal virtual {
-    if (!_owners[oldOwner]) revert OldOwnerMustBeOwner();
-    if (_owners[newOwner]) revert NewOwnerMustNotBeOwner();
-    if (newOwner == address(0)) revert NewOwnerMustNotBeZero();
-    _owners[oldOwner] = false;
-    _owners[newOwner] = true;
+    if (!isOwner(oldOwner)) revert OldOwnerMustBeOwner();
+    if (isOwner(newOwner)) revert NewOwnerMustNotBeOwner();
+    if (newOwner == address(0) || newOwner == _SENTINEL_OWNER) revert NewOwnerMustNotBeZero();
+    // Splice the new owner into the old owner's position in the linked
+    // list, so list order is preserved.
+    _ownersNext[newOwner] = _ownersNext[oldOwner];
+    _ownersNext[_findPrevOwner(oldOwner)] = newOwner;
+    delete _ownersNext[oldOwner];
     emit OwnerRemoved(oldOwner);
     emit OwnerAdded(newOwner);
   }
