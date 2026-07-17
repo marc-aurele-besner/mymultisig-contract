@@ -794,6 +794,41 @@ abstract contract TestBasic is Helper {
     assertEq(myMultiSig.nonce(), nonceBefore);
   }
 
+  function testMyMultiSig_requireTxSuccess_payloadRevertBubblesInnerError() public {
+    // Enable the flag through a threshold-signed self-call.
+    address to = address(myMultiSig);
+    bytes memory enableData = abi.encodeWithSignature('setRequireTxSuccess(bool)', true);
+    help_execTransaction(
+      myMultiSig,
+      OWNERS[0],
+      to,
+      0,
+      enableData,
+      DEFAULT_GAS,
+      build_signatures(myMultiSig, OWNERS_PK, to, 0, enableData, DEFAULT_GAS)
+    );
+    assertTrue(myMultiSig.requireTxSuccess());
+
+    // An inner call that reverts WITH a payload bubbles that payload — not
+    // `TxSuccessRequired` — and preserves the nonce, so the failure policy
+    // for payload-carrying reverts is identical whichever way the flag is set.
+    uint96 nonceBefore = myMultiSig.nonce();
+    bytes memory data = build_removeOwner(NOT_OWNERS[0]);
+    bytes memory signatures = build_signatures(myMultiSig, OWNERS_PK, to, 0, data, DEFAULT_GAS);
+    help_execTransaction(
+      myMultiSig,
+      OWNERS[0],
+      to,
+      0,
+      data,
+      DEFAULT_GAS,
+      signatures,
+      nonceBefore,
+      Errors.RevertStatus.OwnerToRemoveMustBeOwner
+    );
+    assertEq(myMultiSig.nonce(), nonceBefore);
+  }
+
   // ---------------------------------------------------------------------
   // approval pruning after execution
   // ---------------------------------------------------------------------
