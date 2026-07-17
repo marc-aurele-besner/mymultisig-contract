@@ -38,10 +38,14 @@ const setupContract = async (
   let ContractFactory
   let contract
   // v0.5.0 — the wallet bytecode is large enough that the hardhat
-  // node's per-tx 16M cap can be hit by auto-estimation. Pass an
-  // explicit `gasLimit` on every deploy so the auto-estimator doesn't
-  // pick a number above the cap.
-  const DEPLOY_GAS = 50_000_000
+  // node's per-tx 16M cap can be hit by auto-estimation, so local dev
+  // chains get an explicit `gasLimit` on every deploy. Live networks
+  // reject any gas limit above their block gas limit ("gas limit too
+  // high"), so there we pass no override and let the node estimate.
+  const LOCAL_CHAIN_IDS = [31337, 9999]
+  const isLocalNetwork =
+    network.name === 'hardhat' || LOCAL_CHAIN_IDS.includes(network.config.chainId ?? 0)
+  const deployOverrides = isLocalNetwork ? { gasLimit: 50_000_000 } : {}
 
   // Get contract artifacts and deploy contract
   if (deployFactory) {
@@ -49,19 +53,20 @@ const setupContract = async (
     // delegates deployment to two tiny helper contracts whose addresses are
     // passed in via the implementation's constructor. Deploy them first.
     const MyMultiSigDeployer = await ethers.getContractFactory('MyMultiSigDeployer')
-    const myMultiSigDeployer = await MyMultiSigDeployer.deploy({ gasLimit: DEPLOY_GAS })
+    const myMultiSigDeployer = await MyMultiSigDeployer.deploy(deployOverrides)
     await myMultiSigDeployer.deployed()
     const MyMultiSigExtendedDeployer = await ethers.getContractFactory('MyMultiSigExtendedDeployer')
-    const myMultiSigExtendedDeployer = await MyMultiSigExtendedDeployer.deploy({ gasLimit: DEPLOY_GAS })
+    const myMultiSigExtendedDeployer = await MyMultiSigExtendedDeployer.deploy(deployOverrides)
     await myMultiSigExtendedDeployer.deployed()
     // The "Advanced" deployer is a tiny wrapper around the Extended
     // deployer — see `MyMultiSigAdvancedDeployer.sol` — so factory
     // bookkeeping can distinguish the creation path without paying for a
     // second copy of the wallet bytecode.
     const MyMultiSigAdvancedDeployer = await ethers.getContractFactory('MyMultiSigAdvancedDeployer')
-    const myMultiSigAdvancedDeployer = await MyMultiSigAdvancedDeployer.deploy(myMultiSigExtendedDeployer.address, {
-      gasLimit: DEPLOY_GAS,
-    })
+    const myMultiSigAdvancedDeployer = await MyMultiSigAdvancedDeployer.deploy(
+      myMultiSigExtendedDeployer.address,
+      deployOverrides,
+    )
     await myMultiSigAdvancedDeployer.deployed()
 
     ContractFactory = await ethers.getContractFactory(contractName)
@@ -71,14 +76,12 @@ const setupContract = async (
         myMultiSigExtendedDeployer.address,
         myMultiSigAdvancedDeployer.address,
       ],
-      gasLimit: DEPLOY_GAS,
+      ...deployOverrides,
     })
   } else {
     if (!deployExtended) {
       ContractFactory = await ethers.getContractFactory(contractName)
-      contract = await ContractFactory.deploy(contractName, ownersAddresses, threshold, {
-        gasLimit: DEPLOY_GAS,
-      })
+      contract = await ContractFactory.deploy(contractName, ownersAddresses, threshold, deployOverrides)
     } else {
       ContractFactory = await ethers.getContractFactory(contractName + 'Extended')
       // v0.5.0 `MyMultiSigExtended` constructor adds an `entryPoint_`
@@ -91,7 +94,7 @@ const setupContract = async (
         threshold,
         constants.DEFAULT_ALLOW_ONLY_OWNER,
         constants.ENTRY_POINT_V07_ADDRESS,
-        { gasLimit: DEPLOY_GAS },
+        deployOverrides,
       )
     }
   }
