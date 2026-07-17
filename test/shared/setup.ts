@@ -109,6 +109,9 @@ const setupContract = async (
   // Wait for contract to be deployed
   await contract.deployed()
 
+  // `saveContract` only persists to the address-book JSON files when its
+  // trailing `forceAdd` flag is true; it always skips the hardhat/localhost/
+  // anvil networks internally, so local test runs never touch the files.
   await addressBook.saveContract(
     contractName,
     contract.address,
@@ -123,8 +126,12 @@ const setupContract = async (
       owners: ownersAddresses,
       threshold,
     },
+    true,
   )
-  if ((await addressBook.retrieveContract(contractName, network.name)) === undefined)
+  // `retrieveContract` returns an empty string when no record matches, and a
+  // stale record would return an old address — require the freshly deployed
+  // address on the networks where the save is expected to persist.
+  if (!isLocalNetwork && (await addressBook.retrieveContract(contractName, network.name)) !== contract.address)
     throw new Error('Error saving and retrieving contract from address book.')
 
   return { contract, contractName, contractAddress: contract.address, ownersAddresses, threshold }
