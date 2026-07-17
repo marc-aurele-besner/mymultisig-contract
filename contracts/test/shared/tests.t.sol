@@ -135,6 +135,11 @@ abstract contract TestBasic is Helper {
 
     for (uint256 i = 0; i < NEW_OWNERS_COUNT; i++) {
       buildData[i] = build_removeOwner(NOT_OWNERS[i]);
+      // Removal walks the owners linked list to find the predecessor.
+      // NOT_OWNERS[0] sits ~100 nodes deep, so the first removals pay up
+      // to ~100 cold SLOADs (~210k gas) on top of the removal itself —
+      // give every inner call enough budget for a fully cold walk.
+      buildGas[i] = 400_000;
     }
 
     help_multiRequest(OWNERS[0], myMultiSig, OWNERS_PK, buildTo, buildValue, buildData, buildGas);
