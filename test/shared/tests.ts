@@ -1191,6 +1191,181 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
       })
     })
 
+    describe('getOwners - on-chain owner enumeration', function () {
+      it('getOwners returns every current owner', async function () {
+        const owners = await contract.getOwners()
+        expect(owners).to.have.lengthOf(3)
+        expect(owners).to.include.members([owner01.address, owner02.address, owner03.address])
+        expect(owners.length).to.equal(await contract.ownerCount())
+      })
+
+      it('getOwners tracks addOwner, removeOwner and replaceOwner', async function () {
+        await Helper.addOwner(contract, owner01, [owner01, owner02, owner03], user01.address)
+        let owners = await contract.getOwners()
+        expect(owners).to.have.lengthOf(4)
+        expect(owners).to.include(user01.address)
+
+        await Helper.removeOwner(contract, owner01, [owner01, owner02, owner03], user01.address, Helper.DEFAULT_GAS * 2)
+        owners = await contract.getOwners()
+        expect(owners).to.have.lengthOf(3)
+        expect(owners).to.not.include(user01.address)
+
+        await Helper.replaceOwner(
+          contract,
+          owner01,
+          [owner01, owner02, owner03],
+          user02.address,
+          owner03.address,
+          Helper.DEFAULT_GAS * 2,
+        )
+        owners = await contract.getOwners()
+        expect(owners).to.have.lengthOf(3)
+        expect(owners).to.include(user02.address)
+        expect(owners).to.not.include(owner03.address)
+      })
+
+      it('removeOwner for a non-owner reverts with OwnerToRemoveMustBeOwner', async function () {
+        const data = contract.interface.encodeFunctionData('removeOwner', [user01.address]) as `0x${string}`
+        await Helper.execTransaction(
+          contract,
+          owner01,
+          [owner01, owner02, owner03],
+          contract.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          Helper.errors.OWNER_TO_REMOVE_MUST_BE_OWNER,
+        )
+        expect(await contract.ownerCount()).to.equal(3)
+      })
+    })
+
+    describe('ERC-165 introspection', function () {
+      it('supportsInterface advertises ERC-165, EIP-1271 and the token receiver hooks', async function () {
+        expect(await contract.supportsInterface('0x01ffc9a7')).to.be.true // ERC-165
+        expect(await contract.supportsInterface('0x1626ba7e')).to.be.true // EIP-1271
+        expect(await contract.supportsInterface('0x150b7a02')).to.be.true // ERC-721 receiver
+        expect(await contract.supportsInterface('0x4e2312e0')).to.be.true // ERC-1155 receiver
+        expect(await contract.supportsInterface('0xffffffff')).to.be.false
+      })
+    })
+
+    describe('multiRequest - array-length validation', function () {
+      it('multiRequest with mismatched array lengths reverts with ArrayLengthMismatch', async function () {
+        const data = contract.interface.encodeFunctionData('multiRequest', [
+          [user01.address, user02.address],
+          [0], // one entry short
+          ['0x', '0x'],
+          [30000, 30000],
+        ]) as `0x${string}`
+        await Helper.execTransaction(
+          contract,
+          owner01,
+          [owner01, owner02, owner03],
+          contract.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          Helper.errors.ARRAY_LENGTH_MISMATCH,
+        )
+      })
+
+      it('multiRequestStrict with mismatched array lengths reverts with ArrayLengthMismatch', async function () {
+        const data = contract.interface.encodeFunctionData('multiRequestStrict', [
+          [user01.address, user02.address],
+          [0, 0],
+          ['0x'], // one entry short
+          [30000, 30000],
+        ]) as `0x${string}`
+        await Helper.execTransaction(
+          contract,
+          owner01,
+          [owner01, owner02, owner03],
+          contract.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          Helper.errors.ARRAY_LENGTH_MISMATCH,
+        )
+      })
+    })
+
+    describe('requireTxSuccess - must-succeed execution mode', function () {
+      it('defaults to false and cannot be toggled directly', async function () {
+        expect(await contract.requireTxSuccess()).to.be.false
+        await expect(contract.connect(owner01).setRequireTxSuccess(true)).to.be.revertedWithCustomError(
+          contract,
+          Helper.errors.ONLY_SELF,
+        )
+      })
+
+      it('a failed inner call reverts the exec and preserves the nonce once enabled', async function () {
+        const enableData = contract.interface.encodeFunctionData('setRequireTxSuccess', [true]) as `0x${string}`
+        await Helper.execTransaction(
+          contract,
+          owner01,
+          [owner01, owner02, owner03],
+          contract.address,
+          Helper.ZERO,
+          enableData,
+          Helper.DEFAULT_GAS,
+        )
+        expect(await contract.requireTxSuccess()).to.be.true
+
+        // 1 wei from an empty wallet fails silently; the exec must now
+        // revert instead of emitting TxFailure, keeping the nonce (and the
+        // collected signatures) intact.
+        const nonceBefore = await contract.nonce()
+        await Helper.execTransaction(
+          contract,
+          owner01,
+          [owner01, owner02, owner03],
+          user01.address,
+          ethers.utils.parseEther('1'),
+          '0x',
+          Helper.DEFAULT_GAS,
+          Helper.errors.TX_SUCCESS_REQUIRED,
+        )
+        expect(await contract.nonce()).to.equal(nonceBefore)
+      })
+    })
+
+    describe('approval pruning after execution', function () {
+      it('on-chain approvals are cleared once the transaction executes', async function () {
+        const data = contract.interface.encodeFunctionData('addOwner(address)', [user01.address]) as `0x${string}`
+        const hash = await Helper.generateHashForWallet(
+          contract,
+          contract.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          ethers.BigNumber.from(0),
+          0,
+        )
+        await Helper.approveHash(contract, owner01, hash)
+        await Helper.approveHash(contract, owner02, hash)
+        expect(await contract.getApprovedOwners(hash)).to.have.lengthOf(2)
+
+        // Execute with no ECDSA votes: the two approvals reach the threshold.
+        const emptyVotes = ethers.utils.defaultAbiCoder.encode(['tuple(address owner, bytes sig)[]'], [[]])
+        await Helper.execTransaction(
+          contract,
+          owner01,
+          [],
+          contract.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          undefined,
+          ['OwnerAdded'],
+          emptyVotes,
+        )
+        expect(await contract.isOwner(user01.address)).to.be.true
+        // The consumed approvals were pruned with the execution.
+        expect(await contract.getApprovedOwners(hash)).to.have.lengthOf(0)
+      })
+    })
+
     describe('signMessage - on-chain typed-data auth (EIP-1271)', function () {
       const MAGIC = '0x1626ba7e'
       const NOT_MAGIC = '0xffffffff'
@@ -1762,7 +1937,16 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         ethers.BigNumber.from(60).mul(60).mul(24).mul(7),
       )
       await Helper.setOwnerSettings(contract, owner01.address, owner01, [owner01, owner02, owner03], eightDays, user02.address)
-      await Helper.replaceOwner(contract, owner01, [owner01, owner02, owner03], user01.address, owner01.address)
+      // Owner replacement pays for the delegate release plus the owners
+      // linked-list splice, so it needs more than the default inner budget.
+      await Helper.replaceOwner(
+        contract,
+        owner01,
+        [owner01, owner02, owner03],
+        user01.address,
+        owner01.address,
+        Helper.DEFAULT_GAS * 2,
+      )
       await Helper.setOwnerSettings(contract, owner02.address, owner02, [owner02, owner03, user01], eightDays, user02.address)
     })
 
@@ -2785,6 +2969,30 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
         ).to.be.revertedWithCustomError(contract, 'NotScheduled')
       })
 
+      it('scheduleTransaction rejects a nonce that is not the current one', async function () {
+        await Helper.setTimelockDelay(contract, owner01, [owner01, owner02], 60)
+        const data = contract.interface.encodeFunctionData('addOwner(address)', [user01.address])
+        const nonce = await contract.nonce()
+        const wrongNonce = nonce.add(1)
+        const signatures = await Helper.prepareSignatures(
+          contract,
+          [owner01, owner02],
+          contract.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          wrongNonce,
+          0,
+        )
+        await expect(
+          contract
+            .connect(owner01)
+            .scheduleTransaction(contract.address, Helper.ZERO, data, Helper.DEFAULT_GAS, wrongNonce, 0, signatures),
+        ).to.be.revertedWithCustomError(contract, Helper.errors.SCHEDULE_NONCE_NOT_CURRENT)
+        // Nothing was consumed: the nonce is untouched.
+        expect(await contract.nonce()).to.equal(nonce)
+      })
+
       it('cancelScheduled by hash clears a pending schedule', async function () {
         await Helper.setTimelockDelay(contract, owner01, [owner01, owner02], 60)
         const data = contract.interface.encodeFunctionData('addOwner(address)', [user01.address])
@@ -2933,6 +3141,41 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
         )
         const after = await ethers.provider.getBalance(recipient)
         expect(after.sub(before)).to.be.equal(ethers.utils.parseEther('0.1'))
+      })
+
+      it('post-exec guard hook runs on the standard exec path with the signed hash', async function () {
+        const Guard = await ethers.getContractFactory('MockGuard')
+        const guard = await Guard.deploy()
+        await guard.deployed()
+        await Helper.setGuard(contract, owner01, [owner01, owner02], guard.address)
+        const callsBefore = await guard.checkAfterExecutionCalls()
+
+        const nonce = await contract.nonce()
+        const data = '0x'
+        const expectedHash = await contract.generateHashOp(
+          user01.address,
+          Helper.ZERO,
+          data,
+          Helper.DEFAULT_GAS,
+          nonce,
+          0,
+          0,
+        )
+        await Helper.execTransaction(
+          contract,
+          owner01,
+          [owner01, owner02],
+          user01.address,
+          Helper.ZERO,
+          data as `0x${string}`,
+          Helper.DEFAULT_GAS,
+        )
+        // `checkAfterExecution` ran once for this exec and received the
+        // exact EIP-712 hash the owners signed, so guards can correlate
+        // `checkTransaction` and `checkAfterExecution` by hash.
+        expect(await guard.checkAfterExecutionCalls()).to.equal(callsBefore.add(1))
+        expect(await guard.lastTxHash()).to.equal(expectedHash)
+        expect(await guard.lastSuccess()).to.be.true
       })
 
       it('rejective guard wraps the inner revert into GuardReverted', async function () {

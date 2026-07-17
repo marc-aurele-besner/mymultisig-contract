@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import { Test } from 'forge-std/Test.sol';
 
 import { MyMultiSig } from '../../MyMultiSig.sol';
+import { MyMultiSigExtended } from '../../MyMultiSigExtended.sol';
 
 /// @title Errors
 /// @notice Maps a `RevertStatus` enum to the exact custom-error selector emitted
@@ -29,7 +30,11 @@ contract Errors is Test {
     OldOwnerMustBeOwner,
     NewOwnerMustNotBeOwner,
     NewOwnerMustNotBeZero,
-    BatchCallFailed
+    BatchCallFailed,
+    ArrayLengthMismatch,
+    TxSuccessRequired,
+    OwnerToRemoveMustBeOwner,
+    ScheduleNonceNotCurrent
   }
 
   mapping(RevertStatus => bytes4) private _errors;
@@ -51,6 +56,10 @@ contract Errors is Test {
     _errors[RevertStatus.NewOwnerMustNotBeOwner] = MyMultiSig.NewOwnerMustNotBeOwner.selector;
     _errors[RevertStatus.NewOwnerMustNotBeZero] = MyMultiSig.NewOwnerMustNotBeZero.selector;
     _errors[RevertStatus.BatchCallFailed] = MyMultiSig.BatchCallFailed.selector;
+    _errors[RevertStatus.ArrayLengthMismatch] = MyMultiSig.ArrayLengthMismatch.selector;
+    _errors[RevertStatus.TxSuccessRequired] = MyMultiSig.TxSuccessRequired.selector;
+    _errors[RevertStatus.OwnerToRemoveMustBeOwner] = MyMultiSig.OwnerToRemoveMustBeOwner.selector;
+    _errors[RevertStatus.ScheduleNonceNotCurrent] = MyMultiSigExtended.ScheduleNonceNotCurrent.selector;
   }
 
   function _verify_revertCall(RevertStatus revertType_) internal view returns (bytes4) {
