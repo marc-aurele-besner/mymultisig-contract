@@ -1,6 +1,6 @@
 {
   "name": "mymultisig-contract",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Multi-Signatures Solidity Smart Contract for mymultisig.app",
   "main": "index.js",
   "files": [
