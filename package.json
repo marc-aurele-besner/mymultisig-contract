@@ -77,7 +77,7 @@
     "ethers": "5.8.0",
     "ethersV6": "npm:ethers",
     "fs": "^0.0.1-security",
-    "hardhat": "^2.12.6",
+    "hardhat": "^3.0.0",
     "hardhat-gas-reporter": "^1.0.9",
     "prettier": "^3.0.0",
     "prettier-plugin-solidity": "^2.0.0",
