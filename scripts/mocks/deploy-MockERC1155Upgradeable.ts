@@ -1,16 +1,9 @@
-import { ethers, addressBook, network } from 'hardhat'
+import { deployAndSave } from './_lib'
 
 async function main() {
-    const [deployer] = await ethers.getSigners()
-
-    const MockERC1155Upgradeable = await ethers.getContractFactory('MockERC1155')
-    const mockERC1155Upgradeable = await MockERC1155Upgradeable.deploy()
-
-    await mockERC1155Upgradeable.deployed()
-    await addressBook.saveContract('MockERC1155Upgradeable', mockERC1155Upgradeable.address, network.name, deployer.address)
-    await mockERC1155Upgradeable.initialize('MockERC1155', 'MOCK', 'https://google.com')
-
-    console.log('MockERC1155Upgradeable deployed to:', mockERC1155Upgradeable.address)
+    await deployAndSave('MockERC1155Upgradeable', async (c) => {
+        await c.initialize('MockERC1155', 'MOCK', 'https://google.com')
+    })
 }
 
 main().catch((error) => {
