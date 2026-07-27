@@ -6,8 +6,9 @@ import constants from '../../constants'
 import signature from './signatures'
 import type { MyMultiSig, MyMultiSigExtended } from '../../typechain-types'
 
-const conn = await network.connect()
+const conn = await network.getOrCreate()
 const { ethers, networkHelpers } = conn
+const networkName = conn.networkName
 
 export const ZERO = 0n
 
@@ -59,14 +60,14 @@ export const checkRawTxnResult = async (
 ) => {
   let result
   if (error)
-    if (network.name === 'hardhat' || network.name === 'localhost')
+    if (networkName === 'default' || networkName === 'hardhat' || networkName === 'localhost')
       if (contract)
         await expect(sendRawTxn(input, sender, ethers, ethers.provider)).to.be.revertedWithCustomError(contract, error)
       else await expect(sendRawTxn(input, sender, ethers, ethers.provider)).to.be.revertedWith(error)
     else expect.fail('AssertionError: ' + error)
   else {
     result = await sendRawTxn(input, sender, ethers, ethers.provider)
-    expect(result.status).to.equal(1n)
+    expect(result.status).to.equal(1)
   }
   return result
 }
@@ -140,7 +141,7 @@ export const execTransaction = async (
   const input = isExtended
     ? await contract
         .connect(submitter)
-        .populateTransaction['execTransaction(address,uint256,bytes,uint256,uint256,uint256,uint8,bytes)'](
+        ['execTransaction(address,uint256,bytes,uint256,uint256,uint256,uint8,bytes)'].populateTransaction(
           to,
           value,
           data,
@@ -153,7 +154,7 @@ export const execTransaction = async (
     : validUntil !== 0
       ? await contract
           .connect(submitter)
-          .populateTransaction['execTransaction(address,uint256,bytes,uint256,uint256,bytes)'](
+          ['execTransaction(address,uint256,bytes,uint256,uint256,bytes)'].populateTransaction(
             to,
             value,
             data,
@@ -163,7 +164,7 @@ export const execTransaction = async (
           )
       : await contract
           .connect(submitter)
-          .populateTransaction['execTransaction(address,uint256,bytes,uint256,bytes)'](to, value, data, gas, signatures)
+          ['execTransaction(address,uint256,bytes,uint256,bytes)'].populateTransaction(to, value, data, gas, signatures)
 
   const receipt = await checkRawTxnResult(input, submitter, errorMsg, contract)
   if (!errorMsg) {
@@ -254,7 +255,7 @@ export const isValidSignature = async (
   }
   const input = await contract
     .connect(submitter)
-    .populateTransaction[eightArg](to, value, data, gas, nonce, validUntil, operation, signatures)
+    [eightArg].populateTransaction(to, value, data, gas, nonce, validUntil, operation, signatures)
   await checkRawTxnResult(input, submitter, errorMsg, contract)
   return false
 }
@@ -278,7 +279,7 @@ export const multiRequest = async (
     contract,
     submitter,
     owners,
-    contract.target ?? (contract.address as `0x${string}`),
+    contract.target,
     0n,
     contract.interface.encodeFunctionData('multiRequest', [to_, value_, data_, gas_]) as `0x${string}`,
     gas,
@@ -298,17 +299,7 @@ export const addOwner = async (
 ) => {
   const data = contract.interface.encodeFunctionData('addOwner', [ownerToAdd]) as `0x${string}`
 
-  await execTransaction(
-    contract,
-    submitter,
-    owners,
-    contract.target ?? (contract.address as `0x${string}`),
-    ZERO,
-    data,
-    gas,
-    errorMsg,
-    extraEvents,
-  )
+  await execTransaction(contract, submitter, owners, contract.target, ZERO, data, gas, errorMsg, extraEvents)
 
   if (!errorMsg) expect(await contract.isOwner(ownerToAdd)).to.be.true
 }
@@ -324,17 +315,7 @@ export const removeOwner = async (
 ) => {
   const data = contract.interface.encodeFunctionData('removeOwner', [ownerToRemove]) as `0x${string}`
 
-  await execTransaction(
-    contract,
-    submitter,
-    owners,
-    contract.target ?? (contract.address as `0x${string}`),
-    ZERO,
-    data,
-    gas,
-    errorMsg,
-    extraEvents,
-  )
+  await execTransaction(contract, submitter, owners, contract.target, ZERO, data, gas, errorMsg, extraEvents)
 
   if (!errorMsg) expect(await contract.isOwner(ownerToRemove)).to.be.false
   else expect(await contract.isOwner(ownerToRemove)).to.be.true
@@ -351,17 +332,7 @@ export const changeThreshold = async (
 ) => {
   const data = contract.interface.encodeFunctionData('changeThreshold', [newThreshold]) as `0x${string}`
 
-  await execTransaction(
-    contract,
-    submitter,
-    owners,
-    contract.target ?? (contract.address as `0x${string}`),
-    ZERO,
-    data,
-    gas,
-    errorMsg,
-    extraEvents,
-  )
+  await execTransaction(contract, submitter, owners, contract.target, ZERO, data, gas, errorMsg, extraEvents)
 
   if (!errorMsg) expect(await contract.threshold()).to.be.equal(newThreshold)
 }
@@ -378,17 +349,7 @@ export const replaceOwner = async (
 ) => {
   const data = contract.interface.encodeFunctionData('replaceOwner', [ownerToRemove, ownerToAdd]) as `0x${string}`
 
-  await execTransaction(
-    contract,
-    submitter,
-    owners,
-    contract.target ?? (contract.address as `0x${string}`),
-    ZERO,
-    data,
-    gas,
-    errorMsg,
-    extraEvents,
-  )
+  await execTransaction(contract, submitter, owners, contract.target, ZERO, data, gas, errorMsg, extraEvents)
 
   if (!errorMsg) {
     expect(await contract.isOwner(ownerToAdd)).to.be.true
@@ -407,17 +368,7 @@ export const setOnlyOwnerRequest = async (
 ) => {
   const data = contract.interface.encodeFunctionData('setOnlyOwnerRequest', [isOnlyOwnerRequest]) as `0x${string}`
 
-  await execTransaction(
-    contract,
-    submitter,
-    owners,
-    contract.target ?? (contract.address as `0x${string}`),
-    ZERO,
-    data,
-    gas,
-    errorMsg,
-    extraEvents,
-  )
+  await execTransaction(contract, submitter, owners, contract.target, ZERO, data, gas, errorMsg, extraEvents)
 
   if (!errorMsg) expect(await contract.allowOnlyOwnerRequest()).to.be.equal(isOnlyOwnerRequest)
 }
@@ -435,17 +386,7 @@ export const setTransferInactiveOwnershipAfter = async (
     transferInactiveOwnershipAfter,
   ]) as `0x${string}`
 
-  await execTransaction(
-    contract,
-    submitter,
-    owners,
-    contract.target ?? (contract.address as `0x${string}`),
-    ZERO,
-    data,
-    gas,
-    errorMsg,
-    extraEvents,
-  )
+  await execTransaction(contract, submitter, owners, contract.target, ZERO, data, gas, errorMsg, extraEvents)
 
   if (!errorMsg)
     expect(await contract.minimumTransferInactiveOwnershipAfter()).to.be.equal(transferInactiveOwnershipAfter)
@@ -462,17 +403,7 @@ export const markNonceAsUsed = async (
 ) => {
   const data = contract.interface.encodeFunctionData('markNonceAsUsed', [nonce]) as `0x${string}`
 
-  await execTransaction(
-    contract,
-    submitter,
-    owners,
-    contract.target ?? (contract.address as `0x${string}`),
-    ZERO,
-    data,
-    gas,
-    errorMsg,
-    extraEvents,
-  )
+  await execTransaction(contract, submitter, owners, contract.target, ZERO, data, gas, errorMsg, extraEvents)
   expect(await contract.isNonceUsed(nonce)).to.be.true
 
   if (!errorMsg) expect(await contract.isNonceUsed(nonce)).to.be.false
@@ -498,7 +429,7 @@ export const setOwnerSettings = async (
     contract,
     submitter,
     owners,
-    contract.target ?? (contract.address as `0x${string}`),
+    contract.target,
     ZERO,
     data,
     constants.DEFAULT_GAS as number,
@@ -565,7 +496,7 @@ export const execTransactionWithNonce = async (
   const args = isExtended
     ? [to, value, data, gas, nonce, validUntil, operation, signatures]
     : [to, value, data, gas, nonce, validUntil, signatures]
-  const input = await contract.connect(submitter).populateTransaction[overload](...(args as any))
+  const input = await contract.connect(submitter)[overload].populateTransaction(...(args as any))
   return await sendRawTxn(input, submitter, ethers, ethers.provider)
 }
 
@@ -585,7 +516,7 @@ export const execTransactionWithNonceReverted = async (
 ) => {
   const input = await contract
     .connect(submitter)
-    .populateTransaction['execTransaction(address,uint256,bytes,uint256,uint256,uint256,bytes)'](
+    ['execTransaction(address,uint256,bytes,uint256,uint256,uint256,bytes)'].populateTransaction(
       to,
       value,
       data,
@@ -654,7 +585,7 @@ export const execOnlyThis = async (
     contract,
     submitter,
     owners,
-    contract.target ?? (contract.address as `0x${string}`),
+    contract.target,
     ZERO,
     data,
     constants.DEFAULT_GAS as number,

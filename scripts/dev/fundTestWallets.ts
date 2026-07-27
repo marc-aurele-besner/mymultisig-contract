@@ -2,7 +2,7 @@ import { network } from 'hardhat'
 
 import Helper from '../../test/shared'
 
-const connection = await network.connect()
+const connection = await network.getOrCreate()
 const { ethers } = connection
 
 let provider: any

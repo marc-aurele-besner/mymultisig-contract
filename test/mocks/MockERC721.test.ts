@@ -1,7 +1,7 @@
 import { expect } from 'chai'
 import { network } from 'hardhat'
 
-const { ethers } = await network.connect()
+const { ethers } = await network.getOrCreate()
 
 let mockERC721: any
 let deployer: any

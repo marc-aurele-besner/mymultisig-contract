@@ -3,8 +3,9 @@ import { network } from 'hardhat'
 
 import Helper from '../test/shared'
 
-const connection = await network.connect()
+const connection = await network.getOrCreate()
 const { ethers } = connection
+const networkName = connection.networkName
 
 let provider: any
 let owner01: any
@@ -25,10 +26,10 @@ const retrieveContractAddress = (contractName: string, netName: string): string 
 async function main() {
   ;[provider, owner01, owner02, owner03, user01, user02, user03] = await Helper.setupProviderAndAccount()
 
-  const proxyAddress = retrieveContractAddress(Helper.CONTRACT_FACTORY_NAME, network.name)
+  const proxyAddress = retrieveContractAddress(Helper.CONTRACT_FACTORY_NAME, networkName)
 
   if (!proxyAddress) {
-    throw new Error(`Proxy address not found for ${Helper.CONTRACT_FACTORY_NAME} on ${network.name}`)
+    throw new Error(`Proxy address not found for ${Helper.CONTRACT_FACTORY_NAME} on ${networkName}`)
   }
 
   // The Hardhat v3 ecosystem lacks a v3 `@openzeppelin/hardhat-upgrades`

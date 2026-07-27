@@ -28,9 +28,12 @@ export default defineConfig({
     ],
   },
   networks: {
-    hardhat: {
+    default: {
       type: 'edr-simulated',
       chainType: 'l1',
+      accounts: {
+        mnemonic: 'test test test test test test test test test test test junk',
+      },
       // Pin to `shanghai` so the EIP-7825 per-tx gas cap (16M) from
       // Osaka isn't enforced. v0.5.0 wallet deploys pass explicit
       // `gasLimit: 50_000_000` (see `test/shared/setup.ts`), which
@@ -210,7 +213,9 @@ export default defineConfig({
   typechain: {
     outDir: './typechain-types',
   },
-  mocha: {
-    timeout: 40000,
+  test: {
+    mocha: {
+      timeout: 40000,
+    },
   },
 })

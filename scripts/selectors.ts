@@ -1,10 +1,10 @@
 // v2's `hardhat/functionList` plugin is gone in Hardhat 3. List
 // selectors directly from the compiled artifacts instead.
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, readdirSync, readFileSync } from 'fs'
 
 import constants from '../constants'
 
-const { defaultAbiCoder, Interface } = await import('ethers')
+const { Interface } = await import('ethers')
 
 const collectSelectors = (artifactPath: string): { name: string; selector: string; signature: string }[] => {
   const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'))

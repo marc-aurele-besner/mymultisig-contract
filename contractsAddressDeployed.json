@@ -1,23 +1,5 @@
 [
   {
-    "name": "MyMultiSig",
-    "address": "0x8f86403A4DE0BB5791fa46B8e795C547942fE4Cf",
-    "deployer": "",
-    "deploymentDate": "2026-07-27T13:52:07.963Z",
-    "chainId": 31337,
-    "blockHash": "",
-    "blockNumber": 0,
-    "tag": "",
-    "extra": {
-      "owners": [
-        "0x848C5042d4A21019c0d28df69cF043c98C123BfB",
-        "0xD338F94C1D50214856A4BF84BD7B70F65b22FFfE",
-        "0x0ef69A6b58f36A05C590EAae1fBF6491a1B7E8d5"
-      ],
-      "threshold": 2
-    }
-  },
-  {
     "name": "MyMultiSigFactory",
     "address": "0x2D254390e35b59fe87a31e538D5604346b017082",
     "network": "goerli",

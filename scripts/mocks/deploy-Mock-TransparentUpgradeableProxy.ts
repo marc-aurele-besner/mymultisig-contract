@@ -1,8 +1,9 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { network } from 'hardhat'
 
-const connection = await network.connect()
+const connection = await network.getOrCreate()
 const { ethers } = connection
+const networkName = connection.networkName
 
 const ADDRESS_BOOK_FILE = 'contractsAddressDeployed.json'
 
@@ -45,22 +46,22 @@ const retrieveContract = (name: string, netName: string): string => {
 async function main() {
   const [deployer] = await ethers.getSigners()
 
-  const localNetworks = new Set(['hardhat', 'localhost'])
-  const isLocal = localNetworks.has(network.name)
+  const localNetworks = new Set(['default', 'hardhat', 'localhost'])
+  const isLocal = localNetworks.has(networkName)
 
   let logicContract = ''
   if (!isLocal) {
-    logicContract = retrieveContract('MockERC20Upgradeable', network.name)
-    if (!logicContract) logicContract = retrieveContract('MockERC721Upgradeable', network.name)
-    if (!logicContract) logicContract = retrieveContract('MockERC1155Upgradeable', network.name)
+    logicContract = retrieveContract('MockERC20Upgradeable', networkName)
+    if (!logicContract) logicContract = retrieveContract('MockERC721Upgradeable', networkName)
+    if (!logicContract) logicContract = retrieveContract('MockERC1155Upgradeable', networkName)
   }
   if (!logicContract) {
     const MockERC20Upgradeable = await ethers.getContractFactory('MockERC20Upgradeable')
     const mockERC20Upgradeable = await MockERC20Upgradeable.deploy()
 
     await mockERC20Upgradeable.waitForDeployment()
-    const logicAddr = mockERC20Upgradeable.target ?? mockERC20Upgradeable.address
-    saveContract('MockERC20Upgradeable', logicAddr, network.name, deployer.address)
+    const logicAddr = await mockERC20Upgradeable.getAddress()
+    saveContract('MockERC20Upgradeable', logicAddr, networkName, deployer.address)
     await mockERC20Upgradeable.initialize('MockERC20Upgradeable', 'MOCK')
 
     console.log('MockERC20Upgradeable deployed to:', logicAddr)
@@ -68,15 +69,15 @@ async function main() {
   }
   let proxyAdminContract = ''
   if (!isLocal) {
-    proxyAdminContract = retrieveContract('MockERC20Upgradeable', network.name)
+    proxyAdminContract = retrieveContract('MockERC20Upgradeable', networkName)
   }
   if (!proxyAdminContract) {
     const MockProxyAdmin = await ethers.getContractFactory('MockProxyAdmin')
     const mockProxyAdmin = await MockProxyAdmin.deploy()
 
     await mockProxyAdmin.waitForDeployment()
-    const adminAddr = mockProxyAdmin.target ?? mockProxyAdmin.address
-    saveContract('MockProxyAdmin', adminAddr, network.name, deployer.address)
+    const adminAddr = await mockProxyAdmin.getAddress()
+    saveContract('MockProxyAdmin', adminAddr, networkName, deployer.address)
 
     console.log('MockProxyAdmin deployed to:', adminAddr)
     proxyAdminContract = adminAddr
@@ -86,17 +87,17 @@ async function main() {
   const mockTransparentUpgradeableProxy = await MockTransparentUpgradeableProxy.deploy(
     logicContract,
     proxyAdminContract,
-    '0x'
+    '0x',
   )
 
   await mockTransparentUpgradeableProxy.waitForDeployment()
-  const proxyAddr = mockTransparentUpgradeableProxy.target ?? mockTransparentUpgradeableProxy.address
-  saveContract('MockTransparentUpgradeableProxy', proxyAddr, network.name, deployer.address)
+  const proxyAddr = await mockTransparentUpgradeableProxy.getAddress()
+  saveContract('MockTransparentUpgradeableProxy', proxyAddr, networkName, deployer.address)
 
   console.log('MockTransparentUpgradeableProxy deployed to:', proxyAddr)
 }
 
 main().catch((error) => {
-    console.error(error)
-    process.exitCode = 1
+  console.error(error)
+  process.exitCode = 1
 })

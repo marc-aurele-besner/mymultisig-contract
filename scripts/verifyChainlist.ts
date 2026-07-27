@@ -38,7 +38,7 @@ interface ExternalNetwork {
 const CHAINLIST_URL = 'https://chainlist.org/rpcs.json'
 const REQUEST_TIMEOUT_MS = 8000
 
-const LOCAL_NETWORKS = new Set(['hardhat', 'localhost', 'anvil', 'anvil9999'])
+const LOCAL_NETWORKS = new Set(['default', 'hardhat', 'localhost', 'anvil', 'anvil9999'])
 
 // chainId -> apiKey key used by @nomiclabs/hardhat-etherscan v3.
 // Only the chains the project actually uses are listed; extend as needed.

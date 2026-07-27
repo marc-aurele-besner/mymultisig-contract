@@ -2,7 +2,7 @@ import { network } from 'hardhat'
 
 import constants from '../../constants'
 
-const { ethers } = await network.connect()
+const { ethers } = await network.getOrCreate()
 
 export default {
   /// @notice Signs a wallet's EIP-712 transaction hash. Wallets bind
@@ -22,7 +22,7 @@ export default {
     operation: number = 0,
   ) {
     const contractAddress: string =
-      typeof contractOrAddress === 'string' ? contractOrAddress : (contractOrAddress.target ?? contractOrAddress.address)
+      typeof contractOrAddress === 'string' ? contractOrAddress : await contractOrAddress.getAddress()
     const contract =
       typeof contractOrAddress === 'string'
         ? (sourceWallet.provider && (await sourceWallet.provider.getNetwork()), null)
@@ -76,7 +76,7 @@ export default {
   signEip712Hash: async function (contract: any, owner: any, hashFields: any): Promise<string> {
     const isExtended = typeof (contract as any).allowOnlyOwnerRequest === 'function'
     const chainId = (await ethers.provider.getNetwork()).chainId
-    const verifyingContract: string = await (contract.target ? contract.getAddress() : Promise.resolve(contract.address))
+    const verifyingContract: string = await contract.getAddress()
     if (isExtended) {
       return owner.signTypedData(
         {
@@ -139,7 +139,7 @@ export default {
         name: constants.CONTRACT_NAME,
         version: constants.CONTRACT_VERSION,
         chainId,
-        verifyingContract: contract.address,
+        verifyingContract: await contract.getAddress(),
       },
       {
         AllowanceTransaction: [
@@ -162,7 +162,7 @@ export default {
       ethers.concat([
         ethers.zeroPadValue(sigObj.r, 32),
         ethers.zeroPadValue(sigObj.s, 32),
-        ethers.zeroPadValue(sigObj.v, 1),
+        ethers.toBeHex(sigObj.v, 1),
       ]),
     )
   },

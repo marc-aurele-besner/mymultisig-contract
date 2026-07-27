@@ -33,19 +33,16 @@ export const saveContract = (name: string, address: string, netName: string, dep
   writeAddressBook(entries)
 }
 
-export const connection = await network.connect()
+export const connection = await network.getOrCreate()
 
-export const deployAndSave = async (
-  factoryName: string,
-  init?: (...args: any[]) => Promise<unknown>
-) => {
+export const deployAndSave = async (factoryName: string, init?: (...args: any[]) => Promise<unknown>) => {
   const { ethers } = connection
   const [deployer] = await ethers.getSigners()
   const Factory = await ethers.getContractFactory(factoryName)
   const deployed = await Factory.deploy()
   await deployed.waitForDeployment()
-  const addr = deployed.target ?? deployed.address
-  saveContract(factoryName, addr, network.name, deployer.address)
+  const addr = await deployed.getAddress()
+  saveContract(factoryName, addr, connection.networkName, deployer.address)
   if (init) await init(deployed)
   console.log(`${factoryName} deployed to:`, addr)
 }
