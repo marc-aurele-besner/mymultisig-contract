@@ -1,8 +1,10 @@
 import { expect } from 'chai'
-import { ethers } from 'hardhat'
-import { time } from '@nomicfoundation/hardhat-network-helpers'
+import { network } from 'hardhat'
 
 import Helper from './index'
+
+const { ethers, networkHelpers } = await network.connect()
+const { time } = networkHelpers
 
 export enum DeploymentType {
   SimpleMultiSig,
@@ -281,7 +283,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
       await Helper.sendRawTxn(
         {
           to: contract.address,
-          value: ethers.utils.parseEther('1'),
+          value: ethers.parseEther('1'),
           data: '',
         },
         owner01,
@@ -293,7 +295,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         owner01,
         [owner01, owner02, owner03],
         owner01.address,
-        ethers.utils.parseEther('1'),
+        ethers.parseEther('1'),
         '0x',
         Helper.DEFAULT_GAS,
       )
@@ -303,7 +305,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
       await Helper.sendRawTxn(
         {
           to: contract.address,
-          value: ethers.utils.parseEther('2'),
+          value: ethers.parseEther('2'),
           data: '',
         },
         owner01,
@@ -315,7 +317,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         owner01,
         [owner01, owner02, owner03],
         owner01.address,
-        ethers.utils.parseEther('1'),
+        ethers.parseEther('1'),
         '0x',
         Helper.DEFAULT_GAS,
       )
@@ -324,7 +326,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         owner02,
         [owner01, owner02, owner03],
         owner01.address,
-        ethers.utils.parseEther('1'),
+        ethers.parseEther('1'),
         '0x',
         Helper.DEFAULT_GAS,
       )
@@ -731,7 +733,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         )
 
       it('Owner can pre-approve a hash via approveHash and the event is emitted', async function () {
-        const hash = await hashForAddUser01AtNonce(contract, ethers.BigNumber.from(0))
+        const hash = await hashForAddUser01AtNonce(contract, 0n)
         expect(await contract.getApprovedOwners(hash)).to.have.lengthOf(0)
         await Helper.approveHash(contract, owner01, hash)
         const approved = await contract.getApprovedOwners(hash)
@@ -741,7 +743,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
       })
 
       it('approveHash is idempotent per (owner, hash)', async function () {
-        const hash = await hashForAddUser01AtNonce(contract, ethers.BigNumber.from(0))
+        const hash = await hashForAddUser01AtNonce(contract, 0n)
         await Helper.approveHash(contract, owner01, hash)
         // Second call from the same owner for the same hash is a no-op: the
         // ApproveHash event must NOT be emitted again, otherwise relayer
@@ -753,13 +755,13 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
       })
 
       it('approveHash reverts when called by a non-owner', async function () {
-        const hash = await hashForAddUser01AtNonce(contract, ethers.BigNumber.from(0))
+        const hash = await hashForAddUser01AtNonce(contract, 0n)
         await Helper.approveHash(contract, user01, hash, Helper.errors.NOT_OWNER)
         expect(await contract.getApprovedOwners(hash)).to.have.lengthOf(0)
       })
 
       it('Approving the same hash from two different owners accumulates in getApprovedOwners', async function () {
-        const hash = await hashForAddUser01AtNonce(contract, ethers.BigNumber.from(0))
+        const hash = await hashForAddUser01AtNonce(contract, 0n)
         await Helper.approveHash(contract, owner01, hash)
         await Helper.approveHash(contract, owner02, hash)
         const approved = await contract.getApprovedOwners(hash)
@@ -769,7 +771,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
 
       it('A single on-chain approval + a single ECDSA signature reaches the threshold', async function () {
         const data = contract.interface.encodeFunctionData('addOwner(address)', [user01.address])
-        const hash = await hashForAddUser01AtNonce(contract, ethers.BigNumber.from(0))
+        const hash = await hashForAddUser01AtNonce(contract, 0n)
         // owner01 approves on-chain; owner02 supplies the only ECDSA signature.
         await Helper.approveHash(contract, owner01, hash)
         const signatures = await Helper.prepareSignatures(
@@ -779,7 +781,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
           Helper.ZERO,
           data,
           Helper.DEFAULT_GAS,
-          ethers.BigNumber.from(0),
+          0n,
         )
         // 1 ECDSA sig + 1 on-chain approval = threshold (2).
         await Helper.execTransaction(
@@ -798,8 +800,8 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
       })
 
       it('Approving a hash for a different nonce does not affect the original tx', async function () {
-        const hashN0 = await hashForAddUser01AtNonce(contract, ethers.BigNumber.from(0))
-        const hashN1 = await hashForAddUser01AtNonce(contract, ethers.BigNumber.from(1))
+        const hashN0 = await hashForAddUser01AtNonce(contract, 0n)
+        const hashN1 = await hashForAddUser01AtNonce(contract, 1n)
         await Helper.approveHash(contract, owner01, hashN0)
         await Helper.approveHash(contract, owner02, hashN1)
         expect(await contract.getApprovedOwners(hashN0)).to.have.lengthOf(1)
@@ -814,7 +816,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         // owner01 approves a hash, then is replaced via the multisig; the
         // previously-recorded approval is now stale and a fresh approval from
         // owner01 must revert with NotOwner.
-        const hash = await hashForAddUser01AtNonce(contract, ethers.BigNumber.from(0))
+        const hash = await hashForAddUser01AtNonce(contract, 0n)
         await Helper.approveHash(contract, owner01, hash)
         await Helper.execTransaction(
           contract,
@@ -841,7 +843,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
           Helper.ZERO,
           addUser02,
           Helper.DEFAULT_GAS,
-          ethers.BigNumber.from(1),
+          1n,
           0,
         )
         await Helper.approveHash(contract, owner01, hash)
@@ -871,7 +873,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
           Helper.ZERO,
           addUser02,
           Helper.DEFAULT_GAS,
-          ethers.BigNumber.from(1),
+          1n,
         )
         await Helper.execTransaction(
           contract,
@@ -898,7 +900,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
           Helper.ZERO,
           addUser02,
           Helper.DEFAULT_GAS,
-          ethers.BigNumber.from(1),
+          1n,
           0,
         )
         await Helper.approveHash(contract, owner01, hash)
@@ -926,7 +928,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
           Helper.ZERO,
           addUser02,
           Helper.DEFAULT_GAS,
-          ethers.BigNumber.from(1),
+          1n,
         )
         await Helper.execTransaction(
           contract,
@@ -954,7 +956,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
           Helper.ZERO,
           data(),
           Helper.DEFAULT_GAS,
-          ethers.BigNumber.from(0),
+          0n,
           validUntil,
         )
 
@@ -1016,7 +1018,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
 
     describe('revokeApproval - withdraw a pre-approval', function () {
       it('Owner can withdraw a previous approveHash and the owner is removed from getApprovedOwners', async function () {
-        const hash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes('test-revoke-1'))
+        const hash = ethers.keccak256(ethers.toUtf8Bytes('test-revoke-1'))
         expect(await contract.getApprovedOwners(hash)).to.have.lengthOf(0)
         await Helper.approveHash(contract, owner01, hash)
         expect(await contract.getApprovedOwners(hash)).to.have.lengthOf(1)
@@ -1026,7 +1028,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
       })
 
       it('revokeApproval emits RevokeApproval with (owner, hash)', async function () {
-        const hash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes('test-revoke-2'))
+        const hash = ethers.keccak256(ethers.toUtf8Bytes('test-revoke-2'))
         await Helper.approveHash(contract, owner01, hash)
         const tx = await contract.connect(owner01).revokeApproval(hash)
         const receipt = await tx.wait()
@@ -1045,7 +1047,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
       })
 
       it('A second revokeApproval reverts with NotApproved', async function () {
-        const hash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes('test-revoke-3'))
+        const hash = ethers.keccak256(ethers.toUtf8Bytes('test-revoke-3'))
         await Helper.approveHash(contract, owner01, hash)
         await contract.connect(owner01).revokeApproval(hash)
         await expect(contract.connect(owner01).revokeApproval(hash)).to.be.revertedWithCustomError(
@@ -1055,7 +1057,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
       })
 
       it('revokeApproval reverts when called by a non-owner', async function () {
-        const hash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes('test-revoke-4'))
+        const hash = ethers.keccak256(ethers.toUtf8Bytes('test-revoke-4'))
         await expect(contract.connect(user01).revokeApproval(hash)).to.be.revertedWithCustomError(
           contract,
           Helper.errors.NOT_OWNER,
@@ -1063,7 +1065,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
       })
 
       it('An owner who never approved cannot revoke another owner approval (NotApproved)', async function () {
-        const hash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes('test-revoke-5'))
+        const hash = ethers.keccak256(ethers.toUtf8Bytes('test-revoke-5'))
         await Helper.approveHash(contract, owner01, hash)
         await expect(contract.connect(owner02).revokeApproval(hash)).to.be.revertedWithCustomError(
           contract,
@@ -1080,7 +1082,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
           Helper.ZERO,
           data,
           Helper.DEFAULT_GAS,
-          ethers.BigNumber.from(0),
+          0n,
           0,
         )
         await Helper.approveHash(contract, owner01, hash)
@@ -1094,7 +1096,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
           Helper.ZERO,
           data,
           Helper.DEFAULT_GAS,
-          ethers.BigNumber.from(0),
+          0n,
           0,
         )
         await Helper.execTransaction(
@@ -1159,7 +1161,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
           contract.address as `0x${string}`,
           user01.address as `0x${string}`, // forwarding 1 wei to an EOA — wallet has 0 ETH → revert
         ]
-        const value_ = [Helper.ZERO, ethers.BigNumber.from(1)]
+        const value_ = [Helper.ZERO, 1n]
         const data_ = [contract.interface.encodeFunctionData('addOwner(address)', [user01.address]), '0x']
         const gas_ = [Helper.DEFAULT_GAS, Helper.DEFAULT_GAS]
 
@@ -1321,7 +1323,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
           owner01,
           [owner01, owner02, owner03],
           user01.address,
-          ethers.utils.parseEther('1'),
+          ethers.parseEther('1'),
           '0x',
           Helper.DEFAULT_GAS,
           Helper.errors.TX_SUCCESS_REQUIRED,
@@ -1371,7 +1373,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
           Helper.ZERO,
           data,
           Helper.DEFAULT_GAS,
-          ethers.BigNumber.from(0),
+          0n,
           0,
         )
         await Helper.approveHash(contract, owner01, hash)
@@ -1379,7 +1381,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
         expect(await contract.getApprovedOwners(hash)).to.have.lengthOf(2)
 
         // Execute with no ECDSA votes: the two approvals reach the threshold.
-        const emptyVotes = ethers.utils.defaultAbiCoder.encode(['tuple(address owner, bytes sig)[]'], [[]])
+        const emptyVotes = ethers.AbiCoder.defaultAbiCoder().encode(['tuple(address owner, bytes sig)[]'], [[]])
         await Helper.execTransaction(
           contract,
           owner01,
@@ -1403,8 +1405,8 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
       const NOT_MAGIC = '0xffffffff'
       // EIP-1271 verifiers pass a 32-byte digest; the stored message is
       // its ABI encoding (Safe-compatible convention).
-      const dataHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes('siwe:login:mymultisig.app'))
-      const message = ethers.utils.defaultAbiCoder.encode(['bytes32'], [dataHash])
+      const dataHash = ethers.keccak256(ethers.toUtf8Bytes('siwe:login:mymultisig.app'))
+      const message = ethers.AbiCoder.defaultAbiCoder().encode(['bytes32'], [dataHash])
 
       it('getMessageHash matches a manual EIP-712 computation', async function () {
         const domain = {
@@ -1414,7 +1416,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
           verifyingContract: contract.address,
         }
         const types = { MyMultiSigMessage: [{ name: 'message', type: 'bytes' }] }
-        const expected = ethers.utils._TypedDataEncoder.hash(domain, types, { message })
+        const expected = ethers.TypedDataEncoder.hash(domain, types, { message })
         expect(await contract.getMessageHash(message)).to.equal(expected)
       })
 
@@ -1736,7 +1738,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         contract,
         owner01,
         [owner01, owner02, owner03],
-        ethers.BigNumber.from(60).mul(60).mul(24),
+        86400n,
         Helper.DEFAULT_GAS,
         Helper.errors.OWNER_SETTINGS_TRANSFER_INACTIVE_TOO_SHORT,
       )
@@ -1747,7 +1749,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         contract,
         owner01,
         [owner01, owner02, owner03],
-        ethers.BigNumber.from(60).mul(60).mul(24).mul(7),
+        604800n,
       )
     })
 
@@ -1756,7 +1758,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         contract,
         owner01,
         [owner01, owner02, owner03],
-        ethers.BigNumber.from(60).mul(60).mul(24).mul(31),
+        2678400n,
       )
     })
 
@@ -1766,7 +1768,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         owner01.address,
         owner01,
         [owner01, owner02, owner03],
-        ethers.BigNumber.from(60).mul(60).mul(24).mul(14),
+        1209600n,
         user02.address,
       )
     })
@@ -1777,7 +1779,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         owner01.address,
         owner01,
         [owner01, owner02, owner03],
-        ethers.BigNumber.from(60).mul(60).mul(24).mul(31),
+        2678400n,
         user03.address,
       )
     })
@@ -1787,14 +1789,14 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         contract,
         owner01,
         [owner01, owner02, owner03],
-        ethers.BigNumber.from(60).mul(60).mul(24).mul(7),
+        604800n,
       )
       await Helper.setOwnerSettings(
         contract,
         owner01.address,
         owner01,
         [owner01, owner02, owner03],
-        ethers.BigNumber.from(60).mul(60).mul(24).mul(5),
+        432000n,
         user03.address,
         Helper.errors.OWNER_SETTINGS_MUST_BE_GREATER_THAN_MINIMUM,
       )
@@ -1806,7 +1808,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         owner01.address,
         owner01,
         [owner01, owner02, owner03],
-        ethers.BigNumber.from(60).mul(60).mul(24).mul(31),
+        2678400n,
         owner02.address,
         Helper.errors.OWNER_SETTINGS_DELEGATEE_MUST_NOT_BE_OWNER,
       )
@@ -1817,14 +1819,14 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         contract,
         owner01,
         [owner01, owner02, owner03],
-        ethers.BigNumber.from(60).mul(60).mul(24).mul(7),
+        604800n,
       )
       await Helper.setOwnerSettings(
         contract,
         owner01.address,
         owner01,
         [owner01, owner02, owner03],
-        ethers.BigNumber.from(60).mul(60).mul(24).mul(5),
+        432000n,
         owner03.address,
         Helper.errors.OWNER_SETTINGS_MUST_BE_GREATER_THAN_MINIMUM,
       )
@@ -1835,14 +1837,14 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         contract,
         owner01,
         [owner01, owner02, owner03],
-        ethers.BigNumber.from(60).mul(60).mul(24).mul(7),
+        604800n,
       )
       await Helper.setOwnerSettings(
         contract,
         owner01.address,
         owner01,
         [owner01, owner02, owner03],
-        ethers.BigNumber.from(60).mul(60).mul(24).mul(8),
+        691200n,
         user03.address,
       )
       await time.increase(60 * 60 * 24 * 9)
@@ -1854,14 +1856,14 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         contract,
         owner01,
         [owner01, owner02, owner03],
-        ethers.BigNumber.from(60).mul(60).mul(24).mul(7),
+        604800n,
       )
       await Helper.setOwnerSettings(
         contract,
         owner01.address,
         owner01,
         [owner01, owner02, owner03],
-        ethers.BigNumber.from(60).mul(60).mul(24).mul(8),
+        691200n,
         user03.address,
       )
       await time.increase(60 * 60 * 24 * 5)
@@ -1873,14 +1875,14 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         contract,
         owner01,
         [owner01, owner02, owner03],
-        ethers.BigNumber.from(60).mul(60).mul(24).mul(7),
+        604800n,
       )
       await Helper.setOwnerSettings(
         contract,
         owner01.address,
         owner01,
         [owner01, owner02, owner03],
-        ethers.BigNumber.from(60).mul(60).mul(24).mul(8),
+        691200n,
         user03.address,
       )
       await time.increase(60 * 60 * 24 * 9)
@@ -1890,7 +1892,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
     it('Cannot setOwnerSettings directly (onlyThis enforced)', async function () {
       const data = contract.interface.encodeFunctionData('setOwnerSettings(address,uint256,address)', [
         owner01.address,
-        ethers.BigNumber.from(60).mul(60).mul(24).mul(8),
+        691200n,
         user03.address,
       ]) as `0x${string}`
       await expect(
@@ -1913,19 +1915,19 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         user01.address,
         owner01,
         [owner01, owner02, owner03],
-        ethers.BigNumber.from(60).mul(60).mul(24).mul(8),
+        691200n,
         user03.address,
         Helper.errors.OWNER_SETTINGS_OWNER_MUST_BE_OWNER,
       )
     })
 
     it('Re-pointing an owner to a new delegate frees the previous delegate', async function () {
-      const eightDays = ethers.BigNumber.from(60).mul(60).mul(24).mul(8)
+      const eightDays = 691200n
       await Helper.setTransferInactiveOwnershipAfter(
         contract,
         owner01,
         [owner01, owner02, owner03],
-        ethers.BigNumber.from(60).mul(60).mul(24).mul(7),
+        604800n,
       )
       await Helper.setOwnerSettings(contract, owner01.address, owner01, [owner01, owner02, owner03], eightDays, user02.address)
       // Re-point owner01 to user03; user02's reservation must be released...
@@ -1935,25 +1937,25 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
     })
 
     it('Refreshing owner settings keeps the same delegate without a stale-reservation revert', async function () {
-      const eightDays = ethers.BigNumber.from(60).mul(60).mul(24).mul(8)
-      const nineDays = ethers.BigNumber.from(60).mul(60).mul(24).mul(9)
+      const eightDays = 691200n
+      const nineDays = 777600n
       await Helper.setTransferInactiveOwnershipAfter(
         contract,
         owner01,
         [owner01, owner02, owner03],
-        ethers.BigNumber.from(60).mul(60).mul(24).mul(7),
+        604800n,
       )
       await Helper.setOwnerSettings(contract, owner01.address, owner01, [owner01, owner02, owner03], eightDays, user02.address)
       await Helper.setOwnerSettings(contract, owner01.address, owner01, [owner01, owner02, owner03], nineDays, user02.address)
     })
 
     it('Removing an owner frees their delegate for reuse', async function () {
-      const eightDays = ethers.BigNumber.from(60).mul(60).mul(24).mul(8)
+      const eightDays = 691200n
       await Helper.setTransferInactiveOwnershipAfter(
         contract,
         owner01,
         [owner01, owner02, owner03],
-        ethers.BigNumber.from(60).mul(60).mul(24).mul(7),
+        604800n,
       )
       await Helper.setOwnerSettings(contract, owner01.address, owner01, [owner01, owner02, owner03], eightDays, user02.address)
       await Helper.removeOwner(contract, owner01, [owner01, owner02, owner03], owner01.address)
@@ -1961,12 +1963,12 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
     })
 
     it('Replacing an owner frees their delegate for reuse', async function () {
-      const eightDays = ethers.BigNumber.from(60).mul(60).mul(24).mul(8)
+      const eightDays = 691200n
       await Helper.setTransferInactiveOwnershipAfter(
         contract,
         owner01,
         [owner01, owner02, owner03],
-        ethers.BigNumber.from(60).mul(60).mul(24).mul(7),
+        604800n,
       )
       await Helper.setOwnerSettings(contract, owner01.address, owner01, [owner01, owner02, owner03], eightDays, user02.address)
       // Owner replacement pays for the delegate release plus the owners
@@ -1997,7 +1999,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       await Helper.sendRawTxn(
         {
           to: contract.address,
-          value: ethers.utils.parseEther('1'),
+          value: ethers.parseEther('1'),
           data: '',
         },
         owner01,
@@ -2009,7 +2011,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         owner01,
         [owner01, owner02, owner03],
         owner01.address,
-        ethers.utils.parseEther('1'),
+        ethers.parseEther('1'),
         '0x',
         Helper.DEFAULT_GAS,
       )
@@ -2019,7 +2021,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       await Helper.sendRawTxn(
         {
           to: contract.address,
-          value: ethers.utils.parseEther('2'),
+          value: ethers.parseEther('2'),
           data: '',
         },
         owner01,
@@ -2031,7 +2033,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         owner01,
         [owner01, owner02, owner03],
         owner01.address,
-        ethers.utils.parseEther('1'),
+        ethers.parseEther('1'),
         '0x',
         Helper.DEFAULT_GAS,
       )
@@ -2040,7 +2042,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         owner02,
         [owner01, owner02, owner03],
         owner01.address,
-        ethers.utils.parseEther('1'),
+        ethers.parseEther('1'),
         '0x',
         Helper.DEFAULT_GAS,
       )
@@ -2309,7 +2311,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
 
     it('6-arg execTransaction honors the caller-supplied nonce (replay at N+5)', async function () {
       // Signers pre-sign for nonce N+5 even though `_txnNonce` is still N.
-      const futureNonce = ethers.BigNumber.from(5)
+      const futureNonce = 5n
       const data = contract.interface.encodeFunctionData('addOwner(address)', [user01.address])
       const signatures = await Helper.prepareSignatures(
         contract,
@@ -2399,7 +2401,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         Helper.ZERO,
         data,
         Helper.DEFAULT_GAS,
-        ethers.BigNumber.from(99),
+        99n,
       )
       expect(
         await contract.connect(owner01)['isValidSignature(address,uint256,bytes,uint256,uint256,uint256,uint8,bytes)'](
@@ -2407,7 +2409,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
           Helper.ZERO,
           data,
           Helper.DEFAULT_GAS,
-          ethers.BigNumber.from(99),
+          99n,
           0,
           0, // operation
           signatures,
@@ -2421,7 +2423,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
             Helper.ZERO,
             data,
             Helper.DEFAULT_GAS,
-            ethers.BigNumber.from(0),
+            0n,
             0,
             0,
             signatures,
@@ -2441,10 +2443,10 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       async function dummyTxHashFieldsAndHash(): Promise<{ fields: any; hash: string }> {
         const fields = {
           to: contract.address,
-          value: ethers.BigNumber.from(0),
+          value: 0n,
           data: '0x',
-          gas: ethers.BigNumber.from(Helper.DEFAULT_GAS),
-          nonce: ethers.BigNumber.from(0),
+          gas: BigInt(Helper.DEFAULT_GAS),
+          nonce: 0n,
           validUntil: 0,
           // v0.5.0 — extended wallets bind an `operation` byte into the
           // EIP-712 payload; pick the right hash for the test wallet.
@@ -2477,7 +2479,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         const { fields, hash } = await dummyTxHashFieldsAndHash()
         const sig1 = await Helper.signEip712Hash(contract, owner01, fields)
         const sig2 = await Helper.signEip712Hash(contract, owner02, fields)
-        const blob = ethers.utils.defaultAbiCoder.encode(
+        const blob = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [
             [
@@ -2492,7 +2494,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       it('returns a non-magic value when threshold is not met (1/2)', async function () {
         const { fields, hash } = await dummyTxHashFieldsAndHash()
         const sig1 = await Helper.signEip712Hash(contract, owner01, fields)
-        const blob = ethers.utils.defaultAbiCoder.encode(
+        const blob = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [[{ owner: owner01.address, sig: sig1 }]],
         )
@@ -2506,7 +2508,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         // `owner = user02` which fails `_owners[user02]`.
         const sig1 = await Helper.signEip712Hash(contract, owner01, fields)
         const sig2 = await Helper.signEip712Hash(contract, user02, fields)
-        const blob = ethers.utils.defaultAbiCoder.encode(
+        const blob = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [
             [
@@ -2522,7 +2524,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         const { fields, hash } = await dummyTxHashFieldsAndHash()
         // Threshold is 2 — one owner voting twice must NOT reach it.
         const sig1 = await Helper.signEip712Hash(contract, owner01, fields)
-        const blob = ethers.utils.defaultAbiCoder.encode(
+        const blob = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [
             [
@@ -2538,7 +2540,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         const { fields, hash } = await dummyTxHashFieldsAndHash()
         await Helper.approveHash(contract, owner01, hash)
         const sig1 = await Helper.signEip712Hash(contract, owner01, fields)
-        const blob = ethers.utils.defaultAbiCoder.encode(
+        const blob = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [[{ owner: owner01.address, sig: sig1 }]],
         )
@@ -2546,7 +2548,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         expect(await contract.connect(user01)['isValidSignature(bytes32,bytes)'](hash, blob)).to.equal('0xffffffff')
         // A second DISTINCT owner still gets the payload over the line.
         const sig2 = await Helper.signEip712Hash(contract, owner02, fields)
-        const blob2 = ethers.utils.defaultAbiCoder.encode(
+        const blob2 = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [[{ owner: owner02.address, sig: sig2 }]],
         )
@@ -2560,14 +2562,12 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         // Forge the non-canonical twin of owner02's signature:
         // s' = secp256k1.N - s, v' = flip(v). Raw ecrecover would accept it
         // as owner02; the canonical-signature check must reject it.
-        const split = ethers.utils.splitSignature(sig2)
-        const SECP256K1_N = ethers.BigNumber.from(
-          '0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141',
-        )
-        const malleatedS = ethers.utils.zeroPad(SECP256K1_N.sub(split.s).toHexString(), 32)
+        const split = ethers.Signature.from(sig2)
+        const SECP256K1_N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n
+        const malleatedS = ethers.zeroPadValue(ethers.toBeHex(SECP256K1_N - split.s, 32), 32)
         const malleatedV = split.v === 27 ? 28 : 27
-        const malleatedSig = ethers.utils.hexlify(ethers.utils.concat([split.r, malleatedS, [malleatedV]]))
-        const blob = ethers.utils.defaultAbiCoder.encode(
+        const malleatedSig = ethers.hexlify(ethers.concat([split.r, malleatedS, [malleatedV]]))
+        const blob = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [
             [
@@ -2595,7 +2595,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         // data (which would wrap the hash with a different domain).
         const innerSig1 = await Helper.signDigest(owner01, hash)
         const innerSig2 = await Helper.signDigest(owner02, hash)
-        const innerBlob = ethers.utils.defaultAbiCoder.encode(
+        const innerBlob = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [
             [
@@ -2617,7 +2617,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         await Helper.addOwner(contract, owner01, [owner01, owner02], inner2.address)
         const inner2Sig1 = await Helper.signDigest(owner02, hash)
         const inner2Sig2 = await Helper.signDigest(owner03, hash)
-        const inner2Blob = ethers.utils.defaultAbiCoder.encode(
+        const inner2Blob = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [
             [
@@ -2626,7 +2626,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
             ],
           ],
         )
-        const outerBlob = ethers.utils.defaultAbiCoder.encode(
+        const outerBlob = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [
             [
@@ -2636,7 +2636,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
           ],
         )
         // Diagnostic: try with just inner (1 vote) — threshold is 2, should be non-magic.
-        const oneVoteBlob = ethers.utils.defaultAbiCoder.encode(
+        const oneVoteBlob = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [[{ owner: inner.address, sig: innerBlob }]],
         )
@@ -2644,7 +2644,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
           '0xffffffff',
         )
         // Diagnostic: try with just inner2 — same.
-        const oneVoteBlob2 = ethers.utils.defaultAbiCoder.encode(
+        const oneVoteBlob2 = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [[{ owner: inner2.address, sig: inner2Blob }]],
         )
@@ -2665,12 +2665,12 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         await Helper.addOwner(contract, owner01, [owner01, owner02, owner03], inner.address)
 
         const { hash } = await dummyTxHashFieldsAndHash()
-        const wrongHash = ethers.utils.hexlify(ethers.utils.randomBytes(32))
+        const wrongHash = ethers.hexlify(ethers.randomBytes(32))
         // Sign `hash` (the outer typed-data hash), but the wallet will be
         // queried with `wrongHash`. The inner ECDSA sigs won't recover.
         const sig1 = await Helper.signDigest(owner01, hash)
         const sig2 = await Helper.signDigest(owner02, hash)
-        const innerBlob = ethers.utils.defaultAbiCoder.encode(
+        const innerBlob = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [
             [
@@ -2679,7 +2679,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
             ],
           ],
         )
-        const outerBlob = ethers.utils.defaultAbiCoder.encode(
+        const outerBlob = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [[{ owner: inner.address, sig: innerBlob }]],
         )
@@ -2692,7 +2692,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         const { fields, hash } = await dummyTxHashFieldsAndHash()
         const sig1 = await Helper.signEip712Hash(contract, owner01, fields)
         const sig2 = await Helper.signEip712Hash(contract, owner02, fields)
-        const blob = ethers.utils.defaultAbiCoder.encode(
+        const blob = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [
             [
@@ -2753,7 +2753,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         // Inner wallet's EIP-1271 vote for `txHash` (raw ECDSA, no domain wrap).
         const innerSig1 = await Helper.signDigest(owner01, txHash)
         const innerSig2 = await Helper.signDigest(owner02, txHash)
-        const innerBlob = ethers.utils.defaultAbiCoder.encode(
+        const innerBlob = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [
             [
@@ -2765,7 +2765,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         // Sanity: inner's isValidSignature confirms innerBlob is valid.
         expect(await inner['isValidSignature(bytes32,bytes)'](txHash, innerBlob)).to.equal(MAGIC)
 
-        const outerBlob = ethers.utils.defaultAbiCoder.encode(
+        const outerBlob = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [
             [
@@ -2804,10 +2804,10 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         )
         // Build an inner blob that signs a *wrong* hash, so the inner
         // isValidSignature(txHash, innerBlob) returns non-magic.
-        const wrongHash = ethers.utils.hexlify(ethers.utils.randomBytes(32))
+        const wrongHash = ethers.hexlify(ethers.randomBytes(32))
         const innerSig1 = await Helper.signDigest(owner01, wrongHash)
         const innerSig2 = await Helper.signDigest(owner02, wrongHash)
-        const innerBlob = ethers.utils.defaultAbiCoder.encode(
+        const innerBlob = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [
             [
@@ -2825,7 +2825,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
           Helper.DEFAULT_GAS,
           nonce,
         )
-        const outerBlob = ethers.utils.defaultAbiCoder.encode(
+        const outerBlob = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [
             [
@@ -2913,7 +2913,7 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
       // Fund the wallet so ETH transfer tests have balance to send.
       await owner01.sendTransaction({
         to: contract.address,
-        value: ethers.utils.parseEther('5'),
+        value: ethers.parseEther('5'),
       })
     })
 
@@ -3085,7 +3085,7 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
           'setRequireTxSuccess(bool)',
         ]
         for (const fragment of sensitiveFragments) {
-          const selector = ethers.utils.id(fragment).slice(0, 10)
+          const selector = ethers.id(fragment).slice(0, 10)
           expect(await contract.isSensitiveSelector(selector), fragment).to.be.true
         }
       })
@@ -3098,10 +3098,10 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
           contract.interface.encodeFunctionData('disableAllowlist()', []),
           contract.interface.encodeFunctionData('setDailySpendingLimit(address,uint256)', [
             owner01.address,
-            ethers.utils.parseEther('1'),
+            ethers.parseEther('1'),
           ]),
           contract.interface.encodeFunctionData('setSensitiveSelector(bytes4,bool)', ['0x12345678', false]),
-          contract.interface.encodeFunctionData('setSensitiveValueThreshold(uint256)', [ethers.utils.parseEther('1')]),
+          contract.interface.encodeFunctionData('setSensitiveValueThreshold(uint256)', [ethers.parseEther('1')]),
           contract.interface.encodeFunctionData('setRequireTxSuccess(bool)', [true]),
         ]
         for (const data of sensitiveCalls) {
@@ -3171,11 +3171,11 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
           owner01,
           [owner01, owner02],
           recipient,
-          ethers.utils.parseEther('0.1'),
+          ethers.parseEther('0.1'),
           '0x',
         )
         const after = await ethers.provider.getBalance(recipient)
-        expect(after.sub(before)).to.be.equal(ethers.utils.parseEther('0.1'))
+        expect(after.sub(before)).to.be.equal(ethers.parseEther('0.1'))
       })
 
       it('post-exec guard hook runs on the standard exec path with the signed hash', async function () {
@@ -3280,17 +3280,17 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
     describe('Allowance (Feature 3)', function () {
       it('advancedFeaturesEnabled sets the 0x08 bit once a daily limit is set', async function () {
         expect(await contract.advancedFeaturesEnabled()).to.be.equal(0)
-        const cap = ethers.utils.parseEther('1')
+        const cap = ethers.parseEther('1')
         await Helper.setDailySpendingLimit(contract, owner01, [owner01, owner02], owner01.address, cap)
         expect(await contract.advancedFeaturesEnabled()).to.be.equal(0x08)
       })
 
       it('single-signer path charges against the submitter cap', async function () {
-        const cap = ethers.utils.parseEther('1')
+        const cap = ethers.parseEther('1')
         await Helper.setDailySpendingLimit(contract, owner01, [owner01, owner02], owner01.address, cap)
         const data = '0x'
         const recipient = user01.address
-        const value = ethers.utils.parseEther('0.3')
+        const value = ethers.parseEther('0.3')
         // Single-signer ECDSA where sig recovers to owner01 == msg.sender.
         // Allowance signatures use the dedicated AllowanceTransaction
         // typehash bound to allowanceNonce().
@@ -3314,7 +3314,7 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
       })
 
       it('over-cap spend reverts with DailySpendingLimitExceeded', async function () {
-        const cap = ethers.utils.parseEther('0.5')
+        const cap = ethers.parseEther('0.5')
         await Helper.setDailySpendingLimit(contract, owner01, [owner01, owner02], owner01.address, cap)
         const sig = await Helper.signAllowanceTxn(
           contract,
@@ -3334,9 +3334,9 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
       })
 
       it('allowance signature is single-use: replay is rejected', async function () {
-        const cap = ethers.utils.parseEther('1')
+        const cap = ethers.parseEther('1')
         await Helper.setDailySpendingLimit(contract, owner01, [owner01, owner02], owner01.address, cap)
-        const value = ethers.utils.parseEther('0.1')
+        const value = ethers.parseEther('0.1')
         const mainNonceBefore = await contract.nonce()
         const allowanceNonceBefore = await contract.allowanceNonce()
         const sig = await Helper.signAllowanceTxn(
@@ -3371,10 +3371,10 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
       })
 
       it('allowance spend does not invalidate a pending threshold-signed transaction', async function () {
-        const cap = ethers.utils.parseEther('1')
+        const cap = ethers.parseEther('1')
         await Helper.setDailySpendingLimit(contract, owner01, [owner01, owner02], owner01.address, cap)
         // Pre-sign a threshold tx at the current main nonce.
-        const pendingValue = ethers.utils.parseEther('0.2')
+        const pendingValue = ethers.parseEther('0.2')
         const signatures = await Helper.prepareSignatures(
           contract,
           [owner01, owner02],
@@ -3386,7 +3386,7 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
           0,
         )
         // Allowance spend in between.
-        const spendValue = ethers.utils.parseEther('0.1')
+        const spendValue = ethers.parseEther('0.1')
         const sig = await Helper.signAllowanceTxn(
           contract,
           owner01,
@@ -3418,7 +3418,7 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
       })
 
       it('allowance path cannot target the wallet itself', async function () {
-        const cap = ethers.utils.parseEther('1')
+        const cap = ethers.parseEther('1')
         await Helper.setDailySpendingLimit(contract, owner01, [owner01, owner02], owner01.address, cap)
         const data = contract.interface.encodeFunctionData('addOwner(address)', [user01.address])
         const sig = await Helper.signAllowanceTxn(
@@ -3439,11 +3439,11 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
       })
 
       it('allowance spend at or above sensitiveValueThreshold requires the timelock route', async function () {
-        const cap = ethers.utils.parseEther('2')
+        const cap = ethers.parseEther('2')
         await Helper.setDailySpendingLimit(contract, owner01, [owner01, owner02], owner01.address, cap)
-        await Helper.setSensitiveValueThreshold(contract, owner01, [owner01, owner02], ethers.utils.parseEther('1'))
+        await Helper.setSensitiveValueThreshold(contract, owner01, [owner01, owner02], ethers.parseEther('1'))
         await Helper.setTimelockDelay(contract, owner01, [owner01, owner02], 60)
-        const value = ethers.utils.parseEther('1')
+        const value = ethers.parseEther('1')
         const sig = await Helper.signAllowanceTxn(
           contract,
           owner01,
@@ -3460,7 +3460,7 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
             .execTransactionWithSpendingAllowance(user01.address, value, '0x', Helper.DEFAULT_GAS, 0, sig),
         ).to.be.revertedWithCustomError(contract, 'SensitiveCallRequiresDelay')
         // Below the threshold the same path still works.
-        const smallValue = ethers.utils.parseEther('0.5')
+        const smallValue = ethers.parseEther('0.5')
         const sig2 = await Helper.signAllowanceTxn(
           contract,
           owner01,
@@ -3479,7 +3479,7 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
       })
 
       it('clearing the last daily limit turns the 0x08 feature bit off', async function () {
-        const cap = ethers.utils.parseEther('1')
+        const cap = ethers.parseEther('1')
         await Helper.setDailySpendingLimit(contract, owner01, [owner01, owner02], owner01.address, cap)
         await Helper.setDailySpendingLimit(contract, owner01, [owner01, owner02], owner02.address, cap)
         expect(await contract.advancedFeaturesEnabled()).to.be.equal(0x08)
@@ -3491,7 +3491,7 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
       })
 
       it('day rollover resets the cap', async function () {
-        const cap = ethers.utils.parseEther('1')
+        const cap = ethers.parseEther('1')
         await Helper.setDailySpendingLimit(contract, owner01, [owner01, owner02], owner01.address, cap)
         // First spend consumes the cap entirely.
         let nonce = await contract.allowanceNonce()
@@ -3544,16 +3544,16 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
           owner01,
           [owner01, owner02],
           module.address,
-          ethers.utils.parseEther('1'),
+          ethers.parseEther('1'),
           '0x',
         )
         const nonceAfterFunding = await contract.nonce()
         expect(nonceAfterFunding).to.be.equal(nonceBefore.add(2))
 
         const before = await ethers.provider.getBalance(user01.address)
-        await module.execCall(user01.address, ethers.utils.parseEther('0.1'), '0x')
+        await module.execCall(user01.address, ethers.parseEther('0.1'), '0x')
         const after = await ethers.provider.getBalance(user01.address)
-        expect(after.sub(before)).to.be.equal(ethers.utils.parseEther('0.1'))
+        expect(after.sub(before)).to.be.equal(ethers.parseEther('0.1'))
         // Module action must NOT bump _txnNonce — modules bypass threshold
         // by design so they shouldn't invalidate pending owner-signed
         // transactions.
@@ -3697,7 +3697,7 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
 
       it('granted key executes within scope and budget; wallet nonce untouched', async function () {
         const now = (await ethers.provider.getBlock('latest')).timestamp
-        await grantSessionKey(user01.address, now + DAY, ethers.utils.parseEther('1'), [user02.address])
+        await grantSessionKey(user01.address, now + DAY, ethers.parseEther('1'), [user02.address])
         expect(await module.isSessionKeyActive(contract.address, user01.address)).to.be.true
 
         const nonceBefore = await contract.nonce()
@@ -3705,12 +3705,12 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
         await (
           await module
             .connect(user01)
-            .executeWithSessionKey(contract.address, user02.address, ethers.utils.parseEther('0.4'), '0x')
+            .executeWithSessionKey(contract.address, user02.address, ethers.parseEther('0.4'), '0x')
         ).wait()
         const balanceAfter = await ethers.provider.getBalance(user02.address)
-        expect(balanceAfter.sub(balanceBefore)).to.equal(ethers.utils.parseEther('0.4'))
+        expect(balanceAfter.sub(balanceBefore)).to.equal(ethers.parseEther('0.4'))
         expect(await module.sessionBudgetRemaining(contract.address, user01.address)).to.equal(
-          ethers.utils.parseEther('0.6'),
+          ethers.parseEther('0.6'),
         )
         // Module-driven execution must not bump the wallet nonce.
         expect(await contract.nonce()).to.equal(nonceBefore)
@@ -3718,23 +3718,23 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
 
       it('rejects out-of-scope targets and over-budget spends', async function () {
         const now = (await ethers.provider.getBlock('latest')).timestamp
-        await grantSessionKey(user01.address, now + DAY, ethers.utils.parseEther('1'), [user02.address])
+        await grantSessionKey(user01.address, now + DAY, ethers.parseEther('1'), [user02.address])
 
         await expect(
           module
             .connect(user01)
-            .executeWithSessionKey(contract.address, user03.address, ethers.utils.parseEther('0.1'), '0x'),
+            .executeWithSessionKey(contract.address, user03.address, ethers.parseEther('0.1'), '0x'),
         ).to.be.revertedWithCustomError(module, 'SessionKeyTargetNotAllowed')
         await expect(
           module
             .connect(user01)
-            .executeWithSessionKey(contract.address, user02.address, ethers.utils.parseEther('1.1'), '0x'),
+            .executeWithSessionKey(contract.address, user02.address, ethers.parseEther('1.1'), '0x'),
         ).to.be.revertedWithCustomError(module, 'SessionKeyBudgetExceeded')
       })
 
       it('a session key can never call the wallet itself', async function () {
         const now = (await ethers.provider.getBlock('latest')).timestamp
-        await grantSessionKey(user01.address, now + DAY, ethers.utils.parseEther('1'), [user02.address])
+        await grantSessionKey(user01.address, now + DAY, ethers.parseEther('1'), [user02.address])
         await expect(
           module
             .connect(user01)
@@ -3749,7 +3749,7 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
 
       it('expires after the time window', async function () {
         const now = (await ethers.provider.getBlock('latest')).timestamp
-        await grantSessionKey(user01.address, now + DAY, ethers.utils.parseEther('1'), [user02.address])
+        await grantSessionKey(user01.address, now + DAY, ethers.parseEther('1'), [user02.address])
         await Helper.advanceTime(DAY + 1)
         expect(await module.isSessionKeyActive(contract.address, user01.address)).to.be.false
         await expect(
@@ -3759,7 +3759,7 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
 
       it('any single owner can revoke immediately; non-owners cannot', async function () {
         const now = (await ethers.provider.getBlock('latest')).timestamp
-        await grantSessionKey(user01.address, now + DAY, ethers.utils.parseEther('1'), [user02.address])
+        await grantSessionKey(user01.address, now + DAY, ethers.parseEther('1'), [user02.address])
 
         await expect(module.connect(user03).revokeSessionKey(contract.address, user01.address)).to.be.revertedWithCustomError(
           module,
@@ -3899,7 +3899,7 @@ export async function MyMultiSigFactoryCreate2Tests() {
   let factory: any
   let owners: string[]
 
-  const SALT = ethers.utils.id('mymultisig.app/test-salt')
+  const SALT = ethers.id('mymultisig.app/test-salt')
 
   describe('MyMultiSig - Factory CREATE2 Tests', function () {
     before(async function () {

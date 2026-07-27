@@ -1,12 +1,15 @@
 import { expect } from 'chai'
-import { BigNumber, BytesLike, Contract, Wallet } from 'ethers'
-import { ethers, network } from 'hardhat'
+import type { Contract, Wallet } from 'ethers'
+import { network } from 'hardhat'
 
 import constants from '../../constants'
 import signature from './signatures'
-import { MyMultiSig, MyMultiSigExtended } from '../../typechain-types'
+import type { MyMultiSig, MyMultiSigExtended } from '../../typechain-types'
 
-export const ZERO = BigNumber.from(0)
+const conn = await network.connect()
+const { ethers, networkHelpers } = conn
+
+export const ZERO = 0n
 
 /// @notice Picks the right EIP-712 hash for the wallet. Extended
 ///         wallets use the v0.5.0 7-field typehash with `operation`;
@@ -15,10 +18,10 @@ export const ZERO = BigNumber.from(0)
 export const generateHashForWallet = async (
   contract: MyMultiSig | MyMultiSigExtended,
   to: `0x${string}`,
-  value: BigNumber,
+  value: bigint,
   data: `0x${string}`,
   gas: number,
-  nonce: BigNumber,
+  nonce: bigint,
   validUntil: number,
   operation: number = 0,
 ): Promise<string> => {
@@ -32,19 +35,19 @@ export const generateHashForWallet = async (
   return await (contract as any).generateHash(to, value, data, gas, nonce, validUntil)
 }
 
-export const sendRawTxn = async (input: any, sender: Wallet, ethers: any, provider: any) => {
+export const sendRawTxn = async (input: any, sender: Wallet, ethersLib: any, provider: any) => {
   const txCount = await provider.getTransactionCount(sender.address)
   const rawTx = {
-    chainId: network.config.chainId,
-    nonce: ethers.utils.hexlify(txCount),
+    chainId: Number((await provider.getNetwork()).chainId),
+    nonce: ethersLib.toQuantity(txCount),
     to: input.to,
     value: input.value || 0x00,
-    gasLimit: ethers.utils.hexlify(3000000),
-    gasPrice: ethers.utils.hexlify(25000000000),
+    gasLimit: ethersLib.toQuantity(3000000),
+    gasPrice: ethersLib.toQuantity(25000000000),
     data: input.data,
   }
   const rawTransactionHex = await sender.signTransaction(rawTx)
-  const { hash } = await provider.sendTransaction(rawTransactionHex)
+  const { hash } = await provider.broadcastTransaction(rawTransactionHex)
   return await provider.waitForTransaction(hash)
 }
 
@@ -63,7 +66,7 @@ export const checkRawTxnResult = async (
     else expect.fail('AssertionError: ' + error)
   else {
     result = await sendRawTxn(input, sender, ethers, ethers.provider)
-    expect(result.status).to.equal(1)
+    expect(result.status).to.equal(1n)
   }
   return result
 }
@@ -83,10 +86,10 @@ export const prepareSignatures = async (
   contract: MyMultiSig | MyMultiSigExtended,
   owners: Wallet[],
   to: `0x${string}`,
-  value: BigNumber,
+  value: bigint,
   data: `0x${string}`,
   gas = constants.DEFAULT_GAS as number,
-  nonce = BigNumber.from(0),
+  nonce: bigint = 0n,
   validUntil: number = 0,
   operation: number = 0,
 ) => {
@@ -99,7 +102,7 @@ export const prepareSignatures = async (
     const sig = await signature.signMultiSigTxn(contract, owners[i], to, value, data, gas, nonce, validUntil, operation)
     votes.push({ owner: owners[i].address, sig })
   }
-  return ethers.utils.defaultAbiCoder.encode(['tuple(address owner, bytes sig)[]'], [votes])
+  return ethers.AbiCoder.defaultAbiCoder().encode(['tuple(address owner, bytes sig)[]'], [votes])
 }
 
 export const execTransaction = async (
@@ -107,7 +110,7 @@ export const execTransaction = async (
   submitter: Wallet,
   owners: Wallet[],
   to: `0x${string}`,
-  value: BigNumber,
+  value: bigint,
   data: `0x${string}`,
   gas = constants.DEFAULT_GAS as number,
   errorMsg?: string,
@@ -116,7 +119,7 @@ export const execTransaction = async (
   validUntil: number = 0,
   operation: number = 0,
 ) => {
-  const nonce = await contract.nonce()
+  const nonce: bigint = await contract.nonce()
   // v0.5.0 wallets bind `operation` into the signature; sign with it
   // when targeting an Extended wallet so the EIP-712 hash matches.
   if (!signatures)
@@ -213,10 +216,10 @@ export const isValidSignature = async (
   submitter: Wallet,
   owners: Wallet[],
   to: `0x${string}`,
-  value: BigNumber,
+  value: bigint,
   data: `0x${string}`,
   gas = constants.DEFAULT_GAS as number,
-  nonce = BigNumber.from(0),
+  nonce: bigint = 0n,
   errorMsg?: string,
   validUntil: number = 0,
   operation: number = 0,
@@ -261,7 +264,7 @@ export const multiRequest = async (
   submitter: Wallet,
   owners: Wallet[],
   to_: `0x${string}`[],
-  value_: BigNumber[],
+  value_: bigint[],
   data_: string[],
   gas_: number[],
   errorMsg?: string,
@@ -275,8 +278,8 @@ export const multiRequest = async (
     contract,
     submitter,
     owners,
-    contract.address as `0x${string}`,
-    BigNumber.from(0),
+    contract.target ?? (contract.address as `0x${string}`),
+    0n,
     contract.interface.encodeFunctionData('multiRequest', [to_, value_, data_, gas_]) as `0x${string}`,
     gas,
     errorMsg,
@@ -299,7 +302,7 @@ export const addOwner = async (
     contract,
     submitter,
     owners,
-    contract.address as `0x${string}`,
+    contract.target ?? (contract.address as `0x${string}`),
     ZERO,
     data,
     gas,
@@ -325,7 +328,7 @@ export const removeOwner = async (
     contract,
     submitter,
     owners,
-    contract.address as `0x${string}`,
+    contract.target ?? (contract.address as `0x${string}`),
     ZERO,
     data,
     gas,
@@ -352,7 +355,7 @@ export const changeThreshold = async (
     contract,
     submitter,
     owners,
-    contract.address as `0x${string}`,
+    contract.target ?? (contract.address as `0x${string}`),
     ZERO,
     data,
     gas,
@@ -379,7 +382,7 @@ export const replaceOwner = async (
     contract,
     submitter,
     owners,
-    contract.address as `0x${string}`,
+    contract.target ?? (contract.address as `0x${string}`),
     ZERO,
     data,
     gas,
@@ -408,7 +411,7 @@ export const setOnlyOwnerRequest = async (
     contract,
     submitter,
     owners,
-    contract.address as `0x${string}`,
+    contract.target ?? (contract.address as `0x${string}`),
     ZERO,
     data,
     gas,
@@ -423,7 +426,7 @@ export const setTransferInactiveOwnershipAfter = async (
   contract: MyMultiSigExtended,
   submitter: Wallet,
   owners: Wallet[],
-  transferInactiveOwnershipAfter: BigNumber,
+  transferInactiveOwnershipAfter: bigint,
   gas = constants.DEFAULT_GAS as number,
   errorMsg?: string,
   extraEvents?: string[],
@@ -436,7 +439,7 @@ export const setTransferInactiveOwnershipAfter = async (
     contract,
     submitter,
     owners,
-    contract.address as `0x${string}`,
+    contract.target ?? (contract.address as `0x${string}`),
     ZERO,
     data,
     gas,
@@ -452,7 +455,7 @@ export const markNonceAsUsed = async (
   contract: MyMultiSigExtended,
   submitter: Wallet,
   owners: Wallet[],
-  nonce: BigNumber,
+  nonce: bigint,
   gas = constants.DEFAULT_GAS as number,
   errorMsg?: string,
   extraEvents?: string[],
@@ -463,7 +466,7 @@ export const markNonceAsUsed = async (
     contract,
     submitter,
     owners,
-    contract.address as `0x${string}`,
+    contract.target ?? (contract.address as `0x${string}`),
     ZERO,
     data,
     gas,
@@ -480,7 +483,7 @@ export const setOwnerSettings = async (
   ownerToConfigure: string,
   submitter: Wallet,
   owners: Wallet[],
-  transferInactiveOwnershipAfter: BigNumber,
+  transferInactiveOwnershipAfter: bigint,
   delegatee: `0x${string}`,
   errorMsg?: string,
   extraEvents?: string[],
@@ -495,7 +498,7 @@ export const setOwnerSettings = async (
     contract,
     submitter,
     owners,
-    contract.address as `0x${string}`,
+    contract.target ?? (contract.address as `0x${string}`),
     ZERO,
     data,
     constants.DEFAULT_GAS as number,
@@ -505,7 +508,7 @@ export const setOwnerSettings = async (
 
   if (!errorMsg) {
     const ownerSettings = await contract.ownerSettings(ownerToConfigure)
-    expect(ownerSettings.lastAction).to.be.greaterThan(0)
+    expect(ownerSettings.lastAction).to.be.greaterThan(0n)
     expect(ownerSettings.transferInactiveOwnershipAfter).to.be.equal(transferInactiveOwnershipAfter)
     expect(ownerSettings.delegate).to.be.equal(delegatee)
   }
@@ -527,7 +530,7 @@ export const takeOverOwnership = async (
 
     expect(await contract.isOwner(originalOwnerSettings.delegate)).to.be.true
     expect(await contract.isOwner(originalOwner)).to.be.false
-    // expect(finalOwnerSettings.delegate).to.be.equal(ethers.constants.AddressZero)
+    // expect(finalOwnerSettings.delegate).to.be.equal(ethers.ZeroAddress)
   } else {
     await expect(contract.connect(submitter).takeOverOwnership(originalOwner)).to.be.revertedWithCustomError(
       contract,
@@ -542,12 +545,12 @@ export const takeOverOwnership = async (
 export const execTransactionWithNonce = async (
   contract: MyMultiSig | MyMultiSigExtended,
   submitter: Wallet,
-  owners: Wallet[],
+  _owners: Wallet[],
   to: `0x${string}`,
-  value: BigNumber,
+  value: bigint,
   data: `0x${string}`,
   gas: number,
-  nonce: BigNumber,
+  nonce: bigint,
   validUntil: number,
   signatures: string,
   operation: number = 0,
@@ -570,12 +573,12 @@ export const execTransactionWithNonce = async (
 export const execTransactionWithNonceReverted = async (
   contract: MyMultiSig | MyMultiSigExtended,
   submitter: Wallet,
-  owners: Wallet[],
+  _owners: Wallet[],
   to: `0x${string}`,
-  value: BigNumber,
+  value: bigint,
   data: `0x${string}`,
   gas: number,
-  nonce: BigNumber,
+  nonce: bigint,
   validUntil: number,
   signatures: string,
   errorMsg: string,
@@ -598,9 +601,9 @@ export const execTransactionWithNonceReverted = async (
 }
 
 /// @notice Calls `approveHash(hash)` from `owner` and asserts the resulting
-/// `ApproveHash` event is emitted (or reverts when `errorMsg` is supplied).
-/// When `expectEvent` is false (idempotent re-call), the helper only asserts
-/// the call succeeded without requiring an event.
+///         `ApproveHash` event is emitted (or reverts when `errorMsg` is supplied).
+///         When `expectEvent` is false (idempotent re-call), the helper only asserts
+///         the call succeeded without requiring an event.
 export const approveHash = async (
   contract: MyMultiSig | MyMultiSigExtended,
   owner: Wallet,
@@ -651,7 +654,7 @@ export const execOnlyThis = async (
     contract,
     submitter,
     owners,
-    contract.address as `0x${string}`,
+    contract.target ?? (contract.address as `0x${string}`),
     ZERO,
     data,
     constants.DEFAULT_GAS as number,
@@ -764,10 +767,9 @@ export const disableModule = async (
   if (!errorMsg) expect(await contract.isModule(module)).to.be.false
 }
 
-/// @notice Advance the test EVM clock by `seconds`. Uses `time.increase` from
-///         `@nomicfoundation/hardhat-network-helpers` so timestamp-dependent
-///         assertions (timelock readyAt, daily-allowance rollover) work.
+/// @notice Advance the test EVM clock by `seconds`. Uses `networkHelpers.time`
+///         so timestamp-dependent assertions (timelock readyAt,
+///         daily-allowance rollover) work.
 export const advanceTime = async (seconds: number) => {
-  const { time } = await import('@nomicfoundation/hardhat-network-helpers')
-  await time.increase(seconds)
+  await networkHelpers.time.increase(seconds)
 }

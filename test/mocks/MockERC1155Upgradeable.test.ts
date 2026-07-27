@@ -1,5 +1,7 @@
 import { expect } from 'chai'
-import { ethers } from 'hardhat'
+import { network } from 'hardhat'
+
+const { ethers } = await network.connect()
 
 let mockERC1155Upgradeable: any
 let deployer: any
@@ -10,7 +12,7 @@ describe('MockERC1155UpgradeableUpgradeable', function () {
 
     const MockERC1155Upgradeable = await ethers.getContractFactory('MockERC1155Upgradeable')
     mockERC1155Upgradeable = await MockERC1155Upgradeable.deploy()
-    await mockERC1155Upgradeable.deployed()
+    await mockERC1155Upgradeable.waitForDeployment()
     await mockERC1155Upgradeable.initialize('MockERC1155Upgradeable', 'MOCK', 'https://google.com')
   })
 

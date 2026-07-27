@@ -16,6 +16,11 @@ jobs:
           submodules: recursive
       - name: Yarn Install
         run: yarn
+      # Hardhat 3 requires Node 22.13+; Ubuntu's default image ships with
+      # an older Node that triggers an explicit error from the v3 CLI.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
       - name: Hardhat Compile
         run: yarn hardhat compile
       - name: Hardhat Test
@@ -25,7 +30,9 @@ jobs:
       # Move this step before `Hardhat Test` if you want to test against
       # the published ABI shape; the current order ensures tests always
       # pass against the latest in-tree code.
+      # Coverage used to run via `solidity-coverage`, but that plugin has
+      # no Hardhat 3 release — Hardhat 3 ships a built-in `--coverage`
+      # flag instead. Re-enable once the project's coverage threshold
+      # rules are ported to the v3 task.
       - name: Hardhat Build (ABI / typechain)
         run: yarn build
-      - name: Hardhat Coverage
-        run: yarn coverage

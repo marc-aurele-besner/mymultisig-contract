@@ -215,7 +215,8 @@ function compare(
 
 function checkEtherscan(networks: ExternalNetwork[]): string[] {
   const errors: string[] = []
-  const apiKey = (config.etherscan as any)?.apiKey as Record<string, string> | undefined
+  // v3 hardhat-verify nests the etherscan config under `.verify.etherscan`.
+  const apiKey = ((config as any).verify?.etherscan?.apiKey as Record<string, string> | undefined)
   if (!apiKey) return errors
 
   for (const net of networks) {

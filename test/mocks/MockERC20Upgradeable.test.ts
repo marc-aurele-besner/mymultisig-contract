@@ -1,5 +1,7 @@
 import { expect } from 'chai'
-import { ethers } from 'hardhat'
+import { network } from 'hardhat'
+
+const { ethers } = await network.connect()
 
 let mockERC20Upgradeable: any
 let deployer: any
@@ -12,7 +14,7 @@ describe('MockERC20UpgradeableUpgradeable', function () {
 
     const MockERC20Upgradeable = await ethers.getContractFactory('MockERC20Upgradeable')
     mockERC20Upgradeable = await MockERC20Upgradeable.deploy()
-    await mockERC20Upgradeable.deployed()
+    await mockERC20Upgradeable.waitForDeployment()
     await mockERC20Upgradeable.initialize('MockERC20Upgradeable', 'MOCK')
   })
 
@@ -25,44 +27,44 @@ describe('MockERC20UpgradeableUpgradeable', function () {
   })
 
   it('Should mint token and have the right balanceOf', async function () {
-    const amount = 1000
+    const amount = 1000n
     await mockERC20Upgradeable.mint(deployer.address, amount)
 
     expect(await mockERC20Upgradeable.balanceOf(deployer.address)).to.equal(amount)
   })
 
   it('Should mint token and have the right totalSupply', async function () {
-    const amount = 1000
+    const amount = 1000n
     await mockERC20Upgradeable.mint(deployer.address, amount)
 
     expect(await mockERC20Upgradeable.totalSupply()).to.equal(amount)
   })
 
   it('Should mint token and burn them', async function () {
-    const amount = 1000
+    const amount = 1000n
     await mockERC20Upgradeable.mint(deployer.address, amount)
     expect(await mockERC20Upgradeable.balanceOf(deployer.address)).to.equal(amount)
 
     await mockERC20Upgradeable.burn(amount)
-    expect(await mockERC20Upgradeable.balanceOf(deployer.address)).to.equal(0)
+    expect(await mockERC20Upgradeable.balanceOf(deployer.address)).to.equal(0n)
   })
 
   it('Should mint token and transfer them', async function () {
-    const amount = 1000
+    const amount = 1000n
     await mockERC20Upgradeable.mint(deployer.address, amount)
     expect(await mockERC20Upgradeable.balanceOf(deployer.address)).to.equal(amount)
 
     await mockERC20Upgradeable.transfer(user1.address, amount)
-    expect(await mockERC20Upgradeable.balanceOf(user1.address)).to.equal(1000)
+    expect(await mockERC20Upgradeable.balanceOf(user1.address)).to.equal(1000n)
   })
 
   it('Should mint token and transferFrom them', async function () {
-    const amount = 1000
+    const amount = 1000n
     await mockERC20Upgradeable.mint(deployer.address, amount)
     expect(await mockERC20Upgradeable.balanceOf(deployer.address)).to.equal(amount)
 
     await mockERC20Upgradeable.approve(user1.address, amount)
     await mockERC20Upgradeable.connect(user1).transferFrom(deployer.address, user2.address, amount)
-    expect(await mockERC20Upgradeable.balanceOf(user2.address)).to.equal(1000)
+    expect(await mockERC20Upgradeable.balanceOf(user2.address)).to.equal(1000n)
   })
 })
