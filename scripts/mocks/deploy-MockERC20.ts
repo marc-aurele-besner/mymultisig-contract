@@ -1,7 +1,7 @@
 import { deployAndSave } from './_lib'
 
 async function main() {
-    await deployAndSave('MockERC721')
+    await deployAndSave('MockERC20')
 }
 
 main().catch((error) => {

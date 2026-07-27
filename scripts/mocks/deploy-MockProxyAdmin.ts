@@ -1,15 +1,7 @@
-import { ethers, addressBook, network } from 'hardhat'
+import { deployAndSave } from './_lib'
 
 async function main() {
-    const [deployer] = await ethers.getSigners()
-
-    const MockProxyAdmin = await ethers.getContractFactory('MockProxyAdmin')
-    const mockProxyAdmin = await MockProxyAdmin.deploy()
-
-    await mockProxyAdmin.deployed()
-    await addressBook.saveContract('MockProxyAdmin', mockProxyAdmin.address, network.name, deployer.address)
-
-    console.log('MockProxyAdmin deployed to:', mockProxyAdmin.address)
+    await deployAndSave('MockProxyAdmin')
 }
 
 main().catch((error) => {

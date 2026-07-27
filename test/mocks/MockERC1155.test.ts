@@ -1,5 +1,7 @@
 import { expect } from 'chai'
-import { ethers } from 'hardhat'
+import { network } from 'hardhat'
+
+const { ethers } = await network.getOrCreate()
 
 let mockERC1155: any
 let deployer: any
@@ -10,7 +12,7 @@ describe('MockERC1155', function () {
 
     const MockERC1155 = await ethers.getContractFactory('MockERC1155')
     mockERC1155 = await MockERC1155.deploy()
-    await mockERC1155.deployed()
+    await mockERC1155.waitForDeployment()
   })
 
   it('Should return the name of the token', async function () {

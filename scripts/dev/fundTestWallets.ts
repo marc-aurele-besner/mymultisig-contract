@@ -1,12 +1,14 @@
-import { ethers } from 'hardhat'
+import { network } from 'hardhat'
 
 import Helper from '../../test/shared'
+
+const connection = await network.getOrCreate()
+const { ethers } = connection
 
 let provider: any
 let owner01: any
 let owner02: any
 let owner03: any
-let ownerCount: number
 let user01: any
 let user02: any
 let user03: any
@@ -22,19 +24,19 @@ async function main() {
 
   await owner01.sendTransaction({
     to: process.env.METAMASK_TEST_WALLET01,
-    value: ethers.utils.parseEther('1'),
+    value: ethers.parseEther('1'),
   })
   console.log(`Transfer Eth to ${process.env.METAMASK_TEST_WALLET01}`)
 
   await owner01.sendTransaction({
     to: process.env.METAMASK_TEST_WALLET02,
-    value: ethers.utils.parseEther('1'),
+    value: ethers.parseEther('1'),
   })
   console.log(`Transfer Eth to ${process.env.METAMASK_TEST_WALLET02}`)
 
   await owner01.sendTransaction({
     to: process.env.METAMASK_TEST_WALLET03,
-    value: ethers.utils.parseEther('1'),
+    value: ethers.parseEther('1'),
   })
   console.log(`Transfer Eth to ${process.env.METAMASK_TEST_WALLET03}`)
 }

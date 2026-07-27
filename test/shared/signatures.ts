@@ -1,7 +1,8 @@
 import { network } from 'hardhat'
-import { BigNumber } from 'ethers'
 
 import constants from '../../constants'
+
+const { ethers } = await network.getOrCreate()
 
 export default {
   /// @notice Signs a wallet's EIP-712 transaction hash. Wallets bind
@@ -13,26 +14,27 @@ export default {
     contractOrAddress: any,
     sourceWallet: any,
     to: string,
-    value: BigNumber,
+    value: bigint,
     data: string,
     gas: number,
-    nonce: BigNumber,
+    nonce: bigint,
     validUntil: number = 0,
     operation: number = 0,
   ) {
     const contractAddress: string =
-      typeof contractOrAddress === 'string' ? contractOrAddress : contractOrAddress.address
+      typeof contractOrAddress === 'string' ? contractOrAddress : await contractOrAddress.getAddress()
     const contract =
       typeof contractOrAddress === 'string'
         ? (sourceWallet.provider && (await sourceWallet.provider.getNetwork()), null)
         : contractOrAddress
     const isExtended = contract && typeof (contract as any).allowOnlyOwnerRequest === 'function'
+    const chainId = (await ethers.provider.getNetwork()).chainId
     if (isExtended) {
-      return sourceWallet._signTypedData(
+      return sourceWallet.signTypedData(
         {
           name: constants.CONTRACT_NAME,
           version: constants.CONTRACT_VERSION,
-          chainId: network.config.chainId,
+          chainId,
           verifyingContract: contractAddress,
         },
         {
@@ -49,11 +51,11 @@ export default {
         { to, value, data, gas, nonce, validUntil, operation },
       )
     }
-    return sourceWallet._signTypedData(
+    return sourceWallet.signTypedData(
       {
         name: constants.CONTRACT_NAME,
         version: constants.CONTRACT_VERSION,
-        chainId: network.config.chainId,
+        chainId,
         verifyingContract: contractAddress,
       },
       {
@@ -73,13 +75,15 @@ export default {
   ///         `hashFields.operation` is only used for extended wallets.
   signEip712Hash: async function (contract: any, owner: any, hashFields: any): Promise<string> {
     const isExtended = typeof (contract as any).allowOnlyOwnerRequest === 'function'
+    const chainId = (await ethers.provider.getNetwork()).chainId
+    const verifyingContract: string = await contract.getAddress()
     if (isExtended) {
-      return owner._signTypedData(
+      return owner.signTypedData(
         {
           name: constants.CONTRACT_NAME,
           version: constants.CONTRACT_VERSION,
-          chainId: network.config.chainId,
-          verifyingContract: contract.address,
+          chainId,
+          verifyingContract,
         },
         {
           Transaction: [
@@ -95,12 +99,12 @@ export default {
         { ...hashFields, operation: hashFields.operation ?? 0 },
       )
     }
-    return owner._signTypedData(
+    return owner.signTypedData(
       {
         name: constants.CONTRACT_NAME,
         version: constants.CONTRACT_VERSION,
-        chainId: network.config.chainId,
-        verifyingContract: contract.address,
+        chainId,
+        verifyingContract,
       },
       {
         Transaction: [
@@ -123,18 +127,19 @@ export default {
     contract: any,
     sourceWallet: any,
     to: string,
-    value: BigNumber,
+    value: bigint,
     data: string,
     gas: number,
-    nonce: BigNumber,
+    nonce: bigint,
     validUntil: number = 0,
   ) {
-    return sourceWallet._signTypedData(
+    const chainId = (await ethers.provider.getNetwork()).chainId
+    return sourceWallet.signTypedData(
       {
         name: constants.CONTRACT_NAME,
         version: constants.CONTRACT_VERSION,
-        chainId: network.config.chainId,
-        verifyingContract: contract.address,
+        chainId,
+        verifyingContract: await contract.getAddress(),
       },
       {
         AllowanceTransaction: [
@@ -152,13 +157,12 @@ export default {
   /// @notice Produces a raw 65-byte ECDSA signature over `digest` (no
   ///         EIP-712 envelope).
   signDigest: async function (signer: any, digest: string): Promise<string> {
-    const sigObj = signer._signingKey().signDigest(digest)
-    const ethers = require('ethers')
-    return ethers.utils.hexlify(
-      ethers.utils.concat([
-        ethers.utils.zeroPad(sigObj.r, 32),
-        ethers.utils.zeroPad(sigObj.s, 32),
-        ethers.utils.zeroPad(sigObj.v, 1),
+    const sigObj = signer.signingKey.sign(digest)
+    return ethers.hexlify(
+      ethers.concat([
+        ethers.zeroPadValue(sigObj.r, 32),
+        ethers.zeroPadValue(sigObj.s, 32),
+        ethers.toBeHex(sigObj.v, 1),
       ]),
     )
   },

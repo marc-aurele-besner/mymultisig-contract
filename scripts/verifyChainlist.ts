@@ -38,7 +38,7 @@ interface ExternalNetwork {
 const CHAINLIST_URL = 'https://chainlist.org/rpcs.json'
 const REQUEST_TIMEOUT_MS = 8000
 
-const LOCAL_NETWORKS = new Set(['hardhat', 'localhost', 'anvil', 'anvil9999'])
+const LOCAL_NETWORKS = new Set(['default', 'hardhat', 'localhost', 'anvil', 'anvil9999'])
 
 // chainId -> apiKey key used by @nomiclabs/hardhat-etherscan v3.
 // Only the chains the project actually uses are listed; extend as needed.
@@ -215,7 +215,8 @@ function compare(
 
 function checkEtherscan(networks: ExternalNetwork[]): string[] {
   const errors: string[] = []
-  const apiKey = (config.etherscan as any)?.apiKey as Record<string, string> | undefined
+  // v3 hardhat-verify nests the etherscan config under `.verify.etherscan`.
+  const apiKey = ((config as any).verify?.etherscan?.apiKey as Record<string, string> | undefined)
   if (!apiKey) return errors
 
   for (const net of networks) {

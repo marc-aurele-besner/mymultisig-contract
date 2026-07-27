@@ -1,14 +1,11 @@
-import { ethers, network, upgrades, addressBook } from 'hardhat'
-import {
-  NetworkConfig,
-  HardhatNetworkConfig,
-  HttpNetworkConfig,
-  HardhatNetworkAccountsConfig,
-  HttpNetworkAccountsConfig,
-  HardhatNetworkHDAccountsConfig,
-} from 'hardhat/types'
+import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { network } from 'hardhat'
 
 import constants from '../../constants'
+
+const connection = await network.getOrCreate()
+const { ethers } = connection
+const networkName = connection.networkName
 
 console.log(
   '\x1b[34m',
@@ -16,7 +13,7 @@ console.log(
   '\x1b[32m',
   'Connected to network: ',
   '\x1b[33m',
-  network.name,
+  networkName,
   '\x1b[0m',
 )
 
@@ -26,6 +23,86 @@ export interface SetupContractReturn {
   contractAddress: string
   ownersAddresses: string[]
   threshold: number
+}
+
+// Manual ERC1967-style transparent proxy deployment. The Hardhat v3
+// ecosystem has no `@openzeppelin/hardhat-upgrades` plugin (yet), but the
+// `MockTransparentUpgradeableProxy` mock the repo already ships under
+// `contracts/mocks/` is the same wrapper a v2 `upgrades.deployProxy`
+// would produce. We deploy the implementation, then the proxy pointing
+// at it with the `initialize()` selector as the bootstrap call.
+const deployProxy = async (
+  implementationFactory: any,
+  constructorArgs: any[],
+  deployerAddress: string,
+  initCalldata: string,
+  overrides: { gasLimit?: number } = {},
+) => {
+  const implementation = await implementationFactory.deploy(...constructorArgs, overrides)
+  await implementation.waitForDeployment()
+  const proxyFactory = await ethers.getContractFactory('MockTransparentUpgradeableProxy')
+  const proxy = await proxyFactory.deploy(implementation.target, deployerAddress, initCalldata, overrides)
+  await proxy.waitForDeployment()
+  return { implementation, proxy }
+}
+
+// Lightweight replacement for `deployment-tool`'s `addressBook`. The address
+// book only persists to disk on live networks; on `hardhat`/`localhost`/
+// `anvil` the original implementation was a no-op.
+const ADDRESS_BOOK_FILES = ['contractsAddressDeployed.json', 'contractsAddressDeployedHistory.json']
+const localNetworks = new Set(['default', 'hardhat', 'localhost', 'anvil', 'anvil9999'])
+
+const readAddressBook = (file: string): any[] => {
+  if (!existsSync(file)) return []
+  try {
+    return JSON.parse(readFileSync(file, 'utf8'))
+  } catch {
+    return []
+  }
+}
+
+const writeAddressBook = (file: string, entries: any[]) => {
+  writeFileSync(file, JSON.stringify(entries, null, 2) + '\n')
+}
+
+const saveContract = async (
+  contractName: string,
+  contractAddress: string,
+  netName: string,
+  deployerAddress: string,
+  chainId: number,
+  blockHash: string,
+  blockNumber: number,
+  _tag: any,
+  extra: Record<string, any>,
+) => {
+  if (localNetworks.has(netName)) return
+  const entry = {
+    name: contractName,
+    address: contractAddress,
+    network: netName,
+    deployer: deployerAddress,
+    deploymentDate: new Date(),
+    chainId,
+    blockHash,
+    blockNumber,
+    tag: '',
+    extra,
+  }
+  const fileEntries = readAddressBook(ADDRESS_BOOK_FILES[0]).filter(
+    (e) => !(e.name === contractName && e.network === netName),
+  )
+  fileEntries.unshift(entry)
+  writeAddressBook(ADDRESS_BOOK_FILES[0], fileEntries)
+  const historyEntries = readAddressBook(ADDRESS_BOOK_FILES[1])
+  historyEntries.push(entry)
+  writeAddressBook(ADDRESS_BOOK_FILES[1], historyEntries)
+}
+
+const retrieveContract = async (contractName: string, netName: string): Promise<string> => {
+  const entries = readAddressBook(ADDRESS_BOOK_FILES[0])
+  const match = entries.find((e) => e.name === contractName && e.network === netName)
+  return match ? (match.address as string) : ''
 }
 
 const setupContract = async (
@@ -42,10 +119,16 @@ const setupContract = async (
   // chains get an explicit `gasLimit` on every deploy. Live networks
   // reject any gas limit above their block gas limit ("gas limit too
   // high"), so there we pass no override and let the node estimate.
-  const LOCAL_CHAIN_IDS = [31337, 9999]
+  const LOCAL_CHAIN_IDS = [31337n, 9999n]
+  const networkInfo = await ethers.provider.getNetwork()
   const isLocalNetwork =
-    network.name === 'hardhat' || LOCAL_CHAIN_IDS.includes(network.config.chainId ?? 0)
-  const deployOverrides = isLocalNetwork ? { gasLimit: 50_000_000 } : {}
+    networkName === 'default' || networkName === 'hardhat' || LOCAL_CHAIN_IDS.includes(networkInfo.chainId)
+  // Cap the explicit deploy `gasLimit` under EIP-7825's 16M per-tx
+  // gas cap. EDR enforces this cap even when `transactionGasCap`
+  // is set in config, and the explicit `gasLimit` here would
+  // otherwise exceed it. Live networks still pass no override so
+  // the node estimates.
+  const deployOverrides = isLocalNetwork ? { gasLimit: 15_000_000 } : {}
 
   // Get contract artifacts and deploy contract
   if (deployFactory) {
@@ -54,34 +137,55 @@ const setupContract = async (
     // passed in via the implementation's constructor. Deploy them first.
     const MyMultiSigDeployer = await ethers.getContractFactory('MyMultiSigDeployer')
     const myMultiSigDeployer = await MyMultiSigDeployer.deploy(deployOverrides)
-    await myMultiSigDeployer.deployed()
+    await myMultiSigDeployer.waitForDeployment()
     const MyMultiSigExtendedDeployer = await ethers.getContractFactory('MyMultiSigExtendedDeployer')
     const myMultiSigExtendedDeployer = await MyMultiSigExtendedDeployer.deploy(deployOverrides)
-    await myMultiSigExtendedDeployer.deployed()
+    await myMultiSigExtendedDeployer.waitForDeployment()
     // The "Advanced" deployer is a tiny wrapper around the Extended
     // deployer — see `MyMultiSigAdvancedDeployer.sol` — so factory
     // bookkeeping can distinguish the creation path without paying for a
     // second copy of the wallet bytecode.
     const MyMultiSigAdvancedDeployer = await ethers.getContractFactory('MyMultiSigAdvancedDeployer')
     const myMultiSigAdvancedDeployer = await MyMultiSigAdvancedDeployer.deploy(
-      myMultiSigExtendedDeployer.address,
+      myMultiSigExtendedDeployer.target,
       deployOverrides,
     )
-    await myMultiSigAdvancedDeployer.deployed()
+    await myMultiSigAdvancedDeployer.waitForDeployment()
 
+    // Manual transparent-proxy deployment replacing `upgrades.deployProxy`.
     ContractFactory = await ethers.getContractFactory(contractName)
-    contract = await upgrades.deployProxy(ContractFactory, [], {
-      constructorArgs: [
-        myMultiSigDeployer.address,
-        myMultiSigExtendedDeployer.address,
-        myMultiSigAdvancedDeployer.address,
-      ],
-      ...deployOverrides,
-    })
+    const implementationContract = await ContractFactory.deploy(
+      myMultiSigDeployer.target,
+      myMultiSigExtendedDeployer.target,
+      myMultiSigAdvancedDeployer.target,
+      deployOverrides,
+    )
+    await implementationContract.waitForDeployment()
+
+    // `MyMultiSigFactory.initialize()` is the bootstrap call. The Hardhat v3
+    // ecosystem lacks a v3 `oz-upgrades` plugin, so we encode the selector
+    // by hand and pass it as the proxy's `_data`.
+    const initFragment = ContractFactory.interface.getFunction('initialize')
+    const initCalldata = ContractFactory.interface.encodeFunctionData(initFragment, [])
+
+    const ProxyAdminFactory = await ethers.getContractFactory('MockProxyAdmin')
+    const proxyAdmin = await ProxyAdminFactory.deploy(deployOverrides)
+    await proxyAdmin.waitForDeployment()
+
+    const ProxyFactory = await ethers.getContractFactory('MockTransparentUpgradeableProxy')
+    const proxy = await ProxyFactory.deploy(
+      implementationContract.target,
+      proxyAdmin.target,
+      initCalldata,
+      deployOverrides,
+    )
+    await proxy.waitForDeployment()
+    contract = implementationContract.attach(proxy.target) as any
   } else {
     if (!deployExtended) {
       ContractFactory = await ethers.getContractFactory(contractName)
       contract = await ContractFactory.deploy(contractName, ownersAddresses, threshold, deployOverrides)
+      await contract.waitForDeployment()
     } else {
       ContractFactory = await ethers.getContractFactory(contractName + 'Extended')
       // v0.5.0 `MyMultiSigExtended` constructor adds an `entryPoint_`
@@ -96,6 +200,7 @@ const setupContract = async (
         constants.ENTRY_POINT_V07_ADDRESS,
         deployOverrides,
       )
+      await contract.waitForDeployment()
     }
   }
 
@@ -106,179 +211,99 @@ const setupContract = async (
         }
       : {}
 
-  // Wait for contract to be deployed
-  await contract.deployed()
-
   // `saveContract` only persists to the address-book JSON files when its
   // trailing `forceAdd` flag is true; it always skips the hardhat/localhost/
   // anvil networks internally, so local test runs never touch the files.
-  await addressBook.saveContract(
+  const deployTx =
+    typeof (contract as any).deploymentTransaction === 'function'
+      ? (contract as any).deploymentTransaction()
+      : (contract as any).deployTransaction
+  const deployFrom = deployTx?.from ?? ''
+  await saveContract(
     contractName,
-    contract.address,
-    network.name,
-    contract.deployTransaction.from,
-    network.config.chainId,
-    contract.deployTransaction.blockHash,
-    contract.deployTransaction.blockNumber,
+    contract.target,
+    networkName,
+    deployFrom,
+    Number(networkInfo.chainId),
+    deployTx?.blockHash ?? '',
+    Number(deployTx?.blockNumber ?? 0),
     undefined,
     {
       ...deploymentDetail,
       owners: ownersAddresses,
       threshold,
     },
-    true,
   )
   // `retrieveContract` returns an empty string when no record matches, and a
   // stale record would return an old address — require the freshly deployed
   // address on the networks where the save is expected to persist.
-  if (!isLocalNetwork && (await addressBook.retrieveContract(contractName, network.name)) !== contract.address)
+  if (!isLocalNetwork && (await retrieveContract(contractName, networkName)) !== contract.target)
     throw new Error('Error saving and retrieving contract from address book.')
 
-  return { contract, contractName, contractAddress: contract.address, ownersAddresses, threshold }
+  return { contract, contractName, contractAddress: contract.target, ownersAddresses, threshold }
 }
 
-const isHttpNetworkConfig = (networkConfig: NetworkConfig): networkConfig is HttpNetworkConfig => {
-  return (networkConfig as HttpNetworkConfig).url !== undefined
-}
+const isStringArray = (accounts: any): accounts is string[] =>
+  Array.isArray(accounts) && accounts.every((a) => typeof a === 'string')
 
-const isHardhatNetworkHDAccountsConfig = (
-  account: HardhatNetworkAccountsConfig | HttpNetworkAccountsConfig,
-): account is HardhatNetworkHDAccountsConfig => {
-  return (account as HardhatNetworkHDAccountsConfig).mnemonic !== undefined
-}
-
-const isHttpNetworkAccountsConfig = (
-  account: HardhatNetworkAccountsConfig | HttpNetworkAccountsConfig,
-): account is HttpNetworkAccountsConfig => {
-  return typeof (account as HttpNetworkAccountsConfig) === 'string'
+const resolveConfigValue = async (value: any): Promise<any> => {
+  if (value && typeof value._getRawValue === 'function') return await value._getRawValue()
+  return value
 }
 
 const setupProviderAndAccount = async () => {
-  let provider = ethers.provider
-  let owner01: any
-  let owner02: any
-  let owner03: any
+  const provider = ethers.provider
+  // In Hardhat 3 the connection holds its own network config; reach it
+  // through the global `connection` established at module load.
+  const accountsConfig = (connection as any).networkConfig?.accounts
+  const getAccountValues = async (): Promise<string[]> => {
+    const mnemonic = await resolveConfigValue(accountsConfig?.mnemonic)
+    if (typeof mnemonic === 'string') {
+      const out: string[] = []
+      for (let i = 0; i < 6; i++) {
+        const path = `${accountsConfig.path ?? "m/44'/60'/0'/0"}/${i}`
+        const w = ethers.HDNodeWallet.fromPhrase(mnemonic, undefined, path)
+        out.push(w.privateKey)
+      }
+      return out
+    }
+    if (Array.isArray(accountsConfig)) {
+      const values = await Promise.all(accountsConfig.map(resolveConfigValue))
+      if (isStringArray(values)) return values
+    }
+    return []
+  }
 
-  if (isHardhatNetworkHDAccountsConfig(network.config.accounts))
-    owner01 = new ethers.Wallet(
-      ethers.Wallet.fromMnemonic(network.config.accounts.mnemonic, `m/44'/60'/0'/0/0`).privateKey,
-      provider,
-    )
-  else if (
-    !isHttpNetworkAccountsConfig(network.config.accounts) &&
-    network.config.accounts[0] !== undefined &&
-    typeof network.config.accounts[0] === 'string'
-  )
-    owner01 = new ethers.Wallet(network.config.accounts[0], provider)
+  const accountValues = await getAccountValues()
 
-  if (isHardhatNetworkHDAccountsConfig(network.config.accounts))
-    owner02 = new ethers.Wallet(
-      ethers.Wallet.fromMnemonic(network.config.accounts.mnemonic, `m/44'/60'/0'/0/1`).privateKey,
-      provider,
-    )
-  else if (
-    !isHttpNetworkAccountsConfig(network.config.accounts) &&
-    network.config.accounts[1] !== undefined &&
-    typeof network.config.accounts[1] === 'string'
-  )
-    owner02 = new ethers.Wallet(network.config.accounts[1], provider)
+  const buildWallet = (idx: number) => {
+    const pk = accountValues[idx]
+    if (pk && pk.length === 66 && pk.startsWith('0x')) {
+      return new ethers.Wallet(pk, provider)
+    }
+    return ethers.Wallet.createRandom().connect(provider)
+  }
 
-  if (isHardhatNetworkHDAccountsConfig(network.config.accounts))
-    owner03 = new ethers.Wallet(
-      ethers.Wallet.fromMnemonic(network.config.accounts.mnemonic, `m/44'/60'/0'/0/2`).privateKey,
-      provider,
-    )
-  else if (
-    !isHttpNetworkAccountsConfig(network.config.accounts) &&
-    network.config.accounts[2] !== undefined &&
-    typeof network.config.accounts[2] === 'string'
-  )
-    owner03 = new ethers.Wallet(network.config.accounts[2], provider)
+  const owner01 = buildWallet(0)
+  const owner02 = buildWallet(1)
+  const owner03 = buildWallet(2)
+  const user01 = accountValues[3] ? buildWallet(3) : ethers.Wallet.createRandom().connect(provider)
+  const user02 = accountValues[4] ? buildWallet(4) : ethers.Wallet.createRandom().connect(provider)
+  const user03 = accountValues[5] ? buildWallet(5) : ethers.Wallet.createRandom().connect(provider)
 
-  let user01: any
-  let user02: any
-  let user03: any
-
-  if (isHardhatNetworkHDAccountsConfig(network.config.accounts))
-    user01 = new ethers.Wallet(
-      ethers.Wallet.fromMnemonic(network.config.accounts.mnemonic, `m/44'/60'/0'/0/3`).privateKey,
-      provider,
-    )
-  else if (
-    !isHttpNetworkAccountsConfig(network.config.accounts) &&
-    network.config.accounts[3] !== undefined &&
-    typeof network.config.accounts[3] === 'string'
-  )
-    user01 = new ethers.Wallet(network.config.accounts[3], provider)
-  else user01 = ethers.Wallet.createRandom()
-
-  if (isHardhatNetworkHDAccountsConfig(network.config.accounts))
-    user02 = new ethers.Wallet(
-      ethers.Wallet.fromMnemonic(network.config.accounts.mnemonic, `m/44'/60'/0'/0/4`).privateKey,
-      provider,
-    )
-  else if (
-    !isHttpNetworkAccountsConfig(network.config.accounts) &&
-    network.config.accounts[4] !== undefined &&
-    typeof network.config.accounts[4] === 'string'
-  )
-    user02 = new ethers.Wallet(network.config.accounts[4], provider)
-  else user02 = ethers.Wallet.createRandom()
-
-  if (isHardhatNetworkHDAccountsConfig(network.config.accounts))
-    user03 = new ethers.Wallet(
-      ethers.Wallet.fromMnemonic(network.config.accounts.mnemonic, `m/44'/60'/0'/0/5`).privateKey,
-      provider,
-    )
-  else if (
-    !isHttpNetworkAccountsConfig(network.config.accounts) &&
-    network.config.accounts[5] !== undefined &&
-    typeof network.config.accounts[5] === 'string'
-  )
-    user03 = new ethers.Wallet(network.config.accounts[5], provider)
-  else user03 = ethers.Wallet.createRandom()
-
-  if (network.name === 'hardhat' || network.name === 'localhost') {
-    if (
-      (await owner02.getBalance()).lt(ethers.utils.parseEther('1')) &&
-      (await owner01.getBalance()).gt(ethers.utils.parseEther('1'))
-    )
-      await owner01.sendTransaction({
-        to: owner02.address,
-        value: ethers.utils.parseEther('1'),
-      })
-    if (
-      (await owner03.getBalance()).lt(ethers.utils.parseEther('1')) &&
-      (await owner01.getBalance()).gt(ethers.utils.parseEther('1'))
-    )
-      await owner01.sendTransaction({
-        to: owner03.address,
-        value: ethers.utils.parseEther('1'),
-      })
-    if (
-      (await user01.getBalance()).lt(ethers.utils.parseEther('1')) &&
-      (await owner01.getBalance()).gt(ethers.utils.parseEther('1'))
-    )
-      await owner01.sendTransaction({
-        to: user01.address,
-        value: ethers.utils.parseEther('1'),
-      })
-    if (
-      (await user02.getBalance()).lt(ethers.utils.parseEther('1')) &&
-      (await owner01.getBalance()).gt(ethers.utils.parseEther('1'))
-    )
-      await owner01.sendTransaction({
-        to: user02.address,
-        value: ethers.utils.parseEther('1'),
-      })
-    if (
-      (await user03.getBalance()).lt(ethers.utils.parseEther('1')) &&
-      (await owner01.getBalance()).gt(ethers.utils.parseEther('1'))
-    )
-      await owner01.sendTransaction({
-        to: user03.address,
-        value: ethers.utils.parseEther('1'),
-      })
+  if (networkName === 'default' || networkName === 'hardhat' || networkName === 'localhost') {
+    const oneEth = ethers.parseEther('1')
+    const fundIfPoor = async (recipient: any) => {
+      if (
+        (await provider.getBalance(recipient.address)) < oneEth &&
+        (await provider.getBalance(owner01.address)) > oneEth
+      ) {
+        await owner01.sendTransaction({ to: recipient.address, value: oneEth })
+      }
+    }
+    for (const recipient of [owner02, owner03, user01, user02, user03]) {
+      await fundIfPoor(recipient)
+    }
   }
   return [provider, owner01, owner02, owner03, user01, user02, user03]
 }
