@@ -30,7 +30,7 @@ contract MockERC721Upgradeable is ERC721Upgradeable {
     }
 
     function burn(uint256 _tokenId) public {
-        require(_exists(_tokenId));
+        require(_ownerOf(_tokenId) != address(0));
         _burn(_tokenId);
     }
 
