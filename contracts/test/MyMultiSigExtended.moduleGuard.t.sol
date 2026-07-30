@@ -64,7 +64,7 @@ contract MyMultiSigExtendedModuleGuardTest is Helper {
     // The nested `execTransactionFromModule` inside `reenter()` hits the
     // wallet's reentrancy guard; the guard's revert payload bubbles back
     // out through the outer module call.
-    vm.expectRevert('ReentrancyGuard: reentrant call');
+    vm.expectRevert(abi.encodeWithSignature('ReentrancyGuardReentrantCall()'));
     reentrantModule.attack();
   }
 

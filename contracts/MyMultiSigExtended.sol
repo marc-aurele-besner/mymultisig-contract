@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import '@openzeppelin/contracts/utils/cryptography/ECDSA.sol';
+import '@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol';
 import './MyMultiSig.sol';
 import './interfaces/ITransactionGuard.sol';
 import './interfaces/IAccount.sol';
@@ -994,7 +995,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   ///      malformed or malleated input; the caller verifies against
   ///      `msg.sender` and owners.
   function _recoverSigner(bytes memory sig, bytes32 txHash) internal pure virtual returns (address) {
-    (address recovered, ECDSA.RecoverError err) = ECDSA.tryRecover(txHash, sig);
+    (address recovered, ECDSA.RecoverError err, ) = ECDSA.tryRecover(txHash, sig);
     return err == ECDSA.RecoverError.NoError ? recovered : address(0);
   }
 
@@ -1276,7 +1277,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   ///         `userOp.signature`, same `(owner, sig)[]` encoding as
   ///         `execTransaction`) or on-chain via `approveHash(digest)`.
   function userOpSigningHash(bytes32 userOpHash) public pure virtual returns (bytes32) {
-    return ECDSA.toEthSignedMessageHash(userOpHash);
+    return MessageHashUtils.toEthSignedMessageHash(userOpHash);
   }
 
   /// @notice IAccount.validateUserOp (v0.7). Caller must be `ENTRY_POINT`.
