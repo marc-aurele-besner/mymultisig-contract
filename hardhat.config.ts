@@ -23,6 +23,10 @@ export default defineConfig({
           // Compile through Yul IR — keeps MyMultiSigExtended under the
           // EIP-170 size limit. Must stay in sync with `via_ir` in foundry.toml.
           viaIR: true,
+          // OZ v5 uses `mcopy` (introduced in the Cancun hardfork). Pin the
+          // compiler EVM version to `cancun` so the bytecode resolves
+          // `mcopy` instead of falling back to a missing-opcode error.
+          evmVersion: 'cancun',
         },
       },
     ],
@@ -34,12 +38,12 @@ export default defineConfig({
       accounts: {
         mnemonic: 'test test test test test test test test test test test junk',
       },
-      // Pin to `shanghai` so the EIP-7825 per-tx gas cap (16M) from
-      // Osaka isn't enforced. v0.5.0 wallet deploys pass explicit
-      // `gasLimit: 50_000_000` (see `test/shared/setup.ts`), which
-      // exceeds EIP-7825's cap. Pinning the hardfork matches the
-      // `evm_version: 'london'` set in `foundry.toml`.
-      hardfork: 'shanghai',
+      // Pin to `cancun` so OZ v5's `mcopy` opcode resolves at compile time.
+      // Cancun does not enforce the EIP-7825 16M per-tx gas cap (added in
+      // Osaka), so v0.5.0 wallet deploys that pass explicit
+      // `gasLimit: 50_000_000` (see `test/shared/setup.ts`) still run.
+      // Must stay in sync with `evm_version: 'cancun'` in `foundry.toml`.
+      hardfork: 'cancun',
       transactionGasCap: 281474976710655n,
       blockGasLimit: 0x1fffffffffffff,
       gas: 30_000_000n,

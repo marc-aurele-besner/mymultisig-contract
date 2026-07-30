@@ -3583,7 +3583,7 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
         // The nested execTransactionFromModule inside the module's inner
         // call hits the wallet's reentrancy guard; the guard's revert
         // payload bubbles back out of the outer module call.
-        await expect(module.attack()).to.be.revertedWith('ReentrancyGuard: reentrant call')
+        await expect(module.attack()).to.be.revertedWithCustomError(contract, 'ReentrancyGuardReentrantCall')
       })
 
       it('a silent module-call failure honors requireTxSuccess', async function () {
