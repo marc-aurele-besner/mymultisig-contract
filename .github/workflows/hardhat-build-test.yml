@@ -16,7 +16,7 @@ jobs:
           submodules: recursive
       - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: 26
       - name: Yarn Install
         run: yarn
       - name: Hardhat Compile
