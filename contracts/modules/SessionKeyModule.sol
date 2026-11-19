@@ -26,8 +26,16 @@ import '../interfaces/IModuleWallet.sol';
 ///
 ///         A session key can NEVER call the wallet itself, so it cannot
 ///         reach `addOwner` / `changeThreshold` / `enableModule` or any
-///         other `onlyThis` admin surface. The wallet's guard and
-///         allowlist gates still run inside `execTransactionFromModule`.
+///         other `onlyThis` admin surface. It can never call this module
+///         or any other module enabled on the wallet either: those calls
+///         would run with `msg.sender == wallet`, which is the authority
+///         `grantSessionKey` trusts, so a key could re-grant itself an
+///         unlimited scope. The wallet's guard and allowlist gates still
+///         run inside `execTransactionFromModule`.
+///
+///         The value budget caps native ETH only. Token transfers and
+///         approvals made through calls to an allowed target are not
+///         metered, so restrict selectors on token contracts.
 ///
 ///         Revocation is deliberately cheaper than granting: the wallet
 ///         (threshold) OR any single current owner can revoke a key
@@ -86,11 +94,13 @@ contract SessionKeyModule is ReentrancyGuard {
   error SessionKeyInvalidWindow(uint48 validAfter, uint48 validUntil);
   error SessionKeyNoTargets();
   error SessionKeyTargetIsWallet();
+  error SessionKeyTargetIsModule();
   error SessionKeyNotActive(address wallet, address key);
   error SessionKeyTargetNotAllowed(address to);
   error SessionKeySelectorNotAllowed(bytes4 selector);
   error SessionKeyBudgetExceeded(uint256 requested, uint256 remaining);
   error SessionKeyCannotCallWallet();
+  error SessionKeyCannotCallModule(address to);
   error NotWalletOrOwner(address caller);
 
   // ---------------------------------------------------------------------------
@@ -106,8 +116,8 @@ contract SessionKeyModule is ReentrancyGuard {
   /// @param validUntil Unix timestamp the key expires at (inclusive). Must
   ///        be in the future and after `validAfter`.
   /// @param ethBudget Total wei the key may spend over the session.
-  /// @param targets Allowed call targets. Mandatory (at least one), and the
-  ///        wallet itself is never allowed.
+  /// @param targets Allowed call targets. Mandatory (at least one). The
+  ///        wallet itself and this module are never allowed.
   /// @param selectors Optional allowed function selectors. Empty = any
   ///        selector on the allowed targets. Include `bytes4(0)` to allow
   ///        plain ETH transfers when restricting selectors.
@@ -137,6 +147,7 @@ contract SessionKeyModule is ReentrancyGuard {
       address target = targets[i];
       if (target == address(0)) revert SessionKeyZeroAddress();
       if (target == msg.sender) revert SessionKeyTargetIsWallet();
+      if (target == address(this)) revert SessionKeyTargetIsModule();
       _allowedTarget[keccak256(abi.encode(msg.sender, key, epoch, target))] = true;
       unchecked {
         ++i;
@@ -179,7 +190,8 @@ contract SessionKeyModule is ReentrancyGuard {
   /// @notice Executes `(to, value, data)` through `wallet` as the calling
   ///         session key. The key must be inside its time window, `to`
   ///         must be in the grant's target set (and never the wallet
-  ///         itself), the selector must pass the optional selector set,
+  ///         itself, this module or another module enabled on the
+  ///         wallet), the selector must pass the optional selector set,
   ///         and `value` must fit the remaining budget. The budget is
   ///         charged before the call and refunded if the inner call
   ///         fails, so a reentrant attempt can never overspend.
@@ -197,6 +209,7 @@ contract SessionKeyModule is ReentrancyGuard {
     if (sk.validUntil == 0 || block.timestamp > sk.validUntil || block.timestamp < sk.validAfter)
       revert SessionKeyNotActive(wallet, msg.sender);
     if (to == wallet) revert SessionKeyCannotCallWallet();
+    if (to == address(this) || IModuleWallet(wallet).isModule(to)) revert SessionKeyCannotCallModule(to);
     uint64 epoch = sk.epoch;
     if (!_allowedTarget[keccak256(abi.encode(wallet, msg.sender, epoch, to))]) revert SessionKeyTargetNotAllowed(to);
     if (sk.restrictSelectors) {

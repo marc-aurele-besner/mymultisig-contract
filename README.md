@@ -115,7 +115,7 @@ wallet.execTransaction(address(wallet), 0,
 
 ### 3. 💸 Per-owner daily spending allowance
 
-Single-signer entry point: `execTransactionWithSpendingAllowance(to, value, data, gas, validUntil, signatures)`. Requires a single 65-byte ECDSA sig that recovers to `msg.sender`, who must be a current owner with a non-zero daily cap.
+Single-signer entry point: `execTransactionWithSpendingAllowance(to, value, data, gas, validUntil, signatures)`. Requires a single 65-byte ECDSA sig that recovers to `msg.sender`, who must be a current owner with a non-zero daily cap. The path only moves the native coin: `data` must be empty (`AllowanceDataNotAllowed`), and `to` may not be the wallet itself, an enabled module or the EntryPoint (`AllowanceTargetNotAllowed`). Token transfers, approvals and other contract calls always go through the threshold.
 
 ```solidity
 wallet.execTransaction(address(wallet), 0,

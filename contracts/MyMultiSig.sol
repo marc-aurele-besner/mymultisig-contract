@@ -1107,6 +1107,14 @@ contract MyMultiSig is ReentrancyGuard, EIP712, IERC1271, ERC721Holder, ERC1155H
     _txnNonce++;
   }
 
+  /// @dev Moves the nonce forward to `nextNonce`. Callers must ensure
+  ///      `nextNonce` is strictly greater than the current nonce and fits
+  ///      in a `uint96`, so the nonce never moves backwards and every
+  ///      signature bound to a lower nonce stays dead.
+  function _advanceNonceTo(uint96 nextNonce) internal virtual {
+    _txnNonce = nextNonce;
+  }
+
   /// @notice Receives Ether
   receive() external payable {}
 }

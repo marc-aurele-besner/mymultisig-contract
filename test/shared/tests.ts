@@ -75,8 +75,8 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
     })
 
     it('Contract return correct contract version', async function () {
-      // v0.5.0 — every wallet (base, extended, factory) now returns the
-      // same canonical `'0.5.0'` so the EIP-712 domain separator is
+      // Every wallet (base, extended, factory) returns the
+      // same canonical `'0.5.1'` so the EIP-712 domain separator is
       // shared across the whole wallet family. The typehash still
       // differs (base 6-field vs extended 7-field with `operation`).
       expect(await contract.version()).to.be.equal(Helper.CONTRACT_VERSION)
@@ -1507,8 +1507,8 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
     })
 
     it('Contract return correct contract version', async function () {
-      // v0.5.0 — every wallet (base, extended, factory) now returns the
-      // same canonical `'0.5.0'` so the EIP-712 domain separator is
+      // Every wallet (base, extended, factory) returns the
+      // same canonical `'0.5.1'` so the EIP-712 domain separator is
       // shared across the whole wallet family. The typehash still
       // differs (base 6-field vs extended 7-field with `operation`).
       expect(await contract.version()).to.be.equal(Helper.CONTRACT_VERSION)
@@ -2302,7 +2302,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         Helper.DEFAULT_GAS,
         futureNonce,
       )
-      // First execution at nonce N+5 succeeds and the sequential counter advances to N+1.
+      // Executing at nonce N+5 succeeds and moves the counter past it, consuming N..N+5.
       await Helper.execTransactionWithNonce(
         contract,
         owner01,
@@ -2316,15 +2316,15 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         signatures,
       )
       expect(await contract.isOwner(user01.address)).to.be.true
-      expect(await contract.nonce()).to.be.equal(1)
-      expect(await contract.isNonceUsed(futureNonce)).to.be.false
+      expect(await contract.nonce()).to.be.equal(futureNonce + 1n)
+      expect(await contract.isNonceUsed(futureNonce)).to.be.true
+      expect(await contract.isNonceUsed(0n)).to.be.true
+      expect(await contract.isNonceUsed(futureNonce + 1n)).to.be.false
     })
 
     it('8-arg execTransaction reverts on nonce replay', async function () {
-      // v0.5.0 — exercise the nonce-replay protection on the new
-      // 8-arg overload. The first call consumes the `(nonce, owner)`
-      // slot via the `_recordVote` path; the second call with the same
-      // signatures binds the same nonce and must reject.
+      // The first call consumes the nonce; the second call with the same
+      // signatures binds a nonce below `nonce()` and must reject.
       const nonce = await contract.nonce()
       const data = contract.interface.encodeFunctionData('addOwner(address)', [user01.address])
       const signatures = await Helper.prepareSignatures(
@@ -2361,7 +2361,9 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
             0,
             signatures,
           ),
-      ).to.be.revertedWithCustomError(contract, 'InvalidSignatures')
+      )
+        .to.be.revertedWithCustomError(contract, 'NonceTooLow')
+        .withArgs(nonce, nonce + 1n)
     })
 
     it('isValidSignature now reports against the passed nonce (not _txnNonce)', async function () {
@@ -3464,6 +3466,79 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
             .connect(owner01)
             .execTransactionWithSpendingAllowance(contract.target, Helper.ZERO, data, Helper.DEFAULT_GAS, 0, sig),
         ).to.be.revertedWithCustomError(contract, 'AllowanceSelfCallNotAllowed')
+      })
+
+      // Signs `(to, value, data)` for owner01 on the allowance path and
+      // expects the call to revert with `error`. Even a 1 wei cap must not
+      // let a single owner reach anything beyond a plain native transfer.
+      const expectAllowanceRevert = async (to: string, value: bigint, data: string, error: string) => {
+        const sig = await Helper.signAllowanceTxn(
+          contract,
+          owner01,
+          to,
+          value,
+          data,
+          Helper.DEFAULT_GAS,
+          await contract.allowanceNonce(),
+          0,
+        )
+        await expect(
+          contract.connect(owner01).execTransactionWithSpendingAllowance(to, value, data, Helper.DEFAULT_GAS, 0, sig),
+        ).to.be.revertedWithCustomError(contract, error)
+      }
+
+      it('allowance path rejects an ERC-20 transfer (value 0) and leaves the balance untouched', async function () {
+        await Helper.setDailySpendingLimit(contract, owner01, [owner01, owner02], owner01.address, 1n)
+        const MockERC20 = await ethers.getContractFactory('MockERC20')
+        const token = await MockERC20.deploy()
+        await token.waitForDeployment()
+        const balance = ethers.parseEther('1000000')
+        await (await token.mint(contract.target, balance)).wait()
+
+        const transfer = token.interface.encodeFunctionData('transfer(address,uint256)', [owner01.address, balance])
+        await expectAllowanceRevert(await token.getAddress(), Helper.ZERO, transfer, 'AllowanceDataNotAllowed')
+        const approve = token.interface.encodeFunctionData('approve(address,uint256)', [owner01.address, balance])
+        await expectAllowanceRevert(await token.getAddress(), Helper.ZERO, approve, 'AllowanceDataNotAllowed')
+
+        expect(await token.balanceOf(contract.target)).to.be.equal(balance)
+        expect(await token.allowance(contract.target, owner01.address)).to.be.equal(0)
+      })
+
+      it('allowance path rejects ERC-721 transfers and setApprovalForAll', async function () {
+        await Helper.setDailySpendingLimit(contract, owner01, [owner01, owner02], owner01.address, 1n)
+        const MockERC721 = await ethers.getContractFactory('MockERC721')
+        const nft = await MockERC721.deploy()
+        await nft.waitForDeployment()
+        await (await nft.mint(contract.target, 1)).wait()
+
+        const transferFrom = nft.interface.encodeFunctionData('transferFrom(address,address,uint256)', [
+          contract.target,
+          owner01.address,
+          1,
+        ])
+        await expectAllowanceRevert(await nft.getAddress(), Helper.ZERO, transferFrom, 'AllowanceDataNotAllowed')
+        const approveAll = nft.interface.encodeFunctionData('setApprovalForAll(address,bool)', [owner01.address, true])
+        await expectAllowanceRevert(await nft.getAddress(), Helper.ZERO, approveAll, 'AllowanceDataNotAllowed')
+
+        expect(await nft.ownerOf(1)).to.be.equal(contract.target)
+        expect(await nft.isApprovedForAll(contract.target, owner01.address)).to.be.false
+      })
+
+      it('allowance path rejects an enabled module and the EntryPoint as targets', async function () {
+        await Helper.setDailySpendingLimit(
+          contract,
+          owner01,
+          [owner01, owner02],
+          owner01.address,
+          ethers.parseEther('1'),
+        )
+        const Module = await ethers.getContractFactory('MockModule')
+        const module = await Module.deploy(contract.target)
+        await module.waitForDeployment()
+        await Helper.enableModule(contract, owner01, [owner01, owner02], await module.getAddress())
+
+        await expectAllowanceRevert(await module.getAddress(), 1n, '0x', 'AllowanceTargetNotAllowed')
+        await expectAllowanceRevert(await contract.ENTRY_POINT(), 1n, '0x', 'AllowanceTargetNotAllowed')
       })
 
       it('allowance spend at or above sensitiveValueThreshold requires the timelock route', async function () {
