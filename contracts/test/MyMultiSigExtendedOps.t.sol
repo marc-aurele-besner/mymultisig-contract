@@ -416,4 +416,96 @@ contract MyMultiSigExtendedTest is Helper {
     assertGt(wallet.scheduledReadyAt(txHash), 0);
     assertEq(wallet.nonce(), currentNonce + 1);
   }
+
+  // ---------- allowlist never gates self-calls ----------
+
+  /// @dev Turns the allowlist on for an unrelated target without listing the wallet.
+  function _enableAllowlistWithoutSelf() internal {
+    vm.prank(address(wallet));
+    wallet.setAllowedTarget(address(0xb0b), true);
+    assertTrue(wallet.allowedTargetsEnabled());
+    assertFalse(wallet.allowedTargets(address(wallet)));
+  }
+
+  function test_allowlist_signedSelfCall_disableAllowlist_succeeds() public {
+    _enableAllowlistWithoutSelf();
+    uint256 txnGas = 100_000;
+    uint256 nonce_ = wallet.nonce();
+    bytes memory data = abi.encodeWithSignature('disableAllowlist()');
+    bytes memory signatures = _signExtendedTx(address(wallet), 0, data, txnGas, nonce_, 0);
+
+    vm.prank(OWNERS[0]);
+    wallet.execTransaction(address(wallet), 0, data, txnGas, nonce_, 0, 0, signatures);
+    assertFalse(wallet.allowedTargetsEnabled());
+  }
+
+  function test_allowlist_signedSelfCall_addOwner_succeeds() public {
+    _enableAllowlistWithoutSelf();
+    uint256 txnGas = 100_000;
+    uint256 nonce_ = wallet.nonce();
+    bytes memory data = abi.encodeWithSignature('addOwner(address)', NOT_OWNERS[0]);
+    bytes memory signatures = _signExtendedTx(address(wallet), 0, data, txnGas, nonce_, 0);
+
+    vm.prank(OWNERS[0]);
+    wallet.execTransaction(address(wallet), 0, data, txnGas, nonce_, 0, 0, signatures);
+    assertTrue(wallet.isOwner(NOT_OWNERS[0]));
+    // External targets stay gated.
+    assertTrue(wallet.allowedTargetsEnabled());
+  }
+
+  function test_allowlist_batchInnerSelfCall_succeeds() public {
+    _enableAllowlistWithoutSelf();
+    address[] memory to = new address[](1);
+    to[0] = address(wallet);
+    uint256[] memory value = new uint256[](1);
+    bytes[] memory data = new bytes[](1);
+    data[0] = abi.encodeWithSignature('setAllowedTarget(address,bool)', address(0xc0ffee), true);
+    uint256[] memory gas_ = new uint256[](1);
+    gas_[0] = 100_000;
+
+    vm.prank(address(wallet));
+    wallet.multiRequestStrict(to, value, data, gas_);
+    assertTrue(wallet.allowedTargets(address(0xc0ffee)));
+  }
+
+  function test_allowlist_moduleSelfCall_succeeds() public {
+    address module = address(0x0d0d);
+    vm.prank(address(wallet));
+    wallet.enableModule(module);
+    _enableAllowlistWithoutSelf();
+
+    vm.prank(module);
+    wallet.execTransactionFromModule(address(wallet), 0, abi.encodeWithSignature('disableAllowlist()'), 0);
+    assertFalse(wallet.allowedTargetsEnabled());
+  }
+
+  function test_allowlist_userOpSelfCall_succeeds() public {
+    vm.deal(address(wallet), 2 ether);
+    _enableAllowlistWithoutSelf();
+
+    PackedUserOperation memory op = _buildUserOp(
+      address(wallet),
+      0,
+      abi.encodeWithSignature('disableAllowlist()'),
+      mockEntryPoint.getNonce(address(wallet), 0)
+    );
+    op.signature = _signUserOp(op, 2);
+    _handleOp(op);
+    assertFalse(wallet.allowedTargetsEnabled());
+  }
+
+  function test_allowlist_guardStillSeesSelfCalls() public {
+    MockGuard guard = new MockGuard();
+    vm.prank(address(wallet));
+    wallet.setGuard(address(guard));
+    _enableAllowlistWithoutSelf();
+
+    uint256 txnGas = 100_000;
+    uint256 nonce_ = wallet.nonce();
+    bytes memory data = abi.encodeWithSignature('disableAllowlist()');
+    bytes memory signatures = _signExtendedTx(address(wallet), 0, data, txnGas, nonce_, 0);
+    vm.prank(OWNERS[0]);
+    wallet.execTransaction(address(wallet), 0, data, txnGas, nonce_, 0, 0, signatures);
+    assertEq(guard.checkTransactionCalls(), 1);
+  }
 }
