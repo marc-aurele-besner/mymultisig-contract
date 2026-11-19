@@ -227,23 +227,25 @@ export const isValidSignature = async (
 ) => {
   const signatures = await prepareSignatures(contract, owners, to, value, data, gas, nonce, validUntil, operation)
 
-  const MAGIC = '0x1626ba7e'
   const isExtended = typeof (contract as any).allowOnlyOwnerRequest === 'function'
 
   if (!isExtended) {
-    // Base wallet: only the canonical 2-arg `isValidSignature(bytes32,bytes)`
-    // exists; it returns bytes4 (`MAGIC` on success). Pass the typed-data
-    // hash we sign over so the wallet's ecrecover matches the typed-data
-    // hash used by `signMultiSigTxn` (which is the BASE 6-field typehash
-    // for non-extended wallets).
+    // Base wallet: the 7-arg transaction view checks transaction signatures
+    // against the BASE 6-field typehash. The EIP-1271
+    // `isValidSignature(bytes32,bytes)` entry no longer accepts them: since
+    // 0.5.1 it validates votes over `getMessageHash(abi.encode(hash))`.
     if (errorMsg) throw new Error('errorMsg not supported on base isValidSignature helper')
-    const result = await contract
+    return await contract
       .connect(submitter)
-      ['isValidSignature(bytes32,bytes)'](
-        await generateHashForWallet(contract, to, value, data, gas, nonce, validUntil, operation),
+      ['isValidSignature(address,uint256,bytes,uint256,uint256,uint256,bytes)'](
+        to,
+        value,
+        data,
+        gas,
+        nonce,
+        validUntil,
         signatures,
       )
-    return result === MAGIC
   }
 
   // v0.5.0 — Extended wallets expose an 8-arg `isValidSignature(...)`

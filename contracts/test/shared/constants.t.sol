@@ -7,7 +7,7 @@ contract Constants is Errors {
   // Constants value specific to the contracts we are testing.
   string constant CONTRACT_FACTORY_NAME = 'MyMultiSigFactory';
   string constant CONTRACT_NAME = 'MyMultiSig';
-  string constant CONTRACT_VERSION = '0.5.0';
+  string constant CONTRACT_VERSION = '0.5.1';
 
   uint16 public DEFAULT_THRESHOLD = 2;
   bool public ONLY_OWNERS_REQUEST = true;

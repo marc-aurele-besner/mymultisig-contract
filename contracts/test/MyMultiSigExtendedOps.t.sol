@@ -10,7 +10,7 @@ import './shared/mocks/MockEntryPoint.t.sol';
 
 /// @title MyMultiSigExtended Foundry tests
 /// @notice v0.5.0 surface on the existing `MyMultiSigExtended` wallet:
-///         1. `version()` returns `'0.5.0'`.
+///         1. `version()` returns `'0.5.1'`.
 ///         2. The `operation` byte on the EIP-712 payload + the
 ///            new execTransaction overloads.
 ///         3. The disabled legacy overloads revert with
@@ -43,7 +43,7 @@ contract MyMultiSigExtendedTest is Helper {
   // ---------- version ----------
 
   function test_version_is_v0_5() public {
-    assertEq(wallet.version(), '0.5.0');
+    assertEq(wallet.version(), '0.5.1');
   }
 
   function test_entryPoint_matches() public {
