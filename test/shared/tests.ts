@@ -76,7 +76,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
 
     it('Contract return correct contract version', async function () {
       // Every wallet (base, extended, factory) returns the
-      // same canonical `'0.5.1'` so the EIP-712 domain separator is
+      // same canonical `'0.5.2'` so the EIP-712 domain separator is
       // shared across the whole wallet family. The typehash still
       // differs (base 6-field vs extended 7-field with `operation`).
       expect(await contract.version()).to.be.equal(Helper.CONTRACT_VERSION)
@@ -1508,7 +1508,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
 
     it('Contract return correct contract version', async function () {
       // Every wallet (base, extended, factory) returns the
-      // same canonical `'0.5.1'` so the EIP-712 domain separator is
+      // same canonical `'0.5.2'` so the EIP-712 domain separator is
       // shared across the whole wallet family. The typehash still
       // differs (base 6-field vs extended 7-field with `operation`).
       expect(await contract.version()).to.be.equal(Helper.CONTRACT_VERSION)
@@ -2458,9 +2458,9 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       }
 
       it('returns the EIP-1271 magic value when threshold is met via EOA ECDSA sigs', async function () {
-        const { fields, hash } = await dummyTxHashFieldsAndHash()
-        const sig1 = await Helper.signEip712Hash(contract, owner01, fields)
-        const sig2 = await Helper.signEip712Hash(contract, owner02, fields)
+        const { hash } = await dummyTxHashFieldsAndHash()
+        const sig1 = await Helper.signWalletMessage(contract, owner01, hash)
+        const sig2 = await Helper.signWalletMessage(contract, owner02, hash)
         const blob = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [
@@ -2473,9 +2473,57 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         expect(await contract.connect(user01)['isValidSignature(bytes32,bytes)'](hash, blob)).to.equal(MAGIC)
       })
 
-      it('returns a non-magic value when threshold is not met (1/2)', async function () {
+      it('rejects owner votes signed over the raw hash (pre-0.5.2 format)', async function () {
+        const { hash } = await dummyTxHashFieldsAndHash()
+        const blob = ethers.AbiCoder.defaultAbiCoder().encode(
+          ['tuple(address owner, bytes sig)[]'],
+          [
+            [
+              { owner: owner01.address, sig: await Helper.signDigest(owner01, hash) },
+              { owner: owner02.address, sig: await Helper.signDigest(owner02, hash) },
+            ],
+          ],
+        )
+        expect(await contract.connect(user01)['isValidSignature(bytes32,bytes)'](hash, blob)).to.equal('0xffffffff')
+      })
+
+      it('rejects transaction signatures for the same hash (a vote is not a tx approval)', async function () {
         const { fields, hash } = await dummyTxHashFieldsAndHash()
-        const sig1 = await Helper.signEip712Hash(contract, owner01, fields)
+        const blob = ethers.AbiCoder.defaultAbiCoder().encode(
+          ['tuple(address owner, bytes sig)[]'],
+          [
+            [
+              { owner: owner01.address, sig: await Helper.signEip712Hash(contract, owner01, fields) },
+              { owner: owner02.address, sig: await Helper.signEip712Hash(contract, owner02, fields) },
+            ],
+          ],
+        )
+        expect(await contract.connect(user01)['isValidSignature(bytes32,bytes)'](hash, blob)).to.equal('0xffffffff')
+      })
+
+      it('a vote blob for one wallet does not validate on a sibling wallet with the same owners', async function () {
+        const hash = ethers.keccak256(ethers.toUtf8Bytes('Permit2 PermitSingle digest'))
+        const blob = ethers.AbiCoder.defaultAbiCoder().encode(
+          ['tuple(address owner, bytes sig)[]'],
+          [
+            [
+              { owner: owner01.address, sig: await Helper.signWalletMessage(contract, owner01, hash) },
+              { owner: owner02.address, sig: await Helper.signWalletMessage(contract, owner02, hash) },
+            ],
+          ],
+        )
+        expect(await contract.connect(user01)['isValidSignature(bytes32,bytes)'](hash, blob)).to.equal(MAGIC)
+        const sibling = await Helper.setupContract(Helper.CONTRACT_NAME, [
+          owner01.address,
+          owner02.address,
+          owner03.address,
+        ])
+        expect(await sibling.contract['isValidSignature(bytes32,bytes)'](hash, blob)).to.equal('0xffffffff')
+      })
+
+      it('returns a non-magic value when threshold is not met (1/2)', async function () {
+        const { hash } = await dummyTxHashFieldsAndHash()
+        const sig1 = await Helper.signWalletMessage(contract, owner01, hash)
         const blob = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [[{ owner: owner01.address, sig: sig1 }]],
@@ -2484,12 +2532,12 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       })
 
       it('returns a non-magic value when one of the claimed signers is not an owner', async function () {
-        const { fields, hash } = await dummyTxHashFieldsAndHash()
+        const { hash } = await dummyTxHashFieldsAndHash()
         // user02 has a key but is NOT a contract owner; we still pass a
         // ECDSA sig over the hash from their key, but the blob claims
         // `owner = user02` which fails `_owners[user02]`.
-        const sig1 = await Helper.signEip712Hash(contract, owner01, fields)
-        const sig2 = await Helper.signEip712Hash(contract, user02, fields)
+        const sig1 = await Helper.signWalletMessage(contract, owner01, hash)
+        const sig2 = await Helper.signWalletMessage(contract, user02, hash)
         const blob = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [
@@ -2503,9 +2551,9 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       })
 
       it('does not count the same owner twice when duplicated in the Vote[] blob', async function () {
-        const { fields, hash } = await dummyTxHashFieldsAndHash()
+        const { hash } = await dummyTxHashFieldsAndHash()
         // Threshold is 2 — one owner voting twice must NOT reach it.
-        const sig1 = await Helper.signEip712Hash(contract, owner01, fields)
+        const sig1 = await Helper.signWalletMessage(contract, owner01, hash)
         const blob = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [
@@ -2519,9 +2567,12 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       })
 
       it('does not count an owner twice when they approved on-chain AND appear in the Vote[] blob', async function () {
-        const { fields, hash } = await dummyTxHashFieldsAndHash()
-        await Helper.approveHash(contract, owner01, hash)
-        const sig1 = await Helper.signEip712Hash(contract, owner01, fields)
+        const { hash } = await dummyTxHashFieldsAndHash()
+        // On-chain approvals count for the wallet-bound hash, the same hash
+        // the votes are checked against.
+        const walletHash = await contract.getMessageHash(ethers.AbiCoder.defaultAbiCoder().encode(['bytes32'], [hash]))
+        await Helper.approveHash(contract, owner01, walletHash)
+        const sig1 = await Helper.signWalletMessage(contract, owner01, hash)
         const blob = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [[{ owner: owner01.address, sig: sig1 }]],
@@ -2529,7 +2580,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         // owner01's on-chain approval + owner01's sig = 1 unique voter < threshold 2.
         expect(await contract.connect(user01)['isValidSignature(bytes32,bytes)'](hash, blob)).to.equal('0xffffffff')
         // A second DISTINCT owner still gets the payload over the line.
-        const sig2 = await Helper.signEip712Hash(contract, owner02, fields)
+        const sig2 = await Helper.signWalletMessage(contract, owner02, hash)
         const blob2 = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [[{ owner: owner02.address, sig: sig2 }]],
@@ -2538,9 +2589,9 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       })
 
       it('rejects a malleated (high-s) twin of a valid ECDSA signature', async function () {
-        const { fields, hash } = await dummyTxHashFieldsAndHash()
-        const sig1 = await Helper.signEip712Hash(contract, owner01, fields)
-        const sig2 = await Helper.signEip712Hash(contract, owner02, fields)
+        const { hash } = await dummyTxHashFieldsAndHash()
+        const sig1 = await Helper.signWalletMessage(contract, owner01, hash)
+        const sig2 = await Helper.signWalletMessage(contract, owner02, hash)
         // Forge the non-canonical twin of owner02's signature:
         // s' = secp256k1.N - s, v' = flip(v). Raw ecrecover would accept it
         // as owner02; the canonical-signature check must reject it.
@@ -2571,12 +2622,14 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         await Helper.addOwner(contract, owner01, [owner01, owner02, owner03], inner.target)
 
         const { hash } = await dummyTxHashFieldsAndHash()
-        // Inner wallet's ECDSA votes for `hash` — these go through
-        // `ecrecover(hash, ...)` inside the inner's `_validateVote`, so they
-        // must be raw 65-byte ECDSA sigs over `hash`, NOT EIP-712 typed
-        // data (which would wrap the hash with a different domain).
-        const innerSig1 = await Helper.signDigest(owner01, hash)
-        const innerSig2 = await Helper.signDigest(owner02, hash)
+        // The outer wallet asks each contract owner to validate its
+        // wallet-bound hash, and each inner wallet binds that again to its
+        // own domain before checking its owners' votes.
+        const outerWalletHash = await contract.getMessageHash(
+          ethers.AbiCoder.defaultAbiCoder().encode(['bytes32'], [hash]),
+        )
+        const innerSig1 = await Helper.signWalletMessage(inner, owner01, outerWalletHash)
+        const innerSig2 = await Helper.signWalletMessage(inner, owner02, outerWalletHash)
         const innerBlob = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [
@@ -2587,7 +2640,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
           ],
         )
         // Sanity check: inner's own EIP-1271 entry returns the magic.
-        expect(await inner['isValidSignature(bytes32,bytes)'](hash, innerBlob)).to.equal(MAGIC)
+        expect(await inner['isValidSignature(bytes32,bytes)'](outerWalletHash, innerBlob)).to.equal(MAGIC)
 
         // Outer blob: 1 contract-owner entry (inner) — alone that's only 1
         // vote, threshold is 2 — so add another contract-owner via owner03.
@@ -2597,8 +2650,8 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         // already on the wallet sign through their own ECDSA sigs, not as
         // direct voters.
         await Helper.addOwner(contract, owner01, [owner01, owner02], inner2.target)
-        const inner2Sig1 = await Helper.signDigest(owner02, hash)
-        const inner2Sig2 = await Helper.signDigest(owner03, hash)
+        const inner2Sig1 = await Helper.signWalletMessage(inner2, owner02, outerWalletHash)
+        const inner2Sig2 = await Helper.signWalletMessage(inner2, owner03, outerWalletHash)
         const inner2Blob = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [
@@ -2648,10 +2701,13 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
 
         const { hash } = await dummyTxHashFieldsAndHash()
         const wrongHash = ethers.hexlify(ethers.randomBytes(32))
-        // Sign `hash` (the outer typed-data hash), but the wallet will be
+        // Sign for `hash` (the outer typed-data hash), but the wallet will be
         // queried with `wrongHash`. The inner ECDSA sigs won't recover.
-        const sig1 = await Helper.signDigest(owner01, hash)
-        const sig2 = await Helper.signDigest(owner02, hash)
+        const outerWalletHash = await contract.getMessageHash(
+          ethers.AbiCoder.defaultAbiCoder().encode(['bytes32'], [hash]),
+        )
+        const sig1 = await Helper.signWalletMessage(inner, owner01, outerWalletHash)
+        const sig2 = await Helper.signWalletMessage(inner, owner02, outerWalletHash)
         const innerBlob = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [
@@ -2671,9 +2727,9 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
       })
 
       it('does not mutate state: nonce / approvals unchanged across repeated calls', async function () {
-        const { fields, hash } = await dummyTxHashFieldsAndHash()
-        const sig1 = await Helper.signEip712Hash(contract, owner01, fields)
-        const sig2 = await Helper.signEip712Hash(contract, owner02, fields)
+        const { hash } = await dummyTxHashFieldsAndHash()
+        const sig1 = await Helper.signWalletMessage(contract, owner01, hash)
+        const sig2 = await Helper.signWalletMessage(contract, owner02, hash)
         const blob = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [
@@ -2732,9 +2788,10 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
           Helper.DEFAULT_GAS,
           nonce,
         )
-        // Inner wallet's EIP-1271 vote for `txHash` (raw ECDSA, no domain wrap).
-        const innerSig1 = await Helper.signDigest(owner01, txHash)
-        const innerSig2 = await Helper.signDigest(owner02, txHash)
+        // Inner wallet's EIP-1271 vote for `txHash`: its owners sign
+        // MyMultiSigMessage(abi.encode(txHash)) under the inner wallet's domain.
+        const innerSig1 = await Helper.signWalletMessage(inner, owner01, txHash)
+        const innerSig2 = await Helper.signWalletMessage(inner, owner02, txHash)
         const innerBlob = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [
@@ -2787,8 +2844,8 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         // Build an inner blob that signs a *wrong* hash, so the inner
         // isValidSignature(txHash, innerBlob) returns non-magic.
         const wrongHash = ethers.hexlify(ethers.randomBytes(32))
-        const innerSig1 = await Helper.signDigest(owner01, wrongHash)
-        const innerSig2 = await Helper.signDigest(owner02, wrongHash)
+        const innerSig1 = await Helper.signWalletMessage(inner, owner01, wrongHash)
+        const innerSig2 = await Helper.signWalletMessage(inner, owner02, wrongHash)
         const innerBlob = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
           [
@@ -2899,8 +2956,8 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
       })
     })
 
-    it('reports 0.5.0 as the wallet version', async function () {
-      expect(await contract.version()).to.be.equal('0.5.1')
+    it('reports 0.5.2 as the wallet version', async function () {
+      expect(await contract.version()).to.be.equal('0.5.2')
       // Bitmask: zero-state reports no advanced features active.
       expect(await contract.advancedFeaturesEnabled()).to.be.equal(0)
     })

@@ -154,6 +154,23 @@ export default {
       { to, value, data, gas, nonce, validUntil },
     )
   },
+  /// @notice Signs an EIP-1271 vote for `dataHash` on `contract`: EIP-712
+  ///         `MyMultiSigMessage(bytes message)` with
+  ///         `message = abi.encode(dataHash)` under the wallet's domain, the
+  ///         hash `isValidSignature(bytes32,bytes)` validates votes against.
+  signWalletMessage: async function (contract: any, owner: any, dataHash: string): Promise<string> {
+    const chainId = (await ethers.provider.getNetwork()).chainId
+    return owner.signTypedData(
+      {
+        name: await contract.name(),
+        version: await contract.version(),
+        chainId,
+        verifyingContract: await contract.getAddress(),
+      },
+      { MyMultiSigMessage: [{ name: 'message', type: 'bytes' }] },
+      { message: ethers.AbiCoder.defaultAbiCoder().encode(['bytes32'], [dataHash]) },
+    )
+  },
   /// @notice Produces a raw 65-byte ECDSA signature over `digest` (no
   ///         EIP-712 envelope).
   signDigest: async function (signer: any, digest: string): Promise<string> {

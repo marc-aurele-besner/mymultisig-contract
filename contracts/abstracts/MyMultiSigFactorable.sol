@@ -66,7 +66,7 @@ abstract contract MyMultiSigFactorable {
 
   /// @notice Retrieves the contract version
   function version() public pure returns (string memory) {
-    return '0.5.1';
+    return '0.5.2';
   }
 
   /// @notice Total multisigs created via this factory (all types combined).

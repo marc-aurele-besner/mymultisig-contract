@@ -137,7 +137,7 @@ contract Functions is Constants, Signatures {
   // MyMultiSigFactory
   /// @notice Resolve the EIP-712 `version` field for the deployed wallet.
   ///         Every wallet class returns the same canonical
-  ///         `'0.5.1'`; the helper stays generic by reading
+  ///         `'0.5.2'`; the helper stays generic by reading
   ///         `wallet.version()` so it never goes stale on a future bump.
   function _versionFor(MyMultiSig multiSig_) public view returns (string memory) {
     return multiSig_.version();

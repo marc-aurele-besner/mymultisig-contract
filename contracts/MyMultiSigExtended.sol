@@ -225,7 +225,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   ///         the typehash differs (a 7-field hash binds the `operation`
   ///         byte; the base wallet uses a 6-field hash).
   function version() public pure virtual override returns (string memory) {
-    return '0.5.1';
+    return '0.5.2';
   }
 
   // ---------------------------------------------------------------------------
