@@ -218,7 +218,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, IERC1271, ERC721Holder, ERC1155H
   ///         factory proxy). Part of the EIP-712 domain separator, which is
   ///         fixed at deploy time.
   function version() public pure virtual returns (string memory) {
-    return '0.5.0';
+    return '0.5.1';
   }
 
   /// @notice Retrieves the current threshold value
