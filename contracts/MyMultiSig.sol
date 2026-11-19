@@ -218,7 +218,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, IERC1271, ERC721Holder, ERC1155H
   ///         factory proxy). Part of the EIP-712 domain separator, which is
   ///         fixed at deploy time.
   function version() public pure virtual returns (string memory) {
-    return '0.5.1';
+    return '0.5.2';
   }
 
   /// @notice Retrieves the current threshold value
@@ -630,7 +630,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, IERC1271, ERC721Holder, ERC1155H
   ///         `SafeMessage`. Without the binding, one vote blob would be valid
   ///         for every wallet sharing the same owners, and an owner's EOA
   ///         signature over `hash` (e.g. a Permit2 permit for their own
-  ///         address) would also count as a wallet vote. Since 0.5.1.
+  ///         address) would also count as a wallet vote. Since 0.5.2.
   /// @param hash The hash the caller wants validated.
   /// @param signature ABI-encoded `(address owner, bytes sig)[]` of owner
   ///        votes over `getMessageHash(abi.encode(hash))`, or empty bytes to

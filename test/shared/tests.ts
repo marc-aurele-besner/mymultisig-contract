@@ -76,7 +76,7 @@ export async function MyMultiSigStandardTests(deploymentType = DeploymentType.Si
 
     it('Contract return correct contract version', async function () {
       // Every wallet (base, extended, factory) returns the
-      // same canonical `'0.5.1'` so the EIP-712 domain separator is
+      // same canonical `'0.5.2'` so the EIP-712 domain separator is
       // shared across the whole wallet family. The typehash still
       // differs (base 6-field vs extended 7-field with `operation`).
       expect(await contract.version()).to.be.equal(Helper.CONTRACT_VERSION)
@@ -1508,7 +1508,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
 
     it('Contract return correct contract version', async function () {
       // Every wallet (base, extended, factory) returns the
-      // same canonical `'0.5.1'` so the EIP-712 domain separator is
+      // same canonical `'0.5.2'` so the EIP-712 domain separator is
       // shared across the whole wallet family. The typehash still
       // differs (base 6-field vs extended 7-field with `operation`).
       expect(await contract.version()).to.be.equal(Helper.CONTRACT_VERSION)
@@ -2473,7 +2473,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         expect(await contract.connect(user01)['isValidSignature(bytes32,bytes)'](hash, blob)).to.equal(MAGIC)
       })
 
-      it('rejects owner votes signed over the raw hash (pre-0.5.1 format)', async function () {
+      it('rejects owner votes signed over the raw hash (pre-0.5.2 format)', async function () {
         const { hash } = await dummyTxHashFieldsAndHash()
         const blob = ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(address owner, bytes sig)[]'],
@@ -2956,8 +2956,8 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
       })
     })
 
-    it('reports 0.5.1 as the wallet version', async function () {
-      expect(await contract.version()).to.be.equal('0.5.1')
+    it('reports 0.5.2 as the wallet version', async function () {
+      expect(await contract.version()).to.be.equal('0.5.2')
       // Bitmask: zero-state reports no advanced features active.
       expect(await contract.advancedFeaturesEnabled()).to.be.equal(0)
     })

@@ -9,7 +9,7 @@ export default {
 `,
   CONTRACT_FACTORY_NAME: 'MyMultiSigFactory',
   CONTRACT_NAME: 'MyMultiSig',
-  CONTRACT_VERSION: '0.5.1',
+  CONTRACT_VERSION: '0.5.2',
   CONTRACT_NAME_EXTENDED: 'MyMultiSigExtended',
   DEFAULT_THRESHOLD: 2,
   DEFAULT_GAS: 75000,

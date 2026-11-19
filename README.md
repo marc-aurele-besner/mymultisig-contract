@@ -43,7 +43,7 @@ function isValidSignature(bytes32 hash, bytes calldata signature)
 
 `signature` is an ABI-encoded `(address owner, bytes sig)[]` of owner votes. Owners do not sign `hash` itself. They sign the wallet-bound hash `getMessageHash(abi.encode(hash))`, which is the EIP-712 hash of `MyMultiSigMessage(bytes message)` with `message = abi.encode(hash)` under this wallet's domain (name, version, chainId, wallet address). For each entry the wallet either `ecrecover`s a 65-byte ECDSA signature over that wallet-bound hash (EOA owner) or `staticcall`s `isValidSignature(walletHash, sig)` on the owner with a 200k gas stipend (contract owner). If the count of valid votes reaches `threshold`, returns the magic value `0x1626ba7e`; otherwise `0xffffffff`.
 
-The binding was added in 0.5.1. On 0.5.0 wallets owners signed `hash` directly, so one vote blob was valid on every wallet with the same owners, and an owner's EOA signature over a hash (a Permit2 permit for their own address, for example) also counted as a wallet vote.
+The binding was added in 0.5.2. On 0.5.0 wallets owners signed `hash` directly, so one vote blob was valid on every wallet with the same owners, and an owner's EOA signature over a hash (a Permit2 permit for their own address, for example) also counted as a wallet vote.
 
 An owner signs a vote with standard EIP-712 typed data:
 

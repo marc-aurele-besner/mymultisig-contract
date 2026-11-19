@@ -128,7 +128,7 @@ contract MyMultiSigSignMessageTest is Helper {
   }
 
   function test_threshold_votes_over_raw_hash_are_rejected() public {
-    // Pre-0.5.1 format: owners signed the caller's hash directly. Such a
+    // Pre-0.5.2 format: owners signed the caller's hash directly. Such a
     // signature is also what an owner produces for their OWN EOA (e.g. a
     // Permit2 permit), so it must not count as a wallet vote.
     bytes32 hash = keccak256('Permit2 PermitSingle digest');

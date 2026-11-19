@@ -233,7 +233,7 @@ export const isValidSignature = async (
     // Base wallet: the 7-arg transaction view checks transaction signatures
     // against the BASE 6-field typehash. The EIP-1271
     // `isValidSignature(bytes32,bytes)` entry no longer accepts them: since
-    // 0.5.1 it validates votes over `getMessageHash(abi.encode(hash))`.
+    // 0.5.2 it validates votes over `getMessageHash(abi.encode(hash))`.
     if (errorMsg) throw new Error('errorMsg not supported on base isValidSignature helper')
     return await contract
       .connect(submitter)
