@@ -2302,7 +2302,7 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         Helper.DEFAULT_GAS,
         futureNonce,
       )
-      // First execution at nonce N+5 succeeds and the sequential counter advances to N+1.
+      // Executing at nonce N+5 succeeds and moves the counter past it, consuming N..N+5.
       await Helper.execTransactionWithNonce(
         contract,
         owner01,
@@ -2316,15 +2316,15 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
         signatures,
       )
       expect(await contract.isOwner(user01.address)).to.be.true
-      expect(await contract.nonce()).to.be.equal(1)
-      expect(await contract.isNonceUsed(futureNonce)).to.be.false
+      expect(await contract.nonce()).to.be.equal(futureNonce + 1n)
+      expect(await contract.isNonceUsed(futureNonce)).to.be.true
+      expect(await contract.isNonceUsed(0n)).to.be.true
+      expect(await contract.isNonceUsed(futureNonce + 1n)).to.be.false
     })
 
     it('8-arg execTransaction reverts on nonce replay', async function () {
-      // v0.5.0 — exercise the nonce-replay protection on the new
-      // 8-arg overload. The first call consumes the `(nonce, owner)`
-      // slot via the `_recordVote` path; the second call with the same
-      // signatures binds the same nonce and must reject.
+      // The first call consumes the nonce; the second call with the same
+      // signatures binds a nonce below `nonce()` and must reject.
       const nonce = await contract.nonce()
       const data = contract.interface.encodeFunctionData('addOwner(address)', [user01.address])
       const signatures = await Helper.prepareSignatures(
@@ -2361,7 +2361,9 @@ export async function MyMultiSigExtendedTests(deploymentType = DeploymentType.Si
             0,
             signatures,
           ),
-      ).to.be.revertedWithCustomError(contract, 'InvalidSignatures')
+      )
+        .to.be.revertedWithCustomError(contract, 'NonceTooLow')
+        .withArgs(nonce, nonce + 1n)
     })
 
     it('isValidSignature now reports against the passed nonce (not _txnNonce)', async function () {
