@@ -600,6 +600,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
 
   /// @notice Whether the built-in allowlist is currently enforced. Flipped on
   ///         by `setAllowedTarget(target, true)` and off by `disableAllowlist`.
+  ///         Calls to the wallet itself are never gated by the allowlist.
   function allowedTargetsEnabled() public view virtual returns (bool) {
     return _allowedTargetsEnabled;
   }
@@ -929,7 +930,11 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   }
 
   /// @dev Guard + built-in allowlist. Guard reverts are wrapped as
-  ///      `GuardReverted(guard, reason)`.
+  ///      `GuardReverted(guard, reason)`. Calls to the wallet itself skip
+  ///      the allowlist: every admin setter (including `disableAllowlist`
+  ///      and `setAllowedTarget`) is an `onlyThis` self-call, so gating
+  ///      `to == address(this)` would lock the wallet out of its own
+  ///      configuration. The guard still sees self-calls.
   function _preExecChecksGuard(address to, uint256 value, bytes memory data) internal virtual {
     address guardContract = _guard;
     if (guardContract != address(0)) {
@@ -937,7 +942,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
         revert GuardReverted(guardContract, reason);
       }
     }
-    if (_allowedTargetsEnabled && !_allowedTargets[to]) revert TargetNotAllowed(to);
+    if (_allowedTargetsEnabled && to != address(this) && !_allowedTargets[to]) revert TargetNotAllowed(to);
   }
 
   /// @dev Silent post-execution hook (failure logged, never reverts).

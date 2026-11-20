@@ -3283,13 +3283,20 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
         await Helper.execTransaction(contract, owner01, [owner01, owner02], user02.address, 0, '0x')
       })
 
+      it('admin self-calls stay reachable once the allowlist is on', async function () {
+        // The wallet is not on its own allowlist: self-calls are exempt.
+        await Helper.setAllowedTarget(contract, owner01, [owner01, owner02], user01.address, true)
+        expect(await contract.allowedTargetsEnabled()).to.be.true
+        expect(await contract.allowedTargets(contract.target)).to.be.false
+
+        await Helper.setAllowedTarget(contract, owner01, [owner01, owner02], user02.address, true)
+        expect(await contract.allowedTargets(user02.address)).to.be.true
+
+        await Helper.disableAllowlist(contract, owner01, [owner01, owner02])
+        expect(await contract.allowedTargetsEnabled()).to.be.false
+      })
+
       it('disableAllowlist turns enforcement back off while preserving entries', async function () {
-        // Pre-allowlist the wallet itself while the flag is still false,
-        // then enable with the external target. Order matters: once the
-        // flag flips on, the gate applies to `to == address(this)` too, so
-        // every admin setter (including this disable path) becomes
-        // unreachable unless the wallet was already in the allowlist.
-        await Helper.setAllowedTarget(contract, owner01, [owner01, owner02], contract.target, true)
         await Helper.setAllowedTarget(contract, owner01, [owner01, owner02], user01.address, true)
         expect(await contract.allowedTargetsEnabled()).to.be.true
 
