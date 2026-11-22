@@ -139,6 +139,14 @@ module.execDelegateCall(calldata);       // DELEGATECALL (op=1, to == wallet onl
 
 **Gotchas:** `disableModule(prev, module)` follows Safe's strict pattern — when the module is the head, `prev` MUST be `address(0)`; otherwise `_modulesNext[prev] == module` must hold. Module-driven calls do NOT bump `_txnNonce`. Guard + allowlist still apply; timelock does NOT.
 
+#### Session keys (`SessionKeyModule`)
+
+A shared module for time-bounded, scope-limited temporary signers. One instance serves every wallet on a chain and lives at the same address everywhere: `0xB0983D6b5585AB735D4d46c6E1b3F2Ae8633ca85`, deployed through the canonical CREATE2 deployer with the salt and init code in `constants/sessionKeyModule.ts`. Deploy it on a new chain with `yarn deploy-session-key-module --network <name>` (idempotent).
+
+The wallet enables the module, then grants a key with a threshold-signed call to `grantSessionKey(key, validAfter, validUntil, ethBudget, targets, selectors)`. The key holder calls `executeWithSessionKey(wallet, to, value, data)` directly; any single owner can `revokeSessionKey(wallet, key)`.
+
+**Gotchas:** `ethBudget` only meters native value (`msg.value` of each call). ERC-20 `transfer` / `approve` calls on an allowed token target move tokens without touching the budget, so restrict selectors on token targets. Targets can never be the wallet, the module itself or any module enabled on the wallet. With the wallet allowlist on, every session target must also be allowlisted.
+
 ### Factory + introspection
 
 `MyMultiSigFactory.createMyMultiSigAdvanced(...)` produces the v0.4.0 wallet through a new `MyMultiSigAdvancedDeployer` (a tiny wrapper that defers to `MyMultiSigExtendedDeployer`; the v0.4.0 wallet bytecode is currently identical to v0.3.0 Extended, and the distinction lives in factory bookkeeping until a future Advanced-only release).
