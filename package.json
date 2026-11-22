@@ -1,6 +1,6 @@
 {
   "name": "mymultisig-contract",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "Multi-Signatures Solidity Smart Contract for mymultisig.app",
   "main": "index.js",
   "files": [
@@ -35,6 +35,7 @@
     "deploy-polygonFork": "npx hardhat run scripts/deploy.ts --network polygonFork",
     "deploy-amoy": "npx hardhat run scripts/deploy.ts --network amoy",
     "deploy-amoyFork": "npx hardhat run scripts/deploy.ts --network amoyFork",
+    "deploy-session-key-module": "npx hardhat run scripts/deploySessionKeyModule.ts",
     "verify-chainlist": "npx hardhat run scripts/verifyChainlist.ts"
   },
   "repository": {
