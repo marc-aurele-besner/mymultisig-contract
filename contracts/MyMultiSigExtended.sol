@@ -137,6 +137,23 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   ///         itself: a self-call would reach the `onlyThis` admin surface
   ///         with one signature instead of threshold consensus.
   error AllowanceSelfCallNotAllowed();
+  /// @notice The single-signer allowance path only moves the native coin:
+  ///         its daily cap is denominated in wei, so call data (token
+  ///         transfers, approvals, arbitrary contract calls) is rejected.
+  error AllowanceDataNotAllowed();
+  /// @notice The single-signer allowance path may not target an enabled
+  ///         module or the ERC-4337 EntryPoint: both hold privileged roles
+  ///         toward the wallet, so funding or triggering them takes the
+  ///         threshold.
+  error AllowanceTargetNotAllowed(address to);
+  /// @notice An `execTransaction` call bound to a nonce below the wallet's
+  ///         current `nonce()`. Every nonce below `nonce()` is consumed —
+  ///         by an execution, a schedule, or `incrementNonce` — so
+  ///         signatures collected for it can never be executed.
+  error NonceTooLow(uint256 provided, uint256 current);
+  /// @notice An `execTransaction` call bound to a nonce that does not fit
+  ///         the wallet's `uint96` nonce space.
+  error NonceOutOfRange(uint256 provided);
 
   // --- v0.4.0 events (v0.3.0 events live in MyMultiSig.sol) ---
 
@@ -208,7 +225,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   ///         the typehash differs (a 7-field hash binds the `operation`
   ///         byte; the base wallet uses a 6-field hash).
   function version() public pure virtual override returns (string memory) {
-    return '0.5.0';
+    return '0.5.2';
   }
 
   // ---------------------------------------------------------------------------
@@ -233,10 +250,12 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     return _ownerSettings[owner];
   }
 
-  /// @notice Retrieves if the nonce has been used
+  /// @notice Retrieves if the nonce can no longer be executed: every nonce
+  ///         below the current `nonce()` is consumed, and `markNonceAsUsed`
+  ///         invalidates individual nonces at or above it.
   /// @return The true if the nonce has been used, false otherwise.
-  function isNonceUsed(uint256 nonce) public view virtual returns (bool) {
-    return _noncesUsed[nonce];
+  function isNonceUsed(uint256 txnNonce) public view virtual returns (bool) {
+    return txnNonce < nonce() || _noncesUsed[txnNonce];
   }
 
   /// @notice Disabled overload: this wallet binds the `operation` byte
@@ -376,6 +395,13 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     _replaceOwner(owner, msg.sender);
   }
 
+  /// @notice Permanently invalidates `nonce`: no transaction signed for it
+  ///         can be executed or scheduled, and a transaction already
+  ///         scheduled at it can no longer be executed. This is how a
+  ///         pending request is cancelled on-chain. It only ever removes
+  ///         the ability to act, so it is not in the default sensitive set
+  ///         and takes effect immediately even when a timelock is on.
+  /// @dev This function can only be called inside a multisig transaction.
   function markNonceAsUsed(uint256 nonce) public virtual onlyThis {
     _noncesUsed[nonce] = true;
   }
@@ -403,7 +429,8 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   ///      deployment. Every privileged admin selector of the wallet family
   ///      is listed — including the setters that weaken a protection
   ///      (guard, allowlist, allowance, and the sensitive-set itself), so
-  ///      the timelock cannot be sidestepped by reconfiguring it;
+  ///      the timelock cannot be sidestepped by reconfiguring it — except
+  ///      `markNonceAsUsed`, which only cancels and must be instant;
   ///      `setSensitiveSelector` overrides win over this default.
   function _isDefaultSensitiveSelector(bytes4 sel) internal pure virtual returns (bool) {
     return
@@ -413,7 +440,6 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
       sel == bytes4(keccak256('changeThreshold(uint16)')) ||
       sel == bytes4(keccak256('setTransferInactiveOwnershipAfter(uint256)')) ||
       sel == bytes4(keccak256('setOwnerSettings(address,uint256,address)')) ||
-      sel == bytes4(keccak256('markNonceAsUsed(uint256)')) ||
       sel == bytes4(keccak256('enableModule(address)')) ||
       sel == bytes4(keccak256('disableModule(address,address)')) ||
       sel == bytes4(keccak256('setTimelockDelay(uint256)')) ||
@@ -659,11 +685,15 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
       );
   }
 
-  /// @notice Single-signer allowance path. Accepts ONE 65-byte ECDSA sig
-  ///         that must recover to `msg.sender` — who must be a current
-  ///         owner with a non-zero `_dailyLimitPerOwner`. The recovered
-  ///         signer's daily cap is charged by `value`; failed inner calls
-  ///         do NOT burn the cap.
+  /// @notice Single-signer allowance path for plain native-coin transfers.
+  ///         Accepts ONE 65-byte ECDSA sig that must recover to
+  ///         `msg.sender` — who must be a current owner with a non-zero
+  ///         `_dailyLimitPerOwner`. The recovered signer's daily cap is
+  ///         charged by `value`; failed inner calls do NOT burn the cap.
+  ///         `data` must be empty (`AllowanceDataNotAllowed`), so the path
+  ///         can never move ERC-20 / ERC-721 / ERC-1155 balances, grant
+  ///         approvals or make arbitrary calls; `to` may not be the wallet,
+  ///         an enabled module or the EntryPoint.
   /// @dev    Signed over the dedicated `AllowanceTransaction` typehash bound
   ///         to `(to, value, data, gas, nonce = allowanceNonce(),
   ///         validUntil)`. Bumps `_allowanceNonce` once the signature
@@ -686,6 +716,8 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   ) public payable virtual nonReentrant returns (bool success) {
     if (signatures.length != 65) revert AllowanceRequiresSingleSigner();
     if (to == address(this)) revert AllowanceSelfCallNotAllowed();
+    if (data.length != 0) revert AllowanceDataNotAllowed();
+    if (_isModule[to] || to == address(ENTRY_POINT)) revert AllowanceTargetNotAllowed(to);
     if (validUntil != 0 && block.timestamp > validUntil) revert SignatureExpired();
     uint96 currentNonce = _allowanceNonce;
     bytes32 txHash = _generateAllowanceHash(to, value, data, txnGas, currentNonce, validUntil);
@@ -1087,6 +1119,12 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     _emitEndOfLifeIfNear();
   }
 
+  /// @notice Executes a transaction signed for an explicit `txnNonce`.
+  ///         `txnNonce` may be the current `nonce()` or any later nonce
+  ///         (owners can pre-sign a queue), never an earlier one
+  ///         (`NonceTooLow`). Executing moves `nonce()` to `txnNonce + 1`,
+  ///         so the executed nonce and every skipped nonce below it are
+  ///         consumed: their signatures can never be executed afterwards.
   function execTransaction(
     address to,
     uint256 value,
@@ -1180,21 +1218,27 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     uint256 validUntil,
     bytes memory signatures
   ) internal view returns (bool valid) {
-    if (_noncesUsed[txnNonce]) return false;
+    if (isNonceUsed(txnNonce)) return false;
     if (validUntil != 0 && block.timestamp > validUntil) return false;
     return _checkSignatures(txHash, txnNonce, signatures);
   }
 
   /// @dev Mutating-side validator that records each vote's
   ///      `(nonce, owner)` slot via `_recordVote`. Defers to the base
-  ///      `_validateSignatureForHash` core after the nonce / expiry gates.
+  ///      `_validateSignatureForHash` core after the nonce / expiry gates:
+  ///      a nonce below `nonce()` reverts `NonceTooLow`, one outside the
+  ///      `uint96` range reverts `NonceOutOfRange`, and one invalidated by
+  ///      `markNonceAsUsed` reverts `NonceAlreadyUsed`.
   function _validateSignatureOp(
     bytes32 txHash,
     uint256 txnNonce,
     uint256 validUntil,
     bytes memory signatures
   ) internal returns (bool valid) {
-    if (_noncesUsed[txnNonce]) return false;
+    uint256 currentNonce = nonce();
+    if (txnNonce < currentNonce) revert NonceTooLow(txnNonce, currentNonce);
+    if (txnNonce >= type(uint96).max) revert NonceOutOfRange(txnNonce);
+    if (_noncesUsed[txnNonce]) revert NonceAlreadyUsed();
     if (validUntil != 0 && block.timestamp > validUntil) revert SignatureExpired();
     return _validateSignatureForHash(txHash, txnNonce, signatures);
   }
@@ -1223,7 +1267,8 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     // `_validateSignatureOp` reverts `SignatureExpired` past `validUntil`.
     if (!_validateSignatureOp(txHash, txnNonce, validUntil, signatures)) revert InvalidSignatures();
 
-    _bumpNonce();
+    // Consume `txnNonce` and every nonce below it before the call runs.
+    _advanceNonceTo(uint96(txnNonce + 1));
 
     uint256 gasBefore = gasleft();
     bytes memory returnData;

@@ -218,7 +218,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, IERC1271, ERC721Holder, ERC1155H
   ///         factory proxy). Part of the EIP-712 domain separator, which is
   ///         fixed at deploy time.
   function version() public pure virtual returns (string memory) {
-    return '0.5.0';
+    return '0.5.2';
   }
 
   /// @notice Retrieves the current threshold value
@@ -621,18 +621,26 @@ contract MyMultiSig is ReentrancyGuard, EIP712, IERC1271, ERC721Holder, ERC1155H
   ///         votes — this is the path used when another Safe / multisig /
   ///         SIWE verifier / NFT marketplace calls `isValidSignature` on this
   ///         wallet.
-  /// @dev    The supplied `hash` is treated as opaque: the caller decides what
-  ///         is being signed. The wallet does NOT compute an EIP-712 hash here
-  ///         — the in-wallet `_validateSignature` path does that, but the
-  ///         EIP-1271 entry point is generic over the hash.
+  /// @dev    Owner votes are NOT checked against the caller's `hash` directly.
+  ///         The hash is first bound to this wallet through
+  ///         `getMessageHash(abi.encode(hash))` (EIP-712 type
+  ///         `MyMultiSigMessage(bytes message)` under this wallet's domain,
+  ///         i.e. name, version, chainId and wallet address), and each owner
+  ///         signs that wallet-bound hash. Same pattern as Safe's
+  ///         `SafeMessage`. Without the binding, one vote blob would be valid
+  ///         for every wallet sharing the same owners, and an owner's EOA
+  ///         signature over `hash` (e.g. a Permit2 permit for their own
+  ///         address) would also count as a wallet vote. Since 0.5.2.
   /// @param hash The hash the caller wants validated.
   /// @param signature ABI-encoded `(address owner, bytes sig)[]` of owner
-  ///        votes, or empty bytes to check for an on-chain `signMessage`
-  ///        approval of `hash` (see `signMessage`).
+  ///        votes over `getMessageHash(abi.encode(hash))`, or empty bytes to
+  ///        check for an on-chain `signMessage` approval of `hash` (see
+  ///        `signMessage`).
   /// @return magicValue `bytes4(0x1626ba7e)` on success, `bytes4(0xffffffff)` otherwise.
   function isValidSignature(bytes32 hash, bytes memory signature) public view virtual returns (bytes4 magicValue) {
-    if (signature.length == 0 && _signedMessages[getMessageHash(abi.encode(hash))]) return _ERC1271_MAGIC;
-    return _checkSignatures(hash, 0, signature) ? _ERC1271_MAGIC : bytes4(0xffffffff);
+    bytes32 walletHash = getMessageHash(abi.encode(hash));
+    if (signature.length == 0 && _signedMessages[walletHash]) return _ERC1271_MAGIC;
+    return _checkSignatures(walletHash, 0, signature) ? _ERC1271_MAGIC : bytes4(0xffffffff);
   }
 
   /// @notice Builds the EIP-712 hash of an off-chain-auth message. The hash
@@ -1097,6 +1105,14 @@ contract MyMultiSig is ReentrancyGuard, EIP712, IERC1271, ERC721Holder, ERC1155H
   ///      external caller's `msg.sender` is not `address(this)`).
   function _bumpNonce() internal virtual {
     _txnNonce++;
+  }
+
+  /// @dev Moves the nonce forward to `nextNonce`. Callers must ensure
+  ///      `nextNonce` is strictly greater than the current nonce and fits
+  ///      in a `uint96`, so the nonce never moves backwards and every
+  ///      signature bound to a lower nonce stays dead.
+  function _advanceNonceTo(uint96 nextNonce) internal virtual {
+    _txnNonce = nextNonce;
   }
 
   /// @notice Receives Ether

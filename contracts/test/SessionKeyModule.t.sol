@@ -119,6 +119,22 @@ contract SessionKeyModuleTest is Helper {
     myMultiSigExtended.execTransaction(address(module), 0, data, EXEC_GAS, nonce, 0, 0, signatures);
   }
 
+  function test_grant_rejects_module_as_target() public {
+    address[] memory targets = new address[](2);
+    targets[0] = address(target);
+    targets[1] = address(module);
+    bytes memory data = abi.encodeCall(
+      module.grantSessionKey,
+      (sessionKey, 0, uint48(block.timestamp) + SESSION_TTL, 0, targets, new bytes4[](0))
+    );
+    bytes memory signatures = build_signatures(myMultiSig, _ownersPk(), address(module), 0, data, EXEC_GAS);
+    uint96 nonce = myMultiSig.nonce();
+    vm.prank(OWNERS[0]);
+    vm.expectRevert(abi.encodeWithSignature('SessionKeyTargetIsModule()'));
+    myMultiSigExtended.execTransaction(address(module), 0, data, EXEC_GAS, nonce, 0, 0, signatures);
+    assertFalse(module.isSessionKeyActive(address(myMultiSig), sessionKey));
+  }
+
   function test_grant_rejects_bad_window_and_empty_targets() public {
     address[] memory targets = new address[](1);
     targets[0] = address(target);
@@ -211,6 +227,46 @@ contract SessionKeyModuleTest is Helper {
       0,
       abi.encodeWithSignature('addOwner(address)', sessionKey)
     );
+  }
+
+  /// @dev Regression: a key calling the module through the wallet would
+  ///      reach `grantSessionKey` with `msg.sender == wallet` and could
+  ///      re-grant itself any budget, expiry and targets.
+  function test_execute_module_as_target_cannot_escalate() public {
+    _defaultGrant();
+    address[] memory targets = new address[](1);
+    targets[0] = NOT_OWNERS[0];
+    bytes memory escalate = abi.encodeCall(
+      module.grantSessionKey,
+      (sessionKey, 0, type(uint48).max, 100 ether, targets, new bytes4[](0))
+    );
+    vm.prank(sessionKey);
+    vm.expectRevert(abi.encodeWithSignature('SessionKeyCannotCallModule(address)', address(module)));
+    module.executeWithSessionKey(address(myMultiSig), address(module), 0, escalate);
+
+    assertEq(module.sessionBudgetRemaining(address(myMultiSig), sessionKey), SESSION_BUDGET);
+    assertEq(module.sessionKey(address(myMultiSig), sessionKey).validUntil, uint48(block.timestamp) + SESSION_TTL);
+    assertFalse(module.isSessionTargetAllowed(address(myMultiSig), sessionKey, NOT_OWNERS[0]));
+  }
+
+  function test_execute_enabled_module_as_target_reverts() public {
+    // A target granted before it became a module is blocked once enabled.
+    SessionKeyModule otherModule = new SessionKeyModule();
+    address[] memory targets = new address[](1);
+    targets[0] = address(otherModule);
+    _grant(sessionKey, 0, uint48(block.timestamp) + SESSION_TTL, SESSION_BUDGET, targets, new bytes4[](0));
+    _execFromWallet(address(myMultiSig), abi.encodeWithSignature('enableModule(address)', address(otherModule)));
+
+    address[] memory escalateTargets = new address[](1);
+    escalateTargets[0] = NOT_OWNERS[0];
+    bytes memory escalate = abi.encodeCall(
+      otherModule.grantSessionKey,
+      (sessionKey, 0, type(uint48).max, 100 ether, escalateTargets, new bytes4[](0))
+    );
+    vm.prank(sessionKey);
+    vm.expectRevert(abi.encodeWithSignature('SessionKeyCannotCallModule(address)', address(otherModule)));
+    module.executeWithSessionKey(address(myMultiSig), address(otherModule), 0, escalate);
+    assertFalse(otherModule.isSessionKeyActive(address(myMultiSig), sessionKey));
   }
 
   function test_selector_restriction_enforced() public {

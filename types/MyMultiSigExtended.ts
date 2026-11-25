@@ -863,7 +863,7 @@ decodeFunctionResult(functionFragment: 'version', data: BytesLike): Result;
 
     
     isNonceUsed: TypedContractMethod<
-      [nonce: BigNumberish, ],
+      [txnNonce: BigNumberish, ],
       [boolean],
       'view'
     >
@@ -1421,7 +1421,7 @@ getFunction(nameOrSignature: 'isModule'): TypedContractMethod<
       'view'
     >;
 getFunction(nameOrSignature: 'isNonceUsed'): TypedContractMethod<
-      [nonce: BigNumberish, ],
+      [txnNonce: BigNumberish, ],
       [boolean],
       'view'
     >;

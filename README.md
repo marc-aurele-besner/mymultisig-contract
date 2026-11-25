@@ -41,7 +41,21 @@ function isValidSignature(bytes32 hash, bytes calldata signature)
     external view returns (bytes4 magicValue);
 ```
 
-`signature` is an ABI-encoded `(address owner, bytes sig)[]` of owner votes. For each entry the wallet either `ecrecover`s a 65-byte ECDSA signature (EOA owner) or `staticcall`s `isValidSignature(hash, sig)` on the owner with a 200k gas stipend (contract owner). If the count of valid votes reaches `threshold`, returns the magic value `0x1626ba7e`; otherwise `0xffffffff`.
+`signature` is an ABI-encoded `(address owner, bytes sig)[]` of owner votes. Owners do not sign `hash` itself. They sign the wallet-bound hash `getMessageHash(abi.encode(hash))`, which is the EIP-712 hash of `MyMultiSigMessage(bytes message)` with `message = abi.encode(hash)` under this wallet's domain (name, version, chainId, wallet address). For each entry the wallet either `ecrecover`s a 65-byte ECDSA signature over that wallet-bound hash (EOA owner) or `staticcall`s `isValidSignature(walletHash, sig)` on the owner with a 200k gas stipend (contract owner). If the count of valid votes reaches `threshold`, returns the magic value `0x1626ba7e`; otherwise `0xffffffff`.
+
+The binding was added in 0.5.2. On 0.5.0 wallets owners signed `hash` directly, so one vote blob was valid on every wallet with the same owners, and an owner's EOA signature over a hash (a Permit2 permit for their own address, for example) also counted as a wallet vote.
+
+An owner signs a vote with standard EIP-712 typed data:
+
+```ts
+const sig = await owner.signTypedData(
+  { name: await wallet.name(), version: await wallet.version(), chainId, verifyingContract: wallet.target },
+  { MyMultiSigMessage: [{ name: 'message', type: 'bytes' }] },
+  { message: ethers.AbiCoder.defaultAbiCoder().encode(['bytes32'], [hash]) },
+)
+```
+
+A nested wallet owner gets asked `isValidSignature(parentWalletHash, blob)`, so its own owners sign `MyMultiSigMessage(abi.encode(parentWalletHash))` under the nested wallet's domain.
 
 Off-chain, building the signature blob is one line:
 
@@ -101,7 +115,7 @@ wallet.execTransaction(address(wallet), 0,
 
 ### 3. 💸 Per-owner daily spending allowance
 
-Single-signer entry point: `execTransactionWithSpendingAllowance(to, value, data, gas, validUntil, signatures)`. Requires a single 65-byte ECDSA sig that recovers to `msg.sender`, who must be a current owner with a non-zero daily cap.
+Single-signer entry point: `execTransactionWithSpendingAllowance(to, value, data, gas, validUntil, signatures)`. Requires a single 65-byte ECDSA sig that recovers to `msg.sender`, who must be a current owner with a non-zero daily cap. The path only moves the native coin: `data` must be empty (`AllowanceDataNotAllowed`), and `to` may not be the wallet itself, an enabled module or the EntryPoint (`AllowanceTargetNotAllowed`). Token transfers, approvals and other contract calls always go through the threshold.
 
 ```solidity
 wallet.execTransaction(address(wallet), 0,
