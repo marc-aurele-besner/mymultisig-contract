@@ -111,7 +111,7 @@ wallet.execTransaction(address(wallet), 0,
     abi.encodeWithSignature("setAllowedTarget(address,bool)", safeTarget, true), gas, sigs);
 ```
 
-**Gotchas:** the allowlist is OFF until the first `setAllowedTarget(...)` flips it on. Guard + allowlist apply inside `multiRequest*` (per inner call) and `execTransactionFromModule`. `checkAfterExecution` failures are NEVER reverts.
+**Gotchas:** the allowlist is OFF until the first `setAllowedTarget(...)` flips it on. Calls to the wallet itself are exempt, so admin functions (`disableAllowlist`, owner and threshold changes, ...) stay reachable; the guard still sees them. Guard + allowlist apply inside `multiRequest*` (per inner call) and `execTransactionFromModule`. `checkAfterExecution` failures are NEVER reverts.
 
 ### 3. 💸 Per-owner daily spending allowance
 
