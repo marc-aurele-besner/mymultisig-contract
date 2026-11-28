@@ -18,9 +18,9 @@ export declare namespace MyMultiSigExtended {
     }
 
   export interface MyMultiSigExtendedInterface extends Interface {
-    getFunction(nameOrSignature: "ENTRY_POINT" | "addOwner" | "advancedFeaturesEnabled" | "allowOnlyOwnerRequest" | "allowanceNonce" | "allowedTargets" | "allowedTargetsEnabled" | "approveHash" | "cancelScheduled" | "changeThreshold" | "dailySpendingLimit" | "disableAllowlist" | "disableModule" | "eip712Domain" | "enableModule" | "execTransaction(address,uint256,bytes,uint256,uint256,bytes)" | "execTransaction(address,uint256,bytes,uint256,uint256,uint256,uint8,bytes)" | "execTransaction(address,uint256,bytes,uint256,uint8,bytes)" | "execTransaction(address,uint256,bytes,uint256,uint256,uint8,bytes)" | "execTransaction(address,uint256,bytes,uint256,bytes)" | "execTransaction(address,uint256,bytes,uint256,uint256,uint256,bytes)" | "execTransactionFromModule" | "execTransactionWithSpendingAllowance" | "execute" | "executeScheduled" | "generateHash" | "generateHashOp" | "getApprovedOwners" | "getMessageHash" | "getModules" | "getOwners" | "getThreshold" | "guard" | "incrementNonce" | "isMessageSigned" | "isModule" | "isNonceUsed" | "isOwner" | "isSensitiveSelector" | "isValidSignature(bytes32,bytes)" | "isValidSignature(address,uint256,bytes,uint256,uint256,uint256,uint8,bytes)" | "isValidSignature(address,uint256,bytes,uint256,uint256,uint256,bytes)" | "markNonceAsUsed" | "minimumTransferInactiveOwnershipAfter" | "moduleNext" | "modulesHead" | "multiRequest" | "multiRequestStrict" | "name" | "nonce" | "onERC1155BatchReceived" | "onERC1155Received" | "onERC721Received" | "ownerCount" | "ownerSettings" | "removeOwner" | "replaceOwner" | "requireTxSuccess" | "revokeApproval" | "scheduleTransaction" | "scheduledReadyAt" | "scheduledValidUntil" | "sensitiveValueThreshold" | "setAllowedTarget" | "setDailySpendingLimit" | "setGuard" | "setOnlyOwnerRequest" | "setOwnerSettings" | "setRequireTxSuccess" | "setSensitiveSelector" | "setSensitiveValueThreshold" | "setTimelockDelay" | "setTransferInactiveOwnershipAfter" | "signMessage" | "spendingLimitRemaining" | "supportsInterface" | "takeOverOwnership" | "threshold" | "timelockDelay" | "unsignMessage" | "userOpSigningHash" | "validateUserOp" | "version"): FunctionFragment;
+    getFunction(nameOrSignature: "ENTRY_POINT" | "addOwner" | "advancedFeaturesEnabled" | "allowOnlyOwnerRequest" | "allowanceNonce" | "allowedTargets" | "allowedTargetsEnabled" | "approveHash" | "cancelScheduled" | "changeThreshold" | "dailySpendingLimit" | "disableAllowlist" | "disableModule" | "eip712Domain" | "enableModule" | "execTransaction(address,uint256,bytes,uint256,uint256,bytes)" | "execTransaction(address,uint256,bytes,uint256,uint256,uint256,uint8,bytes)" | "execTransaction(address,uint256,bytes,uint256,uint8,bytes)" | "execTransaction(address,uint256,bytes,uint256,uint256,uint8,bytes)" | "execTransaction(address,uint256,bytes,uint256,bytes)" | "execTransaction(address,uint256,bytes,uint256,uint256,uint256,bytes)" | "execTransactionFromModule" | "execTransactionWithSpendingAllowance" | "execute" | "executeScheduled" | "generateHash" | "generateHashOp" | "getApprovedOwners" | "getMessageHash" | "getModules" | "getOwners" | "getThreshold" | "guard" | "incrementNonce" | "isMessageSigned" | "isModule" | "isNonceUsed" | "isOwner" | "isSensitiveSelector" | "isValidSignature(bytes32,bytes)" | "isValidSignature(address,uint256,bytes,uint256,uint256,uint256,uint8,bytes)" | "isValidSignature(address,uint256,bytes,uint256,uint256,uint256,bytes)" | "markNonceAsUsed" | "minimumTransferInactiveOwnershipAfter" | "moduleNext" | "modulesHead" | "multiRequest" | "multiRequestStrict" | "name" | "nonce" | "onERC1155BatchReceived" | "onERC1155Received" | "onERC721Received" | "ownerCount" | "ownerSettings" | "removeOwner" | "replaceOwner" | "requireTxSuccess" | "revokeApproval" | "scheduleTransaction" | "scheduledReadyAt" | "scheduledValidUntil" | "sensitiveValueThreshold" | "setAllowedTarget" | "setDailySpendingLimit" | "setGuard" | "setOnlyOwnerRequest" | "setOwnerSettings" | "setRequireTxSuccess" | "setSensitiveSelector" | "setSensitiveValueThreshold" | "setTimelockDelay" | "setTokenSensitiveThreshold" | "setTransferInactiveOwnershipAfter" | "signMessage" | "spendingLimitRemaining" | "supportsInterface" | "takeOverOwnership" | "threshold" | "timelockDelay" | "tokenSensitiveThreshold" | "unsignMessage" | "userOpSigningHash" | "validateUserOp" | "version"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "AllowedTargetSet" | "AllowlistDisabled" | "ApproveHash" | "ContractEndOfLife" | "DailySpendingLimitSet" | "EIP712DomainChanged" | "GuardSet" | "MessageSigned" | "MessageUnsigned" | "ModuleDisabled" | "ModuleEnabled" | "ModuleTransactionExecuted" | "MultiRequestExecuted" | "OwnerAdded" | "OwnerRemoved" | "PostExecutionGuardFailed" | "RequireTxSuccessSet" | "RevokeApproval" | "ScheduledTransactionCancelled" | "ScheduledTransactionExecuted" | "SensitiveSelectorSet" | "SensitiveValueThresholdSet" | "ThresholdChanged" | "TimelockDelaySet" | "TransactionExecuted" | "TransactionExecutedOp" | "TransactionScheduled" | "TxFailure" | "TxFailureOp"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "AllowedTargetSet" | "AllowlistDisabled" | "ApproveHash" | "ContractEndOfLife" | "DailySpendingLimitSet" | "EIP712DomainChanged" | "GuardSet" | "MessageSigned" | "MessageUnsigned" | "ModuleDisabled" | "ModuleEnabled" | "ModuleTransactionExecuted" | "MultiRequestExecuted" | "OwnerAdded" | "OwnerRemoved" | "PostExecutionGuardFailed" | "RequireTxSuccessSet" | "RevokeApproval" | "ScheduledTransactionCancelled" | "ScheduledTransactionExecuted" | "SensitiveSelectorSet" | "SensitiveValueThresholdSet" | "ThresholdChanged" | "TimelockDelaySet" | "TokenSensitiveThresholdSet" | "TransactionExecuted" | "TransactionExecutedOp" | "TransactionScheduled" | "TxFailure" | "TxFailureOp"): EventFragment;
 
     encodeFunctionData(functionFragment: 'ENTRY_POINT', values?: undefined): string;
 encodeFunctionData(functionFragment: 'addOwner', values: [AddressLike]): string;
@@ -94,6 +94,7 @@ encodeFunctionData(functionFragment: 'setRequireTxSuccess', values: [boolean]): 
 encodeFunctionData(functionFragment: 'setSensitiveSelector', values: [BytesLike, boolean]): string;
 encodeFunctionData(functionFragment: 'setSensitiveValueThreshold', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'setTimelockDelay', values: [BigNumberish]): string;
+encodeFunctionData(functionFragment: 'setTokenSensitiveThreshold', values: [AddressLike, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'setTransferInactiveOwnershipAfter', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'signMessage', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'spendingLimitRemaining', values: [AddressLike]): string;
@@ -101,6 +102,7 @@ encodeFunctionData(functionFragment: 'supportsInterface', values: [BytesLike]): 
 encodeFunctionData(functionFragment: 'takeOverOwnership', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'threshold', values?: undefined): string;
 encodeFunctionData(functionFragment: 'timelockDelay', values?: undefined): string;
+encodeFunctionData(functionFragment: 'tokenSensitiveThreshold', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'unsignMessage', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'userOpSigningHash', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'validateUserOp', values: [PackedUserOperationStruct, BytesLike, BigNumberish]): string;
@@ -178,6 +180,7 @@ decodeFunctionResult(functionFragment: 'setRequireTxSuccess', data: BytesLike): 
 decodeFunctionResult(functionFragment: 'setSensitiveSelector', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'setSensitiveValueThreshold', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'setTimelockDelay', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'setTokenSensitiveThreshold', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'setTransferInactiveOwnershipAfter', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'signMessage', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'spendingLimitRemaining', data: BytesLike): Result;
@@ -185,6 +188,7 @@ decodeFunctionResult(functionFragment: 'supportsInterface', data: BytesLike): Re
 decodeFunctionResult(functionFragment: 'takeOverOwnership', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'threshold', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'timelockDelay', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'tokenSensitiveThreshold', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'unsignMessage', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'userOpSigningHash', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'validateUserOp', data: BytesLike): Result;
@@ -472,6 +476,18 @@ decodeFunctionResult(functionFragment: 'version', data: BytesLike): Result;
       export type InputTuple = [delay: BigNumberish];
       export type OutputTuple = [delay: bigint];
       export interface OutputObject {delay: bigint };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace TokenSensitiveThresholdSetEvent {
+      export type InputTuple = [token: AddressLike, threshold: BigNumberish];
+      export type OutputTuple = [token: string, threshold: bigint];
+      export interface OutputObject {token: string, threshold: bigint };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -1150,6 +1166,14 @@ decodeFunctionResult(functionFragment: 'version', data: BytesLike): Result;
     
 
     
+    setTokenSensitiveThreshold: TypedContractMethod<
+      [token: AddressLike, threshold: BigNumberish, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
     setTransferInactiveOwnershipAfter: TypedContractMethod<
       [transferInactiveOwnershipAfter: BigNumberish, ],
       [void],
@@ -1200,6 +1224,14 @@ decodeFunctionResult(functionFragment: 'version', data: BytesLike): Result;
     
     timelockDelay: TypedContractMethod<
       [],
+      [bigint],
+      'view'
+    >
+    
+
+    
+    tokenSensitiveThreshold: TypedContractMethod<
+      [token: AddressLike, ],
       [bigint],
       'view'
     >
@@ -1600,6 +1632,11 @@ getFunction(nameOrSignature: 'setTimelockDelay'): TypedContractMethod<
       [void],
       'nonpayable'
     >;
+getFunction(nameOrSignature: 'setTokenSensitiveThreshold'): TypedContractMethod<
+      [token: AddressLike, threshold: BigNumberish, ],
+      [void],
+      'nonpayable'
+    >;
 getFunction(nameOrSignature: 'setTransferInactiveOwnershipAfter'): TypedContractMethod<
       [transferInactiveOwnershipAfter: BigNumberish, ],
       [void],
@@ -1632,6 +1669,11 @@ getFunction(nameOrSignature: 'threshold'): TypedContractMethod<
     >;
 getFunction(nameOrSignature: 'timelockDelay'): TypedContractMethod<
       [],
+      [bigint],
+      'view'
+    >;
+getFunction(nameOrSignature: 'tokenSensitiveThreshold'): TypedContractMethod<
+      [token: AddressLike, ],
       [bigint],
       'view'
     >;
@@ -1680,6 +1722,7 @@ getEvent(key: 'SensitiveSelectorSet'): TypedContractEvent<SensitiveSelectorSetEv
 getEvent(key: 'SensitiveValueThresholdSet'): TypedContractEvent<SensitiveValueThresholdSetEvent.InputTuple, SensitiveValueThresholdSetEvent.OutputTuple, SensitiveValueThresholdSetEvent.OutputObject>;
 getEvent(key: 'ThresholdChanged'): TypedContractEvent<ThresholdChangedEvent.InputTuple, ThresholdChangedEvent.OutputTuple, ThresholdChangedEvent.OutputObject>;
 getEvent(key: 'TimelockDelaySet'): TypedContractEvent<TimelockDelaySetEvent.InputTuple, TimelockDelaySetEvent.OutputTuple, TimelockDelaySetEvent.OutputObject>;
+getEvent(key: 'TokenSensitiveThresholdSet'): TypedContractEvent<TokenSensitiveThresholdSetEvent.InputTuple, TokenSensitiveThresholdSetEvent.OutputTuple, TokenSensitiveThresholdSetEvent.OutputObject>;
 getEvent(key: 'TransactionExecuted'): TypedContractEvent<TransactionExecutedEvent.InputTuple, TransactionExecutedEvent.OutputTuple, TransactionExecutedEvent.OutputObject>;
 getEvent(key: 'TransactionExecutedOp'): TypedContractEvent<TransactionExecutedOpEvent.InputTuple, TransactionExecutedOpEvent.OutputTuple, TransactionExecutedOpEvent.OutputObject>;
 getEvent(key: 'TransactionScheduled'): TypedContractEvent<TransactionScheduledEvent.InputTuple, TransactionScheduledEvent.OutputTuple, TransactionScheduledEvent.OutputObject>;
@@ -1782,6 +1825,10 @@ getEvent(key: 'TxFailureOp'): TypedContractEvent<TxFailureOpEvent.InputTuple, Tx
 
       'TimelockDelaySet(uint256)': TypedContractEvent<TimelockDelaySetEvent.InputTuple, TimelockDelaySetEvent.OutputTuple, TimelockDelaySetEvent.OutputObject>;
       TimelockDelaySet: TypedContractEvent<TimelockDelaySetEvent.InputTuple, TimelockDelaySetEvent.OutputTuple, TimelockDelaySetEvent.OutputObject>;
+    
+
+      'TokenSensitiveThresholdSet(address,uint256)': TypedContractEvent<TokenSensitiveThresholdSetEvent.InputTuple, TokenSensitiveThresholdSetEvent.OutputTuple, TokenSensitiveThresholdSetEvent.OutputObject>;
+      TokenSensitiveThresholdSet: TypedContractEvent<TokenSensitiveThresholdSetEvent.InputTuple, TokenSensitiveThresholdSetEvent.OutputTuple, TokenSensitiveThresholdSetEvent.OutputObject>;
     
 
       'TransactionExecuted(address,address,uint256,bytes,uint256,uint256)': TypedContractEvent<TransactionExecutedEvent.InputTuple, TransactionExecutedEvent.OutputTuple, TransactionExecutedEvent.OutputObject>;

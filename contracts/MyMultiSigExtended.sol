@@ -78,6 +78,15 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   ///      `_dailyLimitsEnabled` is derived from this count so clearing the
   ///      last limit turns the feature flag back off.
   uint256 internal _dailyLimitOwnerCount;
+  /// @dev Per-token amount at or above which a fungible token call
+  ///      (`transfer`, `transferFrom`, `approve`, `increaseAllowance`) to
+  ///      that token is sensitive. `0` = every amount is sensitive.
+  mapping(address => uint256) internal _tokenSensitiveThreshold;
+
+  /// @dev Transient-storage slot set by `executeScheduled` while it runs a
+  ///      scheduled payload, so the inner calls of a scheduled batch skip
+  ///      the timelock reverse-route they already waited out.
+  bytes32 private constant _SCHEDULED_EXEC_SLOT = keccak256('mymultisig.extended.scheduledExec');
 
   // --- v0.3.0 custom errors ---
   error NonceAlreadyUsed();
@@ -160,6 +169,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   event TimelockDelaySet(uint256 delay);
   event SensitiveValueThresholdSet(uint256 threshold);
   event SensitiveSelectorSet(bytes4 indexed selector, bool isSensitive);
+  event TokenSensitiveThresholdSet(address indexed token, uint256 threshold);
   event TransactionScheduled(bytes32 indexed txHash, uint256 readyAt, address indexed submitter);
   event ScheduledTransactionExecuted(bytes32 indexed txHash, address indexed submitter);
   event ScheduledTransactionCancelled(bytes32 indexed txHash, address indexed canceller);
@@ -445,11 +455,18 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
       sel == bytes4(keccak256('setTimelockDelay(uint256)')) ||
       sel == bytes4(keccak256('setSensitiveValueThreshold(uint256)')) ||
       sel == bytes4(keccak256('setSensitiveSelector(bytes4,bool)')) ||
+      sel == bytes4(keccak256('setTokenSensitiveThreshold(address,uint256)')) ||
       sel == bytes4(keccak256('setGuard(address)')) ||
       sel == bytes4(keccak256('setAllowedTarget(address,bool)')) ||
       sel == bytes4(keccak256('disableAllowlist()')) ||
       sel == bytes4(keccak256('setDailySpendingLimit(address,uint256)')) ||
       sel == bytes4(keccak256('setRequireTxSuccess(bool)'));
+  }
+
+  /// @notice Amount at or above which a fungible token call to `token`
+  ///         is sensitive (see `setTokenSensitiveThreshold`).
+  function tokenSensitiveThreshold(address token) public view virtual returns (uint256) {
+    return _tokenSensitiveThreshold[token];
   }
 
   /// @notice Returns the unix timestamp a scheduled tx is ready to execute at.
@@ -482,9 +499,25 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     emit SensitiveValueThresholdSet(threshold);
   }
 
+  /// @notice Forces `sel` sensitive (`true`) or not sensitive (`false`).
+  ///         On self-calls it overrides the built-in admin set. On calls
+  ///         to any other contract it overrides the built-in token and
+  ///         module rules (see `_isSensitive`): `true` makes `sel`
+  ///         sensitive on every target, `false` exempts it.
   function setSensitiveSelector(bytes4 sel, bool isSensitive) public virtual onlyThis {
     _sensitiveSelectorOverride[sel] = isSensitive ? 1 : 2;
     emit SensitiveSelectorSet(sel, isSensitive);
+  }
+
+  /// @notice Sets the amount at or above which a fungible token call to
+  ///         `token` is sensitive; smaller amounts execute directly. `0`
+  ///         makes every amount sensitive. The amount is the last
+  ///         `uint256` argument of the call, which for an ERC-721
+  ///         `transferFrom` is the token id — leave the threshold at `0`
+  ///         for NFT collections.
+  function setTokenSensitiveThreshold(address token, uint256 threshold) public virtual onlyThis {
+    _tokenSensitiveThreshold[token] = threshold;
+    emit TokenSensitiveThresholdSet(token, threshold);
   }
 
   // ---------------------------------------------------------------------------
@@ -524,7 +557,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     // slot via `_recordVote`) so schedules consume the same vote slot
     // a direct `execTransaction` would, blocking replays.
     if (!_validateSignatureOp(txHash, txnNonce, validUntil, signatures)) revert InvalidSignatures();
-    if (!_isSensitive(to, _selectorOf(data), value)) revert NotSensitive();
+    if (!_isSensitive(to, value, data)) revert NotSensitive();
     _bumpNonce();
     uint256 readyAt = block.timestamp + _timelockDelay;
     // `_readyAt == 0` is the "not scheduled" sentinel — bump to `1` to avoid it.
@@ -570,7 +603,14 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     // execute (e.g., to invalidate a pending admin call).
     if (_noncesUsed[txnNonce]) revert NonceAlreadyUsed();
 
+    bytes32 slot = _SCHEDULED_EXEC_SLOT;
+    assembly {
+      tstore(slot, 1)
+    }
     success = _runLoggedCall(to, value, data, txnGas, txnNonce, txHash);
+    assembly {
+      tstore(slot, 0)
+    }
     emit ScheduledTransactionExecuted(txHash, msg.sender);
   }
 
@@ -920,13 +960,21 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   }
 
   /// @dev Timelock reverse-route. Sensitive calls must go through
-  ///      `scheduleTransaction` instead. Bypassed only by `executeScheduled`,
-  ///      which runs the scheduled payload after its delay has elapsed.
+  ///      `scheduleTransaction` instead. Skipped only for the inner calls
+  ///      of a batch that `executeScheduled` is running (the wallet calling
+  ///      itself while the scheduled-exec flag is set): that batch was
+  ///      scheduled as a whole and has already waited out its delay.
   function _preExecChecksTimelock(address to, uint256 value, bytes memory data) internal virtual {
-    bytes4 selector = _selectorOf(data);
-    if (_timelockDelay > 0 && _isSensitive(to, selector, value)) {
-      revert SensitiveCallRequiresDelay(to, selector, value);
+    if (_timelockDelay == 0) return;
+    if (msg.sender == address(this)) {
+      bytes32 slot = _SCHEDULED_EXEC_SLOT;
+      uint256 scheduled;
+      assembly {
+        scheduled := tload(slot)
+      }
+      if (scheduled != 0) return;
     }
+    if (_isSensitive(to, value, data)) revert SensitiveCallRequiresDelay(to, _selectorOf(data), value);
   }
 
   /// @dev Guard + built-in allowlist. Guard reverts are wrapped as
@@ -1017,13 +1065,81 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     return bytes4(data);
   }
 
-  /// @dev True iff `(to, selector, value)` matches the sensitive predicate:
-  ///      either the wallet itself at a registered sensitive selector, or
-  ///      the value meets the configured wei threshold.
-  function _isSensitive(address to, bytes4 sel, uint256 value) internal view returns (bool) {
-    if (to == address(this) && isSensitiveSelector(sel)) return true;
-    if (_sensitiveValueThreshold > 0 && value >= _sensitiveValueThreshold) return true;
-    return false;
+  /// @dev True iff the call `(to, value, data)` is sensitive:
+  ///      - `value` meets the configured wei threshold; or
+  ///      - a self-call at a sensitive selector (`isSensitiveSelector`), or
+  ///        a self-call to `multiRequest` / `multiRequestStrict` whose inner
+  ///        calls are sensitive one by one or whose summed value meets the
+  ///        wei threshold; or
+  ///      - a call to another contract at a selector forced sensitive by
+  ///        `setSensitiveSelector(sel, true)`, unless forced not sensitive,
+  ///        and otherwise one that moves or grants tokens: ERC-20
+  ///        `transfer` / `transferFrom` / `approve` / `increaseAllowance`
+  ///        at or above `tokenSensitiveThreshold(to)` (an `approve` to `0`
+  ///        only revokes and is not sensitive), ERC-721 / ERC-1155
+  ///        `safeTransferFrom` / `safeBatchTransferFrom`, and
+  ///        `setApprovalForAll(operator, true)`; or any call to an enabled
+  ///        module (configuring it, e.g. granting a session key, hands out
+  ///        power that bypasses the threshold) except `revokeSessionKey`.
+  function _isSensitive(address to, uint256 value, bytes memory data) internal view returns (bool) {
+    uint256 valueCap = _sensitiveValueThreshold;
+    if (valueCap > 0 && value >= valueCap) return true;
+    bytes4 sel = _selectorOf(data);
+    if (to == address(this)) {
+      if (sel != this.multiRequest.selector && sel != this.multiRequestStrict.selector) return isSensitiveSelector(sel);
+      (address[] memory tos, uint256[] memory values, bytes[] memory datas) = _decodeBatch(data);
+      uint256 total;
+      for (uint256 i; i < tos.length; ++i) {
+        if (_isSensitive(tos[i], values[i], datas[i])) return true;
+        total += values[i];
+      }
+      return valueCap > 0 && total >= valueCap;
+    }
+    uint8 overridden = _sensitiveSelectorOverride[sel];
+    if (overridden != 0) return overridden == 1;
+    if (_isModule[to]) return sel != bytes4(keccak256('revokeSessionKey(address,address)'));
+    // ERC-20 `transfer` / `approve` / `increaseAllowance`: amount is word 1.
+    if (sel == 0xa9059cbb || sel == 0x095ea7b3 || sel == 0x39509351) {
+      uint256 amount = _wordAt(data, 1);
+      return (amount != 0 || sel == 0xa9059cbb) && amount >= _tokenSensitiveThreshold[to];
+    }
+    // `transferFrom` (ERC-20 amount / ERC-721 token id is word 2).
+    if (sel == 0x23b872dd) return _wordAt(data, 2) >= _tokenSensitiveThreshold[to];
+    // `setApprovalForAll(operator, approved)`: granting only.
+    if (sel == 0xa22cb465) return _wordAt(data, 1) != 0;
+    // ERC-721 `safeTransferFrom` (both overloads), ERC-1155
+    // `safeTransferFrom` / `safeBatchTransferFrom`.
+    return sel == 0x42842e0e || sel == 0xb88d4fde || sel == 0xf242432a || sel == 0x2eb2c2d6;
+  }
+
+  /// @dev The `index`-th 32-byte argument word after the selector, or `0`
+  ///      when `data` is too short to hold it.
+  function _wordAt(bytes memory data, uint256 index) internal pure returns (uint256 word) {
+    if (data.length < 36 + index * 32) return 0;
+    assembly {
+      word := mload(add(data, add(36, mul(index, 32))))
+    }
+  }
+
+  /// @dev Decodes the `(to, value, data)` arrays of a `multiRequest` /
+  ///      `multiRequestStrict` call. The arguments are decoded in place by
+  ///      pointing a temporary `bytes` header 4 bytes into `data`; the
+  ///      overwritten word is restored before returning.
+  function _decodeBatch(
+    bytes memory data
+  ) internal pure returns (address[] memory tos, uint256[] memory values, bytes[] memory datas) {
+    bytes memory args;
+    uint256 saved;
+    assembly {
+      args := add(data, 4)
+      saved := mload(args)
+      mstore(args, sub(mload(data), 4))
+    }
+    (tos, values, datas, ) = abi.decode(args, (address[], uint256[], bytes[], uint256[]));
+    assembly {
+      mstore(args, saved)
+    }
+    if (values.length != tos.length || datas.length != tos.length) revert ArrayLengthMismatch();
   }
 
   /// @dev ECDSA recovery for the allowance path. Mirrors the ECDSA branch
