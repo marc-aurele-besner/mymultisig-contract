@@ -2,6 +2,8 @@ import { existsSync, rmSync, mkdirSync, copyFileSync, readdirSync } from 'fs'
 
 import constants from '../constants'
 
+const PUBLISHED_MODULES = ['SessionKeyModule']
+
 // The committed `types/` layout is flat: wallet/factory/deployer classes from
 // `contracts/`, their interfaces from `contracts/interfaces/` and the factory
 // abstract from `contracts/abstracts/` all sit side by side.
@@ -24,7 +26,9 @@ async function main() {
     if (!existsSync(sourceDir)) continue
     const allTypesPaths = readdirSync(sourceDir)
     const filteredTypesPaths = allTypesPaths.filter(
-      (path: string) => path.includes(constants.CONTRACT_NAME) && !path.includes('.t.sol')
+      (path: string) =>
+        (path.includes(constants.CONTRACT_NAME) || PUBLISHED_MODULES.includes(path.replace(/\.ts$/, ''))) &&
+        !path.includes('.t.sol'),
     )
     if (filteredTypesPaths.length === 0) continue
     console.log('\x1b[32m', 'Building typess for ', filteredTypesPaths.length, '\x1b[0m', ' contracts')

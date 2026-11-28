@@ -3,6 +3,8 @@ import { join } from 'path'
 
 import constants from '../constants'
 
+const PUBLISHED_MODULES = ['SessionKeyModule']
+
 // v3's `artifacts` manager exposes `readArtifact` / `getArtifactPath` but no
 // `getArtifactPaths`, so walk `artifacts/contracts/**/*.json` directly to
 // surface every ABI the compile produced.
@@ -27,7 +29,12 @@ async function main() {
   }
 
   const allArtifactPaths = collectArtifactPaths('artifacts/contracts')
-  const filteredArtifactPaths = allArtifactPaths.filter((path: string) => path.includes(constants.CONTRACT_NAME))
+  // Wallet, factory and deployer contracts, plus the shared modules wallets
+  // enable (published so integrations can encode grants and read state).
+  const filteredArtifactPaths = allArtifactPaths.filter(
+    (path: string) =>
+      path.includes(constants.CONTRACT_NAME) || PUBLISHED_MODULES.some((m) => path.endsWith(`/${m}.json`)),
+  )
   console.log('\x1b[32m', "Building ABI's for ", filteredArtifactPaths.length, '\x1b[0m', ' contracts')
   filteredArtifactPaths.forEach((path: string) => {
     if (existsSync(path)) {
