@@ -474,7 +474,7 @@
     chai-as-promised "^8.0.0"
     deep-eql "^5.0.1"
 
-"@nomicfoundation/hardhat-ethers@^4.2.3":
+"@nomicfoundation/hardhat-ethers@^4.0.0":
   version "4.2.3"
   resolved "https://registry.yarnpkg.com/@nomicfoundation/hardhat-ethers/-/hardhat-ethers-4.2.3.tgz#8f6501fbcb7d5b137507f074394e563b606dda9e"
   integrity sha512-NQBrYG96aleg4qkW37hRjsMFPKXnG8lV5iLmeDzBRR7d1G1e9Be2sjHWKtpK9AyEQCsb/FIHoVF/6wEuNmaghQ==
