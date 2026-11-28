@@ -1356,7 +1356,7 @@ graceful-fs@^4.1.2, graceful-fs@^4.1.6:
   resolved "https://registry.npmjs.org/graceful-fs/-/graceful-fs-4.2.11.tgz"
   integrity sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==
 
-hardhat@^3.23.0:
+hardhat@^3.0.0:
   version "3.23.0"
   resolved "https://registry.yarnpkg.com/hardhat/-/hardhat-3.23.0.tgz#5b162b3518a36d27c8ae15fbffc47b76585e389b"
   integrity sha512-FLPA4+G1y4WV+rbe7gGMegoiI33XDyew0lQ00Ax7Xg0ogMkJ8MHLw4yh24jH8F4ihQ0RRly5q4rgy9S2xfxcIg==
@@ -1936,9 +1936,9 @@ ws@8.21.0:
   integrity sha512-Vsp28b7DRcimFQvrqu2Wek3z1iYxDCWqHYB8Qsnk/S4RfaCQzPGPyBNuVjJV3cd6UiKtUtp6sNM77gWvzcCH+g==
 
 ws@^8.21.1:
-  version "8.23.1"
-  resolved "https://registry.yarnpkg.com/ws/-/ws-8.23.1.tgz#7e32c1948f0a77872fa2fd0580970683986b5fdc"
-  integrity sha512-1rzWDSN0NOi3tpwgHsQExjWRoKUGtjCkJ2gZRaaRtzhYLboMytOI9pj9PU7yCgY37auqdd4OyLofZDbkeuZmPA==
+  version "8.21.1"
+  resolved "https://registry.npmjs.org/ws/-/ws-8.21.1.tgz"
+  integrity sha512-+0NTnW77fFN/DjQi6k/Sq/Yvk4Sgajw7urW8V+asjXnRgDs9gyGkdb7EzgfhA4goXsRIZKE28fzIXBHEzhuiWw==
 
 y18n@^5.0.5:
   version "5.0.8"
