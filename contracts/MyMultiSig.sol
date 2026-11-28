@@ -548,10 +548,13 @@ contract MyMultiSig is ReentrancyGuard, EIP712, IERC1271, ERC721Holder, ERC1155H
   ///         return, the ABI-encoded revert payload on a failure, or the
   ///         happy-path return value when the call succeeded. Identical to
   ///         the `returnData` array emitted in `MultiRequestExecuted`.
-  /// @dev    This function never reverts on inner-call failure: every call is
-  ///         executed and its outcome recorded. A batch with any failure is
-  ///         surfaced via `successes[i] == false` and the captured revert
-  ///         payload in `returnData[i]`. A single `MultiRequestExecuted`
+  /// @dev    While `requireTxSuccess()` is off, this function never reverts
+  ///         on inner-call failure: every call is executed and its outcome
+  ///         recorded. A batch with any failure is surfaced via
+  ///         `successes[i] == false` and the captured revert payload in
+  ///         `returnData[i]`. While `requireTxSuccess()` is on, the first
+  ///         inner failure reverts the batch with `BatchCallFailed(index,
+  ///         reason)`, like `multiRequestStrict`. A single `MultiRequestExecuted`
   ///         event is emitted once the full batch has run, giving callers
   ///         and indexers a complete audit trail in one log entry.
   function multiRequest(
@@ -567,6 +570,7 @@ contract MyMultiSig is ReentrancyGuard, EIP712, IERC1271, ERC721Holder, ERC1155H
     for (uint256 i; i < qty; ) {
       _beforeInnerCall(to[i], value[i], data[i]);
       (successes[i], returnData[i]) = _rawCall(txGas[i], to[i], value[i], data[i]);
+      if (!successes[i] && _requireTxSuccess) revert BatchCallFailed(i, returnData[i]);
       unchecked {
         ++i;
       }

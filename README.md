@@ -87,7 +87,15 @@ As of v0.5.0 every wallet class — `MyMultiSig`, `MyMultiSigExtended`, `MyMulti
 
 ### 1. ⏰ Timelock on sensitive calls
 
-Schedule/ready pattern. A call is "sensitive" when it targets `address(this)` at a registered sensitive selector, or when its `value` meets the configured wei threshold. The constructor pre-registers the wallet's admin selectors (incl. `enableModule`/`disableModule`) so the timelock applies to every privileged action by default.
+Schedule/ready pattern. Once `timelockDelay` is non-zero, a call is "sensitive" (must be scheduled) when:
+
+- its `value` meets the configured wei threshold;
+- it targets `address(this)` at a sensitive selector — every privileged admin setter by default (incl. `enableModule`/`disableModule` and `setTokenSensitiveThreshold`), except the cancel-type `markNonceAsUsed` and `cancelScheduled`, which stay instant;
+- it is a `multiRequest` / `multiRequestStrict` batch holding any sensitive inner call, or whose inner values sum to the wei threshold — such a batch is scheduled and executed as one unit;
+- it moves or grants tokens on another contract: ERC-20 `transfer` / `transferFrom` / `approve` / `increaseAllowance` at or above `tokenSensitiveThreshold(token)` (default `0` = every amount), ERC-721 / ERC-1155 `safeTransferFrom` / `safeBatchTransferFrom`, and `setApprovalForAll(operator, true)`. `setApprovalForAll(operator, false)` stays instant. `approve(spender, 0)` is delayed at the default threshold `0`, because ERC-721 shares the `approve` selector and `0` is a valid token id; on a fungible token with a non-zero threshold it falls below the threshold and runs instantly;
+- it targets an enabled module (e.g. `grantSessionKey`), except `revokeSessionKey`.
+
+`setSensitiveSelector(sel, bool)` overrides both rule sets: on self-calls it replaces the admin default, on other targets `true` forces `sel` sensitive everywhere and `false` exempts it from the token / module rules. Calls a module makes through `execTransactionFromModule` are not delayed; granting the module that power is.
 
 ```solidity
 wallet.execTransaction(address(wallet), 0,
