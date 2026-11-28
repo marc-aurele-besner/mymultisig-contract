@@ -3264,6 +3264,39 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
         ).to.be.revertedWithCustomError(contract, 'GuardReverted')
       })
 
+      it('a reverting guard can still be removed with setGuard', async function () {
+        const Guard = await ethers.getContractFactory('MockGuard')
+        const guard = await Guard.deploy()
+        await guard.waitForDeployment()
+        await Helper.setGuard(contract, owner01, [owner01, owner02], guard.target)
+        await (await guard.setMode(2)).wait() // revert with empty data
+        // Every other call is blocked...
+        await expect(
+          Helper.execTransaction(contract, owner01, [owner01, owner02], user01.address, 0, '0x'),
+        ).to.be.revertedWithCustomError(contract, 'GuardReverted')
+        // ...but the guard can still be reset.
+        await Helper.setGuard(contract, owner01, [owner01, owner02], ethers.ZeroAddress)
+        expect(await contract.guard()).to.equal(ethers.ZeroAddress)
+        await Helper.execTransaction(contract, owner01, [owner01, owner02], user01.address, 0, '0x')
+      })
+
+      it('a module calling setGuard-selector data is still checked by the guard', async function () {
+        const Guard = await ethers.getContractFactory('MockGuard')
+        const guard = await Guard.deploy()
+        await guard.waitForDeployment()
+        const Module = await ethers.getContractFactory('MockModule')
+        const module = await Module.deploy(contract.target)
+        await module.waitForDeployment()
+        await Helper.enableModule(contract, owner01, [owner01, owner02], module.target)
+        await Helper.setGuard(contract, owner01, [owner01, owner02], guard.target)
+        await (await guard.setMode(2)).wait() // revert with empty data
+        const data = contract.interface.encodeFunctionData('setGuard', [ethers.ZeroAddress])
+        // operation 0 (CALL) and operation 1 (DELEGATECALL) both hit the guard.
+        await expect(module.execCall(contract.target, 0, data)).to.be.revertedWithCustomError(contract, 'GuardReverted')
+        await expect(module.execDelegateCall(data)).to.be.revertedWithCustomError(contract, 'GuardReverted')
+        expect(await contract.guard()).to.equal(guard.target)
+      })
+
       it('allowlist enables then rejects unregistered targets', async function () {
         await Helper.setAllowedTarget(contract, owner01, [owner01, owner02], user01.address, true)
         expect(await contract.allowedTargetsEnabled()).to.be.true

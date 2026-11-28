@@ -565,7 +565,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     // Mark executed BEFORE the inner call so a partial revert (rolled-back
     // storage) still blocks replays.
     _readyAt[txHash] = type(uint256).max;
-    _preExecChecksGuard(to, value, data);
+    _preExecChecksGuardQuorum(to, value, data);
     // Honored if `markNonceAsUsed(nonce)` was called between schedule and
     // execute (e.g., to invalidate a pending admin call).
     if (_noncesUsed[txnNonce]) revert NonceAlreadyUsed();
@@ -916,7 +916,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   ///      with the EVM-level revert.
   function _preExecChecks(address to, uint256 value, bytes memory data) internal virtual {
     _preExecChecksTimelock(to, value, data);
-    _preExecChecksGuard(to, value, data);
+    _preExecChecksGuardQuorum(to, value, data);
   }
 
   /// @dev Timelock reverse-route. Sensitive calls must go through
@@ -929,15 +929,35 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     }
   }
 
-  /// @dev Guard + built-in allowlist. Guard reverts are wrapped as
-  ///      `GuardReverted(guard, reason)`. Calls to the wallet itself skip
-  ///      the allowlist: every admin setter (including `disableAllowlist`
-  ///      and `setAllowedTarget`) is an `onlyThis` self-call, so gating
-  ///      `to == address(this)` would lock the wallet out of its own
-  ///      configuration. The guard still sees self-calls.
+  /// @dev Guard + built-in allowlist for the module path. Guard reverts are
+  ///      wrapped as `GuardReverted(guard, reason)`. Calls to the wallet
+  ///      itself skip the allowlist: every admin setter (including
+  ///      `disableAllowlist` and `setAllowedTarget`) is an `onlyThis`
+  ///      self-call, so gating `to == address(this)` would lock the wallet
+  ///      out of its own configuration. The guard sees every call here,
+  ///      `setGuard` included: modules have no owner quorum or timelock, so
+  ///      they get no recovery bypass.
   function _preExecChecksGuard(address to, uint256 value, bytes memory data) internal virtual {
+    _checkGuardAndAllowlist(to, value, data, false);
+  }
+
+  /// @dev Same checks for the owner-quorum paths (`_execExtended`,
+  ///      `executeScheduled`, `execute`, batch inner calls). The `setGuard`
+  ///      self-call skips `guard.checkTransaction` here: it is the recovery
+  ///      path for a guard that always reverts (buggy, self-destructed,
+  ///      paused or malicious), so it must not depend on the guard it
+  ///      replaces. It stays behind the owner quorum, the timelock (when a
+  ///      delay is set) and the allowlist.
+  function _preExecChecksGuardQuorum(address to, uint256 value, bytes memory data) internal virtual {
+    _checkGuardAndAllowlist(to, value, data, true);
+  }
+
+  function _checkGuardAndAllowlist(address to, uint256 value, bytes memory data, bool allowGuardReset) private {
     address guardContract = _guard;
-    if (guardContract != address(0)) {
+    if (
+      guardContract != address(0) &&
+      !(allowGuardReset && to == address(this) && _selectorOf(data) == this.setGuard.selector)
+    ) {
       try ITransactionGuard(guardContract).checkTransaction(to, value, data) {} catch (bytes memory reason) {
         revert GuardReverted(guardContract, reason);
       }
