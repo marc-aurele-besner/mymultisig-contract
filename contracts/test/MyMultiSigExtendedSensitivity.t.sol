@@ -8,6 +8,14 @@ import { MockERC20 } from '../mocks/MockERC20.sol';
 import { MockERC721 } from '../mocks/MockERC721.sol';
 import { SessionKeyModule } from '../modules/SessionKeyModule.sol';
 import './shared/mocks/MockEntryPoint.t.sol';
+import { ERC721 } from '@openzeppelin/contracts/token/ERC721/ERC721.sol';
+
+/// @dev ERC-721 that can mint token id `0`, which `MockERC721` rejects.
+contract ZeroIdERC721 is ERC721 {
+  constructor(address holder) ERC721('ZeroId', 'ZERO') {
+    _mint(holder, 0);
+  }
+}
 
 /// @title MyMultiSigExtended timelock sensitivity
 /// @notice Pins down which calls the timelock delays: token transfers and
@@ -130,10 +138,23 @@ contract MyMultiSigExtendedSensitivityTest is Helper {
     );
   }
 
-  function test_approve_grantIsDelayed_revokeIsInstant() public {
+  function test_erc20Approve_isDelayed_zeroRunsBelowThreshold() public {
     _enableTimelock();
     _expectDelayed(address(token), 0, abi.encodeCall(token.approve, (BOB, 1)));
+    _expectDelayed(address(token), 0, abi.encodeCall(token.approve, (BOB, 0)));
+
+    vm.prank(address(wallet));
+    wallet.setTokenSensitiveThreshold(address(token), 1 ether);
     _exec(address(token), 0, abi.encodeCall(token.approve, (BOB, 0)));
+  }
+
+  function test_nftApproveOfTokenIdZero_isDelayed() public {
+    ZeroIdERC721 zeroNft = new ZeroIdERC721(address(wallet));
+    _enableTimelock();
+    bytes memory data = abi.encodeCall(zeroNft.approve, (BOB, 0));
+    _expectDelayed(address(zeroNft), 0, data);
+    _scheduleAndRun(address(zeroNft), 0, data);
+    assertEq(zeroNft.getApproved(0), BOB);
   }
 
   function test_nft_transfersAndOperatorGrants_areDelayed() public {

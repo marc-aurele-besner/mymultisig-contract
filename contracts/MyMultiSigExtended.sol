@@ -1075,8 +1075,10 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   ///        `setSensitiveSelector(sel, true)`, unless forced not sensitive,
   ///        and otherwise one that moves or grants tokens: ERC-20
   ///        `transfer` / `transferFrom` / `approve` / `increaseAllowance`
-  ///        at or above `tokenSensitiveThreshold(to)` (an `approve` to `0`
-  ///        only revokes and is not sensitive), ERC-721 / ERC-1155
+  ///        at or above `tokenSensitiveThreshold(to)` — an `approve` of `0`
+  ///        is still sensitive at the default threshold `0`, since ERC-721
+  ///        shares the `approve` selector and `0` is a valid token id —
+  ///        ERC-721 / ERC-1155
   ///        `safeTransferFrom` / `safeBatchTransferFrom`, and
   ///        `setApprovalForAll(operator, true)`; or any call to an enabled
   ///        module (configuring it, e.g. granting a session key, hands out
@@ -1100,8 +1102,7 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
     if (_isModule[to]) return sel != bytes4(keccak256('revokeSessionKey(address,address)'));
     // ERC-20 `transfer` / `approve` / `increaseAllowance`: amount is word 1.
     if (sel == 0xa9059cbb || sel == 0x095ea7b3 || sel == 0x39509351) {
-      uint256 amount = _wordAt(data, 1);
-      return (amount != 0 || sel == 0xa9059cbb) && amount >= _tokenSensitiveThreshold[to];
+      return _wordAt(data, 1) >= _tokenSensitiveThreshold[to];
     }
     // `transferFrom` (ERC-20 amount / ERC-721 token id is word 2).
     if (sel == 0x23b872dd) return _wordAt(data, 2) >= _tokenSensitiveThreshold[to];
