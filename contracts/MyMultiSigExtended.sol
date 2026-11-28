@@ -934,10 +934,14 @@ contract MyMultiSigExtended is MyMultiSig, IAccount {
   ///      the allowlist: every admin setter (including `disableAllowlist`
   ///      and `setAllowedTarget`) is an `onlyThis` self-call, so gating
   ///      `to == address(this)` would lock the wallet out of its own
-  ///      configuration. The guard still sees self-calls.
+  ///      configuration. The guard still sees self-calls, except
+  ///      `setGuard`: that self-call is the recovery path for a guard that
+  ///      always reverts (buggy, self-destructed, paused or malicious), so
+  ///      it must not depend on the guard it replaces. It stays behind the
+  ///      quorum, the timelock (when a delay is set) and the allowlist.
   function _preExecChecksGuard(address to, uint256 value, bytes memory data) internal virtual {
     address guardContract = _guard;
-    if (guardContract != address(0)) {
+    if (guardContract != address(0) && !(to == address(this) && _selectorOf(data) == this.setGuard.selector)) {
       try ITransactionGuard(guardContract).checkTransaction(to, value, data) {} catch (bytes memory reason) {
         revert GuardReverted(guardContract, reason);
       }

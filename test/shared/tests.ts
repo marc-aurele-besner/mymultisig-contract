@@ -3264,6 +3264,22 @@ export async function MyMultiSigAdvancedTests(deploymentType = DeploymentType.Si
         ).to.be.revertedWithCustomError(contract, 'GuardReverted')
       })
 
+      it('a reverting guard can still be removed with setGuard', async function () {
+        const Guard = await ethers.getContractFactory('MockGuard')
+        const guard = await Guard.deploy()
+        await guard.waitForDeployment()
+        await Helper.setGuard(contract, owner01, [owner01, owner02], guard.target)
+        await (await guard.setMode(2)).wait() // revert with empty data
+        // Every other call is blocked...
+        await expect(
+          Helper.execTransaction(contract, owner01, [owner01, owner02], user01.address, 0, '0x'),
+        ).to.be.revertedWithCustomError(contract, 'GuardReverted')
+        // ...but the guard can still be reset.
+        await Helper.setGuard(contract, owner01, [owner01, owner02], ethers.ZeroAddress)
+        expect(await contract.guard()).to.equal(ethers.ZeroAddress)
+        await Helper.execTransaction(contract, owner01, [owner01, owner02], user01.address, 0, '0x')
+      })
+
       it('allowlist enables then rejects unregistered targets', async function () {
         await Helper.setAllowedTarget(contract, owner01, [owner01, owner02], user01.address, true)
         expect(await contract.allowedTargetsEnabled()).to.be.true
