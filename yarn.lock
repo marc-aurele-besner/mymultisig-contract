@@ -1674,7 +1674,7 @@ picocolors@^1.1.1:
   resolved "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz"
   integrity sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==
 
-prettier-plugin-solidity@^2.5.0:
+prettier-plugin-solidity@^2.0.0:
   version "2.5.0"
   resolved "https://registry.yarnpkg.com/prettier-plugin-solidity/-/prettier-plugin-solidity-2.5.0.tgz#86afc300473f53efd3ece0b0f7c76903061215d2"
   integrity sha512-ULFyU1O0DB3TiHTaj14qKoVOprXqnw3uhBDKprCHQkxf/h/gb8poBBj41Qf7Fi5abxBwrFahjJ3jg/3uCanN2w==
